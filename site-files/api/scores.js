@@ -57,18 +57,14 @@ const LIVE_STATUSES = new Set(["1H", "HT", "2H", "ET", "BT", "P", "LIVE"]);
 // Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Champions League,
 // Europa League, Brasileirão Série A, Primeira Liga, UEFA Nations League,
 // Africa Cup of Nations - Qualification. Everything else gets filtered out
-// server-side so the frontend never has to deal with leagues it doesn't want.
+// server-side so the frontend never has to deal with leagues it doesn't
+// want.
 //
-// NOTE ON THE LAST TWO (5, 36): these are international-team competitions
-// added for MATCHES ONLY. They are intentionally left out of
-// LEAGUE_ID_TO_FD_CODE in /api/standings.js, since football-data.org's free
-// plan doesn't expose tables for them -- so scores show here, but no
-// standings widget will (or should) try to fetch a table for these ids.
-// Double-check these two ids after deploying (API-Football's ids can be
-// confirmed via https://dashboard.api-football.com -> Ids -> Leagues, or by
-// calling GET /leagues?search=nations%20league / ?search=africa%20cup with
-// your key) since they weren't verified against your live account here.
-const ALLOWED_LEAGUE_IDS = new Set([39, 140, 135, 78, 61, 2, 3, 71, 94, 5, 36]);
+// NOTE: UEFA Nations League (5) and AFCON Qualification (29) are matches-
+// only additions -- they're intentionally left out of standings.js's
+// LEAGUE_ID_TO_FD_CODE map because football-data.org's free plan doesn't
+// cover national-team competitions, so there's no table to show for them.
+const ALLOWED_LEAGUE_IDS = new Set([39, 140, 135, 78, 61, 2, 3, 71, 94, 5, 29]);
 
 function mapFixture(item) {
   const status = item.fixture.status || {};
