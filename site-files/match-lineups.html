@@ -119,7 +119,7 @@ img{ max-width:100%; display:block; }
 
 .pitch-h-wrap{ overflow-x:auto; }
 .pitch-h{
-  position:relative; width:100%; min-width:640px; aspect-ratio:15/9;
+  position:relative; width:100%; min-width:760px; aspect-ratio:4/3;
   background-color:#189a57;
   background-image:repeating-linear-gradient(90deg,
     rgba(255,255,255,0.05) 0, rgba(255,255,255,0.05) 48px,
@@ -141,53 +141,55 @@ img{ max-width:100%; display:block; }
 
 .player-h{
   position:absolute; transform:translate(-50%,-50%);
-  display:flex; flex-direction:column; align-items:center; gap:3px; width:78px;
+  display:flex; flex-direction:column; align-items:center; gap:4px; width:92px;
 }
 .player-h .sub-off-min{
-  font-size:9px; font-weight:800; color:#fff; background:rgba(0,0,0,0.55);
-  padding:1px 5px; border-radius:5px; margin-bottom:1px; line-height:1.3;
+  font-size:9.5px; font-weight:800; color:#fff; background:rgba(0,0,0,0.55);
+  padding:1px 6px; border-radius:5px; margin-bottom:1px; line-height:1.3;
 }
-.player-h .avatar-wrap{ position:relative; width:48px; height:48px; }
+.player-h .avatar-wrap{ position:relative; width:56px; height:56px; }
 .player-h .avatar{
-  width:48px; height:48px; border-radius:50%; object-fit:cover; display:block;
-  background:#d9d9d9; border:2px solid rgba(255,255,255,0.9);
+  width:56px; height:56px; border-radius:50%; object-fit:cover; display:block;
+  background:#d9d9d9; border:2.5px solid rgba(255,255,255,0.92);
+  box-shadow:0 2px 6px rgba(0,0,0,0.25);
 }
 .player-h .avatar-fallback{
-  width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-  background:#c9cdd3; border:2px solid rgba(255,255,255,0.9); color:#5b6472; font-weight:800; font-size:14px;
+  width:56px; height:56px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  background:#c9cdd3; border:2.5px solid rgba(255,255,255,0.92); color:#5b6472; font-weight:800; font-size:16px;
+  box-shadow:0 2px 6px rgba(0,0,0,0.25);
 }
 .r-red{ background:#E0453A; color:#fff; }
 .r-orange{ background:#FF9F1A; color:#fff; }
-.r-avg{ background:#9ACD32; color:#183300; }
 .r-green{ background:#22C55E; color:#fff; }
 .r-blue{ background:#3B82F6; color:#fff; }
 .player-h .badge{
-  position:absolute; top:-6px; right:-10px;
-  min-width:22px; height:17px; padding:0 4px; border-radius:5px;
+  position:absolute; top:-7px; right:-12px;
+  min-width:26px; height:19px; padding:0 5px; border-radius:6px;
   display:flex; align-items:center; justify-content:center; gap:1px;
-  font-size:10px; font-weight:800; line-height:1; white-space:nowrap;
+  font-size:11px; font-weight:800; line-height:1; white-space:nowrap;
+  box-shadow:0 1px 3px rgba(0,0,0,0.35);
 }
 /* Substitution indicator: top-left, red circle + white left arrow */
 .player-h .sub-badge{
-  position:absolute; top:-6px; left:-10px; width:17px; height:17px; border-radius:50%;
+  position:absolute; top:-7px; left:-12px; width:19px; height:19px; border-radius:50%;
   background:#E0453A; border:1.5px solid rgba(255,255,255,0.9);
-  display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; line-height:1;
+  display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; line-height:1;
 }
 /* Captain / assist: bottom-left */
 .player-h .cap, .player-h .assist-badge{
-  position:absolute; bottom:-3px; left:-8px; width:15px; height:15px; border-radius:50%;
-  background:#fff; color:#111; font-size:8px; font-weight:900; display:flex; align-items:center; justify-content:center;
+  position:absolute; bottom:-3px; left:-10px; width:17px; height:17px; border-radius:50%;
+  background:#fff; color:#111; font-size:9px; font-weight:900; display:flex; align-items:center; justify-content:center;
 }
 /* Goals: bottom-right, stacked if more than one */
-.player-h .goals{ position:absolute; bottom:-4px; right:-8px; display:flex; flex-direction:column; gap:2px; align-items:flex-end; }
+.player-h .goals{ position:absolute; bottom:-4px; right:-10px; display:flex; flex-direction:column; gap:2px; align-items:flex-end; }
 .player-h .goals .ic{
-  width:14px; height:14px; border-radius:50%; background:#fff;
-  display:flex; align-items:center; justify-content:center; font-size:8px;
+  width:15px; height:15px; border-radius:50%; background:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:9px;
 }
 .player-h .pname{
-  font-size:10.5px; font-weight:700; color:#fff; text-align:center;
-  text-shadow:0 1px 3px rgba(0,0,0,0.7); line-height:1.15;
-  max-width:78px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-size:11.5px; font-weight:700; color:#fff; text-align:center;
+  text-shadow:0 1px 3px rgba(0,0,0,0.8); line-height:1.15;
+  max-width:92px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 
 .pitch-coach-row{
@@ -205,9 +207,9 @@ img{ max-width:100%; display:block; }
 .pitch-coach-row .coach-label{ font-size:11px; font-weight:700; color:#6b6b6b; text-transform:uppercase; letter-spacing:0.03em; }
 
 @media (max-width:480px){
-  .player-h{ width:60px; }
-  .player-h .avatar-wrap, .player-h .avatar, .player-h .avatar-fallback{ width:38px; height:38px; }
-  .player-h .pname{ font-size:9px; max-width:60px; }
+  .player-h{ width:68px; }
+  .player-h .avatar-wrap, .player-h .avatar, .player-h .avatar-fallback{ width:42px; height:42px; }
+  .player-h .pname{ font-size:9.5px; max-width:68px; }
 }
 
 .subs-section{ margin-top:26px; }
@@ -356,6 +358,18 @@ let photoMap = {};    // playerId -> photo URL
 let eventMap = {};    // playerId -> { goals, assists }
 let cameOnMinutes = {}; // playerId -> minute they came on, for substitutes
 let wentOffMinutes = {}; // playerId -> minute a starter was substituted off
+let motmPlayerId = null; // id of the single highest-rated player in the match
+
+// The Man of the Match badge (blue, with a star) goes to whichever player
+// -- starter or substitute, either team -- has the single highest rating
+// in the match, once the game has ratings at all.
+function computeMotm(){
+  let best = null, bestRating = -Infinity;
+  Object.keys(ratingMap).forEach(function(id){
+    if (ratingMap[id] > bestRating){ bestRating = ratingMap[id]; best = id; }
+  });
+  motmPlayerId = best;
+}
 
 (async function(){
   const body = document.getElementById('lineupsBody');
@@ -407,6 +421,7 @@ let wentOffMinutes = {}; // playerId -> minute a starter was substituted off
       });
     }
 
+    computeMotm();
     render();
   } catch(e){
     renderMatchChrome('lineups', null);
@@ -416,10 +431,8 @@ let wentOffMinutes = {}; // playerId -> minute a starter was substituted off
 
 function ratingBadgeClass(rating){
   if (rating === undefined) return null;
-  if (rating >= 9.0) return 'r-blue';
-  if (rating >= 7.5) return 'r-green';
-  if (rating >= 6.0) return 'r-avg';
-  if (rating >= 5.1) return 'r-orange';
+  if (rating >= 7.0) return 'r-green';
+  if (rating >= 5.0) return 'r-orange';
   return 'r-red';
 }
 
@@ -438,9 +451,11 @@ function avatarHtml(p){
 // get a star alongside the blue tier, per the design's "9.7 ★" style.
 function badgeHtml(p){
   const r = ratingMap[p.id];
-  const cls = ratingBadgeClass(r);
-  if (!cls || r === undefined) return '';
-  const star = cls === 'r-blue' ? ' \u2605' : '';
+  if (r === undefined) return '';
+  const isMotm = motmPlayerId !== null && String(p.id) === String(motmPlayerId);
+  const cls = isMotm ? 'r-blue' : ratingBadgeClass(r);
+  if (!cls) return '';
+  const star = isMotm ? ' \u2605' : '';
   return '<span class="badge ' + cls + '">' + r.toFixed(1) + star + '</span>';
 }
 
@@ -474,6 +489,13 @@ function goalsHtml(p){
   return '<div class="goals">' + icons + '</div>';
 }
 
+// Position-based fallback row, used only when the API doesn't give us a
+// "grid" (row:col) for a player -- this previously defaulted everyone
+// without grid data to row 1 (goalkeeper's row), which is what could send
+// an outfield player -- like a striker -- to the wrong end of their own
+// side. G=row1 (own goal) through F=furthest forward.
+const FALLBACK_ROW_BY_POS = { G: 1, D: 2, M: 3, F: 4 };
+
 function placeTeam(team, side){
   const rows = {};
   team.startXI.forEach(function(p){
@@ -482,24 +504,32 @@ function placeTeam(team, side){
       const parts = p.grid.split(':');
       row = parseInt(parts[0], 10) || 1;
       col = parseInt(parts[1], 10) || 1;
+    } else {
+      row = FALLBACK_ROW_BY_POS[p.pos] || 2;
     }
     if (!rows[row]) rows[row] = [];
     rows[row].push(Object.assign({}, p, { col: col }));
   });
   const rowKeys = Object.keys(rows).map(Number).sort(function(a,b){ return a - b; });
   const maxRow = rowKeys.length;
+  // Columns are spread across a wide band (6%-47%) of each team's own half
+  // of the pitch, so rows never crowd into the centre circle or overlap
+  // the other team, and there's enough gap between markers for the
+  // (now larger) avatars and name labels to breathe.
+  const MIN_X = 6, MAX_X = 47;
   let markers = '';
   rowKeys.forEach(function(rowNum, idx){
     const rowPlayers = rows[rowNum].sort(function(a,b){ return a.col - b.col; });
     const cols = rowPlayers.length;
+    const frac = maxRow <= 1 ? 0 : idx / (maxRow - 1);
     let x;
     if (side === 'home'){
-      x = maxRow <= 1 ? 12 : 10 + (idx * 38 / (maxRow - 1));
+      x = MIN_X + frac * (MAX_X - MIN_X);
     } else {
-      x = maxRow <= 1 ? 88 : 90 - (idx * 38 / (maxRow - 1));
+      x = (100 - MIN_X) - frac * (MAX_X - MIN_X);
     }
     rowPlayers.forEach(function(p, ci){
-      const y = 10 + ((ci + 1) / (cols + 1)) * 80;
+      const y = 9 + ((ci + 1) / (cols + 1)) * 82;
       markers += '<div class="player-h" style="left:' + x + '%; top:' + y + '%;">' +
         subOffMinuteHtml(p) +
         '<div class="avatar-wrap">' + avatarHtml(p) + badgeHtml(p) + subBadgeHtml(p) +
@@ -533,10 +563,12 @@ function subsListHtml(team){
 
   function row(p, showRating){
     const r = ratingMap[p.id];
-    const cls = ratingBadgeClass(r);
+    const isMotm = r !== undefined && motmPlayerId !== null && String(p.id) === String(motmPlayerId);
+    const cls = isMotm ? 'r-blue' : ratingBadgeClass(r);
+    const star = isMotm ? ' \u2605' : '';
     return '<div class="subs-row">' +
       (photoMap[p.id] ? '<img class="avatar" src="' + photoMap[p.id] + '" alt="" />' : '<div class="avatar-fallback">' + escapeHtml(initials(p.name).toUpperCase()) + '</div>') +
-      (showRating && r !== undefined ? '<span class="rating-badge ' + cls + '">' + r.toFixed(1) + '</span>' : '') +
+      (showRating && r !== undefined ? '<span class="rating-badge ' + cls + '">' + r.toFixed(1) + star + '</span>' : '') +
       '<div class="info"><div class="name">' + escapeHtml(p.name) + '</div>' +
         (p.pos ? '<div class="pos">' + escapeHtml(p.pos) + '</div>' : '') + '</div>' +
       (cameOnMinutes[p.id] !== undefined ? '<div class="minute">' + cameOnMinutes[p.id] + "' \u2192</div>" : '') +
