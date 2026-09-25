@@ -107,6 +107,9 @@ a.league-group-head:hover{ background:#201d29; color:var(--purple-bright); }
   flex-shrink:0; min-width:52px; text-align:center; font-weight:800;
   font-family:'Big Shoulders Display', sans-serif; font-size:16px;
 }
+.match-row .score.is-time{
+  font-family:inherit; font-weight:700; font-size:13px; color:var(--muted);
+}
 .matches-state{ text-align:center; padding:44px 12px; color:var(--muted); font-size:14px; }
 .matches-state.error{ color:var(--orange-bright); }
 
@@ -289,12 +292,16 @@ function renderMatchesList(fixtures, leagues){
       '<a class="league-group-head" href="standings.html?league=' + id + '">' + (logo ? '<img src="' + logo + '" alt="" />' : '') +
         escapeHtml(leagues[id] || group[0].league.name) + '</a>';
     group.forEach(function(f){
+      const notStarted = f.statusShort === 'NS';
+      const scoreHtml = notStarted
+        ? escapeHtml(statusLabel(f))
+        : (f.goals.home === null || f.goals.home === undefined ? '-' : f.goals.home) +
+          ' &ndash; ' + (f.goals.away === null || f.goals.away === undefined ? '-' : f.goals.away);
       html += '<a class="match-row" href="match.html?id=' + f.id + '">' +
         '<span class="status-pill' + (f.isLive ? ' live' : '') + '">' + escapeHtml(statusLabel(f)) + '</span>' +
         '<span class="team home">' + (f.home.logo ? '<img src="' + f.home.logo + '" alt="" />' : '') +
           '<span class="n">' + escapeHtml(f.home.name) + '</span></span>' +
-        '<span class="score">' + (f.goals.home === null || f.goals.home === undefined ? '-' : f.goals.home) +
-          ' &ndash; ' + (f.goals.away === null || f.goals.away === undefined ? '-' : f.goals.away) + '</span>' +
+        '<span class="score' + (notStarted ? ' is-time' : '') + '">' + scoreHtml + '</span>' +
         '<span class="team away">' +
           '<span class="n">' + escapeHtml(f.away.name) + '</span>' +
           (f.away.logo ? '<img src="' + f.away.logo + '" alt="" />' : '') + '</span>' +
