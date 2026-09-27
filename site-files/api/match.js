@@ -17,44 +17,67 @@
 //   statistics -> /fixtures/statistics?fixture=
 //   players    -> /fixtures/players?fixture=
 //
-// WHY LOADING IS ON-DEMAND: unlike the Scores ticker (which polls in the
-// background), these pages only fetch data when a person actually opens a
-// match, so real-world call volume stays low even with a shorter cache
-// window than the 30-minute one used for scores. Every response is still
-// cached per (type, fixture id) in memory so repeat views/refreshes of the
-// same match don't trigger a fresh API-Football call every time. On top of
-// that, this file enforces its own hard daily request budget (see
-// DAILY_BUDGET below) so match-detail pages can never eat into more than
-// their share of your plan's daily limit -- once used up, it keeps serving
-// the last data it fetched until the budget resets at midnight UTC.
+// RECONCILED VERSION -- this replaces two files that had drifted apart
+// (an "api_match.js" and a "match.js" with different cache TTLs). This is
+// now the single source of truth: only ONE file should exist at
+// /api/match.js in your project. Delete the other one after deploying
+// this so there's no ambiguity about which is actually live.
+//
+// WHY 25 MINUTES FOR EVERY TYPE: match.html loads BOTH `summary` and
+// `events` on first paint, and each of the Lineups/Statistics/Players tabs
+// triggers one more call the first time it's opened -- so viewing one
+// match end-to-end already costs up to 5 upstream API-Football calls
+// against this file's small daily budget (see DAILY_BUDGET below). A
+// uniform 25-minute cache is what keeps someone re-opening a tab, or
+// coming back to the same match a few minutes later, from re-triggering
+// a real API-Football call every time -- short per-type TTLs (e.g. 2-3
+// minutes) burn through the daily budget far faster for very little
+// freshness benefit, since these fields don't change every couple of
+// minutes anyway.
+//
+// A NOTE ON THE BUDGET/CACHE BEING IN-MEMORY: both `cache` and
+// `callsToday` below live in plain function memory, which Vercel wipes on
+// a cold start (idle serverless instances get recycled, often within
+// minutes on a low-traffic site). That means the 25-minute TTL and the
+// daily budget are both best-effort, not a hard guarantee -- a cold start
+// can silently shorten the effective cache lifetime and reset the budget
+// counter early. If you outgrow this, move `cache` and `callsToday` into
+// a small persistent store (Vercel KV or Upstash Redis) so both actually
+// hold across cold starts and across every instance handling your traffic.
 
 const API_BASE = "https://v3.football.api-sports.io";
 function buildHeaders() {
   return { "x-apisports-key": process.env.API_FOOTBALL_KEY };
 }
 
-// Same TTL idea as /api/scores.js, just shorter since these are fetched
-// per-visit rather than polled: long enough to dedupe repeat page loads,
-// short enough that a live match's events/stats don't go stale for long.
+// Every type refreshes at most once every 25 minutes, no matter how many
+// times a match page is opened in between -- opening it just reads
+// whatever's currently cached; only the first request after 25 minutes
+// have passed triggers a real API-Football call.
+const REFRESH_MS = 25 * 60 * 1000;
 const TTL_MS = {
-  summary: 3 * 60 * 1000,
-  events: 2 * 60 * 1000,
-  lineups: 15 * 60 * 1000, // rarely changes once posted
-  statistics: 2 * 60 * 1000,
-  players: 3 * 60 * 1000,
+  summary: REFRESH_MS,
+  events: REFRESH_MS,
+  lineups: REFRESH_MS,
+  statistics: REFRESH_MS,
+  players: REFRESH_MS,
 };
 
-const cache = new Map(); // key -> { fetchedAt, ttl, data }
+const cache = new Map(); // key -> { fetchedAt, data }
 const inFlight = new Map();
 
 // ---- Daily request budget ------------------------------------------------
 // /api/scores.js and this file are separate serverless functions on
 // Vercel, each with their own isolated memory, so they can't share one
-// counter -- each gets its own slice of your 100-requests/day plan
-// instead. This file gets the smaller share since match-detail pages are
-// opened far less often than the homepage Scores ticker. Once used up for
-// the day, calls fall back to whatever is already cached (even past its
-// normal TTL) instead of ever placing another API-Football request.
+// counter -- each gets its own slice of your ~100-requests/day plan
+// instead. Viewing one match end-to-end (summary + events + lineups +
+// statistics + players) can cost up to 5 calls here on a cache miss, so
+// this budget covers far fewer full match views per day than it might
+// look like at a glance. If match detail is the part of the site people
+// actually use, consider shifting more of the daily total toward this
+// file and less toward /api/scores.js. Once used up for the day, calls
+// fall back to whatever is already cached (even past its normal TTL)
+// instead of ever placing another API-Football request.
 const DAILY_BUDGET = 25;
 let budgetDay = null;
 let callsToday = 0;
@@ -193,7 +216,6 @@ function mapLineups(raw) {
     })
   );
 }
-
 
 function mapStatistics(raw) {
   return raw.map((t) =>
