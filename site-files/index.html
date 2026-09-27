@@ -526,6 +526,101 @@
   }
   .socials a:hover{ border-color:var(--orange); color:var(--orange-bright); }
 
+  .footer-legal{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:14px;
+    padding-bottom:26px;
+    font-size:13.5px;
+  }
+  .footer-legal a{ color:var(--muted); transition:color .2s ease; }
+  .footer-legal a:hover{ color:var(--white); }
+  .footer-legal a:not(:last-child){
+    border-right:1px solid var(--line);
+    padding-right:14px;
+  }
+
+  /* ---------- LEGAL PAGES ---------- */
+  .legal-page{ padding:168px 0 100px; }
+  .legal-wrap{ max-width:720px; }
+  .legal-kicker{ color:var(--orange-bright); font-weight:700; font-size:14px; margin-bottom:16px; }
+  .legal-title{ font-size:clamp(34px, 5vw, 54px); text-transform:uppercase; margin-bottom:14px; }
+  .legal-updated{ color:var(--muted); font-size:13.5px; margin-bottom:48px; }
+  .legal-content h2{
+    font-family:'Big Shoulders Display', sans-serif;
+    font-weight:700;
+    font-size:23px;
+    text-transform:uppercase;
+    margin:40px 0 14px;
+  }
+  .legal-content h2:first-child{ margin-top:0; }
+  .legal-content p{ color:var(--muted); font-size:15.5px; line-height:1.75; margin-bottom:16px; }
+  .legal-content ul{ margin:0 0 16px 20px; color:var(--muted); font-size:15.5px; line-height:1.75; }
+  .legal-content li{ margin-bottom:8px; }
+  .legal-content a{ color:var(--purple-bright); text-decoration:underline; text-underline-offset:2px; }
+  .legal-content strong{ color:var(--white); }
+
+  .contact-cards{ display:grid; grid-template-columns:repeat(3, 1fr); gap:18px; margin-top:36px; }
+  @media (max-width:760px){ .contact-cards{ grid-template-columns:1fr; } }
+  .contact-card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:24px;
+    transition:border-color .25s ease, transform .25s ease;
+  }
+  .contact-card:hover{ border-color:rgba(138,63,252,0.45); transform:translateY(-3px); }
+  .contact-card .cc-icon{
+    width:42px; height:42px; border-radius:50%;
+    background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.12);
+    display:flex; align-items:center; justify-content:center;
+    margin-bottom:16px;
+  }
+  .contact-card h3{ font-size:15.5px; font-weight:600; margin-bottom:8px; }
+  .contact-card p{ color:var(--muted); font-size:13.5px; margin-bottom:14px; }
+  .contact-card a.cc-link{ color:var(--purple-bright); font-size:13.5px; font-weight:600; text-decoration:none; }
+  .contact-card a.cc-link:hover{ color:var(--orange-bright); }
+
+  .privacy-toggle-list{ display:flex; flex-direction:column; gap:14px; margin:32px 0 12px; }
+  .privacy-toggle{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:20px 22px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:20px;
+  }
+  .privacy-toggle .pt-text h3{ font-size:15px; font-weight:600; margin-bottom:6px; }
+  .privacy-toggle .pt-text p{ color:var(--muted); font-size:13.5px; line-height:1.6; margin:0; max-width:480px; }
+  .pt-switch{
+    position:relative; width:46px; height:26px; border-radius:13px;
+    background:rgba(255,255,255,0.12);
+    border:1px solid var(--line);
+    flex-shrink:0;
+    cursor:pointer;
+    transition:background .2s ease;
+  }
+  .pt-switch input{ position:absolute; inset:0; opacity:0; margin:0; cursor:pointer; }
+  .pt-switch .pt-dot{
+    position:absolute; top:2px; left:2px;
+    width:20px; height:20px; border-radius:50%;
+    background:var(--white);
+    transition:transform .2s ease;
+  }
+  .pt-switch input:checked ~ .pt-dot{ transform:translateX(20px); }
+  .pt-switch input:checked ~ .pt-track{ background:var(--purple); }
+  .pt-switch input:disabled ~ .pt-dot{ background:var(--muted); }
+  .pt-switch input:checked{ }
+  .pt-switch.is-on{ background:var(--purple); }
+  .pt-switch.is-disabled{ opacity:0.6; cursor:not-allowed; }
+  .privacy-save-row{ display:flex; align-items:center; gap:16px; margin-top:28px; flex-wrap:wrap; }
+  .privacy-save-msg{ font-size:13.5px; color:var(--orange-bright); opacity:0; transition:opacity .2s ease; }
+  .privacy-save-msg.show{ opacity:1; }
+
   .category-grid{
     display:grid;
     grid-template-columns:repeat(4, 1fr);
@@ -1805,24 +1900,29 @@
       <div class="footer-links">
         <div class="footer-col">
           <h5>Explore</h5>
-          <a href="#latest">Latest upload</a>
-          <a href="#videos">All stories</a>
-          <a href="#about">About the channel</a>
+          <a href="index.html#latest">Latest upload</a>
+          <a href="index.html#videos">All stories</a>
+          <a href="index.html#about">About the channel</a>
         </div>
         <div class="footer-col">
           <h5>Topics</h5>
-          <a href="#videos">Transfer news</a>
-          <a href="#videos">Ballon d'Or</a>
-          <a href="#videos">Tactics</a>
+          <a href="index.html#videos">Transfer news</a>
+          <a href="index.html#videos">Ballon d'Or</a>
+          <a href="index.html#videos">Tactics</a>
         </div>
       </div>
     </div>
+    <nav class="footer-legal" aria-label="Legal">
+      <a href="contact-us.html">Contact us</a>
+      <a href="terms-of-service.html">Terms of service</a>
+      <a href="privacy-policy.html">Privacy Policy</a>
+      <a href="privacy-settings.html">Privacy settings</a>
+    </nav>
     <div class="footer-bottom">
       <span>© 2026 Football Stories. Made for the fans who read past the headline.</span>
       <div class="socials">
-        <a href="#" aria-label="YouTube"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8ZM9.6 15.5V8.5L15.8 12Z"/></svg></a>
-        <a href="#" aria-label="Instagram"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c2.7 0 3.1 0 4.1.06 1.1.05 1.8.22 2.5.47.7.28 1.2.6 1.8 1.16.5.5.9 1.1 1.16 1.8.25.7.42 1.4.47 2.5.05 1 .06 1.4.06 4.1s0 3.1-.06 4.1c-.05 1.1-.22 1.8-.47 2.5a4.9 4.9 0 0 1-1.16 1.8 4.9 4.9 0 0 1-1.8 1.16c-.7.25-1.4.42-2.5.47-1 .05-1.4.06-4.1.06s-3.1 0-4.1-.06c-1.1-.05-1.8-.22-2.5-.47a4.9 4.9 0 0 1-1.8-1.16 4.9 4.9 0 0 1-1.16-1.8c-.25-.7-.42-1.4-.47-2.5C2 15.1 2 14.7 2 12s0-3.1.06-4.1c.05-1.1.22-1.8.47-2.5.28-.7.6-1.2 1.16-1.8.5-.5 1.1-.9 1.8-1.16.7-.25 1.4-.42 2.5-.47C8.9 2 9.3 2 12 2Zm0 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm5.2-2.6a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Z"/></svg></a>
-        <a href="#" aria-label="X"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.9 2H22l-7.4 8.5L23 22h-6.8l-5.3-6.9L4.7 22H1.6l7.9-9L1 2h7l4.8 6.3L18.9 2Zm-1.2 18h1.9L7.4 4H5.4L17.7 20Z"/></svg></a>
+        <a href="https://www.youtube.com/@FootballStories96" aria-label="YouTube" target="_blank" rel="noopener noreferrer"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8ZM9.6 15.5V8.5L15.8 12Z"/></svg></a>
+        <a href="https://www.instagram.com/footballstories96" aria-label="Instagram" target="_blank" rel="noopener noreferrer"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 2c2.7 0 3.1 0 4.1.06 1.1.05 1.8.22 2.5.47.7.28 1.2.6 1.8 1.16.5.5.9 1.1 1.16 1.8.25.7.42 1.4.47 2.5.05 1 .06 1.4.06 4.1s0 3.1-.06 4.1c-.05 1.1-.22 1.8-.47 2.5a4.9 4.9 0 0 1-1.16 1.8 4.9 4.9 0 0 1-1.8 1.16c-.7.25-1.4.42-2.5.47-1 .05-1.4.06-4.1.06s-3.1 0-4.1-.06c-1.1-.05-1.8-.22-2.5-.47a4.9 4.9 0 0 1-1.8-1.16 4.9 4.9 0 0 1-1.16-1.8c-.25-.7-.42-1.4-.47-2.5C2 15.1 2 14.7 2 12s0-3.1.06-4.1c.05-1.1.22-1.8.47-2.5.28-.7.6-1.2 1.16-1.8.5-.5 1.1-.9 1.8-1.16.7-.25 1.4-.42 2.5-.47C8.9 2 9.3 2 12 2Zm0 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm5.2-2.6a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Z"/></svg></a>
       </div>
     </div>
   </div>
