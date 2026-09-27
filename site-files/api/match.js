@@ -1,7 +1,6 @@
 // /api/match.js
 // Serverless function (same style as /api/scores.js): plain (req, res)
-// handler, zero dependencies, key stays server-side via
-// process.env.API_FOOTBALL_KEY.
+// handler, key stays server-side via process.env.API_FOOTBALL_KEY.
 //
 // Handles ALL match-detail data through one endpoint, dispatched by `type`:
 //   /api/match?id=123456&type=summary
@@ -10,85 +9,75 @@
 //   /api/match?id=123456&type=statistics
 //   /api/match?id=123456&type=players
 //
+// THIS VERSION uses the shared cache helper in ./_lib/cache.js, backed by
+// Upstash Redis, instead of a plain in-memory Map. That fixes the real bug
+// from before: an in-memory cache/counter only lives inside ONE serverless
+// instance, and Vercel can run several instances of this function at once
+// (or recycle one mid-session), so a 25-minute TTL and a daily budget
+// counter never actually held reliably -- different requests kept landing
+// on different "blank slate" instances, causing far more real upstream
+// calls than the numbers in the code implied.
+//
+// SETUP REQUIRED for this fix to actually take effect: see the comment at
+// the top of ./_lib/cache.js. Until Upstash is configured there, this file
+// automatically falls back to the same in-memory behavior as before (not
+// worse, just not fixed yet).
+//
 // Each type maps to the matching API-Football endpoint:
 //   summary    -> /fixtures?id=
 //   events     -> /fixtures/events?fixture=
 //   lineups    -> /fixtures/lineups?fixture=
 //   statistics -> /fixtures/statistics?fixture=
 //   players    -> /fixtures/players?fixture=
-//
-// RECONCILED VERSION -- this replaces two files that had drifted apart
-// (an "api_match.js" and a "match.js" with different cache TTLs). This is
-// now the single source of truth: only ONE file should exist at
-// /api/match.js in your project. Delete the other one after deploying
-// this so there's no ambiguity about which is actually live.
-//
-// WHY 25 MINUTES FOR EVERY TYPE: match.html loads BOTH `summary` and
-// `events` on first paint, and each of the Lineups/Statistics/Players tabs
-// triggers one more call the first time it's opened -- so viewing one
-// match end-to-end already costs up to 5 upstream API-Football calls
-// against this file's small daily budget (see DAILY_BUDGET below). A
-// uniform 25-minute cache is what keeps someone re-opening a tab, or
-// coming back to the same match a few minutes later, from re-triggering
-// a real API-Football call every time -- short per-type TTLs (e.g. 2-3
-// minutes) burn through the daily budget far faster for very little
-// freshness benefit, since these fields don't change every couple of
-// minutes anyway.
-//
-// A NOTE ON THE BUDGET/CACHE BEING IN-MEMORY: both `cache` and
-// `callsToday` below live in plain function memory, which Vercel wipes on
-// a cold start (idle serverless instances get recycled, often within
-// minutes on a low-traffic site). That means the 25-minute TTL and the
-// daily budget are both best-effort, not a hard guarantee -- a cold start
-// can silently shorten the effective cache lifetime and reset the budget
-// counter early. If you outgrow this, move `cache` and `callsToday` into
-// a small persistent store (Vercel KV or Upstash Redis) so both actually
-// hold across cold starts and across every instance handling your traffic.
+
+const { cacheGet, cacheSet, incrementDailyCounter, upstashConfigured } = require("./_lib/cache");
 
 const API_BASE = "https://v3.football.api-sports.io";
 function buildHeaders() {
   return { "x-apisports-key": process.env.API_FOOTBALL_KEY };
 }
 
-// Every type refreshes at most once every 25 minutes, no matter how many
-// times a match page is opened in between -- opening it just reads
-// whatever's currently cached; only the first request after 25 minutes
-// have passed triggers a real API-Football call.
-const REFRESH_MS = 25 * 60 * 1000;
-const TTL_MS = {
-  summary: REFRESH_MS,
-  events: REFRESH_MS,
-  lineups: REFRESH_MS,
-  statistics: REFRESH_MS,
-  players: REFRESH_MS,
-};
-
-const cache = new Map(); // key -> { fetchedAt, data }
-const inFlight = new Map();
+// Every type refreshes at most once every 25 minutes. Viewing one match
+// end-to-end (summary + events on the summary page, then one more call
+// each for Lineups/Statistics/Players) can cost up to 5 upstream calls on
+// a cache miss -- this uniform 25-minute window is what keeps repeat tab
+// visits or a second look a few minutes later from re-triggering those
+// calls, PROVIDED the cache is actually shared across instances (see
+// above) -- which is exactly what this version fixes.
+const REFRESH_SECONDS = 25 * 60;
 
 // ---- Daily request budget ------------------------------------------------
-// /api/scores.js and this file are separate serverless functions on
-// Vercel, each with their own isolated memory, so they can't share one
-// counter -- each gets its own slice of your ~100-requests/day plan
-// instead. Viewing one match end-to-end (summary + events + lineups +
-// statistics + players) can cost up to 5 calls here on a cache miss, so
-// this budget covers far fewer full match views per day than it might
-// look like at a glance. If match detail is the part of the site people
-// actually use, consider shifting more of the daily total toward this
-// file and less toward /api/scores.js. Once used up for the day, calls
-// fall back to whatever is already cached (even past its normal TTL)
-// instead of ever placing another API-Football request.
+// /api/scores.js and this file get separate slices of your daily
+// API-Football plan. This file's slice is smaller since match-detail
+// pages are opened less often than the homepage scores ticker, but each
+// match view can cost up to 5 calls here, so it covers roughly 5 full
+// match views/day before falling back to cached (or, once exhausted,
+// briefly unavailable) data.
 const DAILY_BUDGET = 25;
-let budgetDay = null;
-let callsToday = 0;
 
-function budgetAvailable() {
-  const today = new Date().toISOString().slice(0, 10);
-  if (budgetDay !== today) {
-    budgetDay = today;
-    callsToday = 0;
+// Local fallback counter -- ONLY used if Upstash isn't configured yet, so
+// the site still has *some* protection in the meantime rather than none.
+// This has the same cross-instance limitation as the old code once
+// Upstash isn't set up; configuring Upstash is what actually fixes it.
+let localBudgetDay = null;
+let localCallsToday = 0;
+
+async function budgetAvailable() {
+  if (upstashConfigured()) {
+    // Increments first, then checks -- see incrementDailyCounter's own
+    // comment in cache.js. Worst case this "spends" one extra count right
+    // at the boundary; it never lets an extra real API-Football call
+    // through past the budget.
+    const used = await incrementDailyCounter("api_football_match");
+    return used === null || used <= DAILY_BUDGET;
   }
-  return callsToday < DAILY_BUDGET;
+  const today = new Date().toISOString().slice(0, 10);
+  if (localBudgetDay !== today) {
+    localBudgetDay = today;
+    localCallsToday = 0;
+  }
+  localCallsToday++;
+  return localCallsToday <= DAILY_BUDGET;
 }
 
 async function callApiFootball(path) {
@@ -98,12 +87,12 @@ async function callApiFootball(path) {
       "API_FOOTBALL_KEY is not set. Add it in your project's environment variables."
     );
   }
-  if (!budgetAvailable()) {
+  const ok = await budgetAvailable();
+  if (!ok) {
     throw new Error(
       "Daily request budget reached for /api/match; serving cached data until it resets."
     );
   }
-  callsToday++;
   const res = await fetch(`${API_BASE}${path}`, { headers: buildHeaders() });
   if (!res.ok) throw new Error(`API-Football request failed (${res.status})`);
   const json = await res.json();
@@ -115,20 +104,25 @@ async function callApiFootball(path) {
   return json.response || [];
 }
 
-async function getCached(key, path, ttl) {
-  const cached = cache.get(key);
-  if (cached && Date.now() - cached.fetchedAt < ttl) return cached.data;
+// Per-instance in-flight map: this only dedupes concurrent requests that
+// happen to land on the SAME instance. It's a minor optimization, not the
+// source of correctness -- the shared Redis cache is what actually
+// prevents duplicate upstream calls across different instances.
+const inFlight = new Map();
+
+async function getCached(key, path) {
+  const cached = await cacheGet(key);
+  if (cached !== null) return cached;
   if (inFlight.has(key)) return inFlight.get(key);
 
   const promise = callApiFootball(path)
-    .then((data) => {
-      cache.set(key, { fetchedAt: Date.now(), data });
+    .then(async (data) => {
+      await cacheSet(key, data, REFRESH_SECONDS);
       inFlight.delete(key);
       return data;
     })
     .catch((err) => {
       inFlight.delete(key);
-      if (cached) return cached.data; // serve stale over a hard failure
       throw err;
     });
 
@@ -140,7 +134,6 @@ async function getCached(key, path, ttl) {
 // ---------- exactly what the frontend needs, dropping null/absent data ---
 
 function clean(obj) {
-  // Remove null/undefined keys so the frontend can just check `if (x)`.
   Object.keys(obj).forEach((k) => {
     if (obj[k] === null || obj[k] === undefined) delete obj[k];
   });
@@ -279,7 +272,7 @@ module.exports = async (req, res) => {
     let data;
     switch (type) {
       case "summary": {
-        const raw = await getCached(`summary:${id}`, `/fixtures?id=${id}`, TTL_MS.summary);
+        const raw = await getCached(`summary:${id}`, `/fixtures?id=${id}`);
         data = mapSummary(raw[0]);
         if (!data) {
           res.status(200).json({ ok: false, error: "Match not found." });
@@ -288,22 +281,22 @@ module.exports = async (req, res) => {
         break;
       }
       case "events": {
-        const raw = await getCached(`events:${id}`, `/fixtures/events?fixture=${id}`, TTL_MS.events);
+        const raw = await getCached(`events:${id}`, `/fixtures/events?fixture=${id}`);
         data = mapEvents(raw);
         break;
       }
       case "lineups": {
-        const raw = await getCached(`lineups:${id}`, `/fixtures/lineups?fixture=${id}`, TTL_MS.lineups);
+        const raw = await getCached(`lineups:${id}`, `/fixtures/lineups?fixture=${id}`);
         data = mapLineups(raw);
         break;
       }
       case "statistics": {
-        const raw = await getCached(`statistics:${id}`, `/fixtures/statistics?fixture=${id}`, TTL_MS.statistics);
+        const raw = await getCached(`statistics:${id}`, `/fixtures/statistics?fixture=${id}`);
         data = mapStatistics(raw);
         break;
       }
       case "players": {
-        const raw = await getCached(`players:${id}`, `/fixtures/players?fixture=${id}`, TTL_MS.players);
+        const raw = await getCached(`players:${id}`, `/fixtures/players?fixture=${id}`);
         data = mapPlayers(raw);
         break;
       }
