@@ -9,26 +9,29 @@
 //   /api/match?id=123456&type=statistics
 //   /api/match?id=123456&type=players
 //
-// THIS VERSION uses the shared cache helper in ./_lib/cache.js, backed by
-// Upstash Redis, instead of a plain in-memory Map. That fixes the real bug
-// from before: an in-memory cache/counter only lives inside ONE serverless
-// instance, and Vercel can run several instances of this function at once
-// (or recycle one mid-session), so a 25-minute TTL and a daily budget
-// counter never actually held reliably -- different requests kept landing
-// on different "blank slate" instances, causing far more real upstream
-// calls than the numbers in the code implied.
+// Uses the shared persistent cache in ./_lib/cache.js (Upstash Redis) so
+// caching and the daily budget survive cold starts and multiple parallel
+// serverless instances -- see that file's comments for setup.
 //
-// SETUP REQUIRED for this fix to actually take effect: see the comment at
-// the top of ./_lib/cache.js. Until Upstash is configured there, this file
-// automatically falls back to the same in-memory behavior as before (not
-// worse, just not fixed yet).
-//
-// Each type maps to the matching API-Football endpoint:
-//   summary    -> /fixtures?id=
-//   events     -> /fixtures/events?fixture=
-//   lineups    -> /fixtures/lineups?fixture=
-//   statistics -> /fixtures/statistics?fixture=
-//   players    -> /fixtures/players?fixture=
+// STATUS-AWARE CACHING (this version's change): a flat 25-minute TTL for
+// every match wastes calls on matches that are already over -- a finished
+// match's lineups, stats, and events will never change again, so there's
+// no reason to ever re-fetch them once the final whistle has blown.
+// Instead, the TTL now depends on the match's own status:
+//   - finished (FT/AET/PEN/etc.)  -> cached 7 days (effectively "forever"
+//     for practical purposes -- revisiting an old match later this week
+//     costs nothing).
+//   - live (1H/HT/2H/ET/BT/P)     -> cached 3 minutes -- a bit fresher
+//     than before, and safe to do now that the cache is actually shared:
+//     it's still at most one real upstream call per 3 minutes TOTAL
+//     across every visitor, not per visitor.
+//   - anything else (not started, TBD, postponed, etc.) -> the original
+//     25 minutes.
+// `events`/`lineups`/`statistics`/`players` don't carry the fixture's own
+// status in their response, so they look up the ALREADY-cached `summary`
+// for that id to decide; if summary isn't cached yet, they fall back to
+// the default 25 minutes (safe default, just not maximally optimized
+// until summary has been fetched at least once).
 
 const { cacheGet, cacheSet, incrementDailyCounter, upstashConfigured } = require("./_lib/cache");
 
@@ -37,37 +40,49 @@ function buildHeaders() {
   return { "x-apisports-key": process.env.API_FOOTBALL_KEY };
 }
 
-// Every type refreshes at most once every 25 minutes. Viewing one match
-// end-to-end (summary + events on the summary page, then one more call
-// each for Lineups/Statistics/Players) can cost up to 5 upstream calls on
-// a cache miss -- this uniform 25-minute window is what keeps repeat tab
-// visits or a second look a few minutes later from re-triggering those
-// calls, PROVIDED the cache is actually shared across instances (see
-// above) -- which is exactly what this version fixes.
-const REFRESH_SECONDS = 25 * 60;
+const DEFAULT_TTL_SECONDS = 25 * 60; // not started / unknown status
+const LIVE_TTL_SECONDS = 3 * 60; // in-play -- refresh a bit more often
+const FINISHED_TTL_SECONDS = 7 * 24 * 60 * 60; // finished -- data is final
+
+const LIVE_STATUSES = new Set(["1H", "HT", "2H", "ET", "BT", "P", "LIVE"]);
+const FINISHED_STATUSES = new Set(["FT", "AET", "PEN", "PST", "CANC", "ABD", "AWD", "WO"]);
+
+function ttlForStatus(status) {
+  if (status && FINISHED_STATUSES.has(status)) return FINISHED_TTL_SECONDS;
+  if (status && LIVE_STATUSES.has(status)) return LIVE_TTL_SECONDS;
+  return DEFAULT_TTL_SECONDS;
+}
+
+// Used when we just fetched `summary` fresh -- read the status straight
+// off the response we just got, no extra lookup needed.
+function ttlForFreshSummary(raw) {
+  const status = raw && raw[0] && raw[0].fixture && raw[0].fixture.status ? raw[0].fixture.status.short : null;
+  return ttlForStatus(status);
+}
+
+// Used for events/lineups/statistics/players -- these don't include the
+// fixture's own status, so check whatever summary is already cached for
+// this id. Falls back to the default TTL if summary hasn't been cached
+// yet (e.g., someone opened a tab other than the summary page first).
+async function ttlFromCachedSummary(id) {
+  const summary = await cacheGet(`summary:${id}`);
+  const status = summary && summary.status ? summary.status.short : null;
+  return ttlForStatus(status);
+}
 
 // ---- Daily request budget ------------------------------------------------
 // /api/scores.js and this file get separate slices of your daily
-// API-Football plan. This file's slice is smaller since match-detail
-// pages are opened less often than the homepage scores ticker, but each
-// match view can cost up to 5 calls here, so it covers roughly 5 full
-// match views/day before falling back to cached (or, once exhausted,
-// briefly unavailable) data.
+// API-Football plan. With status-aware caching, a match you've already
+// looked at once after it finishes costs nothing more -- so this budget
+// now mostly covers NEW matches/live refreshes rather than repeat views
+// of the same ones.
 const DAILY_BUDGET = 25;
 
-// Local fallback counter -- ONLY used if Upstash isn't configured yet, so
-// the site still has *some* protection in the meantime rather than none.
-// This has the same cross-instance limitation as the old code once
-// Upstash isn't set up; configuring Upstash is what actually fixes it.
 let localBudgetDay = null;
 let localCallsToday = 0;
 
 async function budgetAvailable() {
   if (upstashConfigured()) {
-    // Increments first, then checks -- see incrementDailyCounter's own
-    // comment in cache.js. Worst case this "spends" one extra count right
-    // at the boundary; it never lets an extra real API-Football call
-    // through past the budget.
     const used = await incrementDailyCounter("api_football_match");
     return used === null || used <= DAILY_BUDGET;
   }
@@ -104,20 +119,23 @@ async function callApiFootball(path) {
   return json.response || [];
 }
 
-// Per-instance in-flight map: this only dedupes concurrent requests that
-// happen to land on the SAME instance. It's a minor optimization, not the
-// source of correctness -- the shared Redis cache is what actually
-// prevents duplicate upstream calls across different instances.
+// Per-instance in-flight map: only dedupes concurrent requests landing on
+// the SAME instance. The shared Redis cache is what prevents duplicate
+// upstream calls across different instances.
 const inFlight = new Map();
 
-async function getCached(key, path) {
+// `ttlResolver` is an async function: (rawData) => ttlSeconds, called only
+// on a cache miss, after the fresh data comes back, so the TTL can depend
+// on what was actually fetched (or on other already-cached data).
+async function getCached(key, path, ttlResolver) {
   const cached = await cacheGet(key);
   if (cached !== null) return cached;
   if (inFlight.has(key)) return inFlight.get(key);
 
   const promise = callApiFootball(path)
     .then(async (data) => {
-      await cacheSet(key, data, REFRESH_SECONDS);
+      const ttl = await ttlResolver(data);
+      await cacheSet(key, data, ttl);
       inFlight.delete(key);
       return data;
     })
@@ -272,7 +290,7 @@ module.exports = async (req, res) => {
     let data;
     switch (type) {
       case "summary": {
-        const raw = await getCached(`summary:${id}`, `/fixtures?id=${id}`);
+        const raw = await getCached(`summary:${id}`, `/fixtures?id=${id}`, (fresh) => ttlForFreshSummary(fresh));
         data = mapSummary(raw[0]);
         if (!data) {
           res.status(200).json({ ok: false, error: "Match not found." });
@@ -281,22 +299,22 @@ module.exports = async (req, res) => {
         break;
       }
       case "events": {
-        const raw = await getCached(`events:${id}`, `/fixtures/events?fixture=${id}`);
+        const raw = await getCached(`events:${id}`, `/fixtures/events?fixture=${id}`, () => ttlFromCachedSummary(id));
         data = mapEvents(raw);
         break;
       }
       case "lineups": {
-        const raw = await getCached(`lineups:${id}`, `/fixtures/lineups?fixture=${id}`);
+        const raw = await getCached(`lineups:${id}`, `/fixtures/lineups?fixture=${id}`, () => ttlFromCachedSummary(id));
         data = mapLineups(raw);
         break;
       }
       case "statistics": {
-        const raw = await getCached(`statistics:${id}`, `/fixtures/statistics?fixture=${id}`);
+        const raw = await getCached(`statistics:${id}`, `/fixtures/statistics?fixture=${id}`, () => ttlFromCachedSummary(id));
         data = mapStatistics(raw);
         break;
       }
       case "players": {
-        const raw = await getCached(`players:${id}`, `/fixtures/players?fixture=${id}`);
+        const raw = await getCached(`players:${id}`, `/fixtures/players?fixture=${id}`, () => ttlFromCachedSummary(id));
         data = mapPlayers(raw);
         break;
       }
