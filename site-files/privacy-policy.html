@@ -132,6 +132,28 @@
     .menu-btn{ display:block; }
   }
 
+  /* ---------- NAV: HOME BUTTON ---------- */
+  .nav-actions{ display:flex; align-items:center; gap:12px; }
+  .nav-home{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--white);
+    font-weight:700;
+    font-size:14px;
+    padding:10px 16px;
+    border-radius:6px;
+    transition:border-color .2s ease, background .2s ease, transform .2s ease;
+  }
+  .nav-home:hover{ border-color:var(--purple-bright); background:var(--panel-2); transform:translateY(-1px); }
+  .nav-home svg{ color:var(--orange-bright); flex-shrink:0; }
+  @media (max-width:480px){
+    .nav-home span{ display:none; }
+    .nav-home{ padding:10px 12px; }
+  }
+
   /* ---------- HERO ---------- */
   .hero{
     position:relative;
@@ -1192,7 +1214,13 @@
       <a href="index.html#about">About</a>
       <a href="index.html#latest">Latest</a>
     </nav>
-    <a href="index.html#subscribe" class="nav-cta">Subscribe</a>
+    <div class="nav-actions">
+      <a href="index.html" class="nav-home" aria-label="Back to home page">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>
+        <span>Home</span>
+      </a>
+      <a href="index.html#subscribe" class="nav-cta">Subscribe</a>
+    </div>
   </div>
 </header>
 <section class="legal-page">
