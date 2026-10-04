@@ -55,7 +55,7 @@ HOUSE STYLE (match the existing site articles)
 - tone: professional football journalism — concise, readable, factual, engaging. International English.
 - category: one of [${cfg.categories.join(', ')}]${cfg.allowClubAsCategory ? ', or the name of the single club the story is mainly about (e.g. "Real Madrid")' : ''}.
 
-Return only JSON matching the requested response schema.`;
+Return only valid JSON matching the requested response schema. Do not use Markdown formatting or code blocks.`;
 }
 
 function userPrompt(candidates, recentTitles, cfg) {
@@ -105,8 +105,11 @@ async function editorialCall(candidates, recentTitles, cfg, { fetchImpl = fetch,
     }
 
     const data = await res.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    let content = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!content) throw new Error('Gemini returned no content');
+
+    // Clean up potential Markdown block formatting from Gemini output
+    content = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
 
     let parsed;
     try { 
