@@ -106,44 +106,54 @@ async function requestGemini(modelName, candidates, recentTitles, cfg, apiKey, f
 async function editorialCall(candidates, recentTitles, cfg, { fetchImpl = fetch, apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY } = {}) {
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
 
-  // Updated fallback model target to active gemini-3.8-flash
-  const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+  // List of models to try in order if the primary model is busy (503/429)
+  const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+  const modelsToTry = Array.from(new Set([primaryModel, 'gemini-2.5-flash', 'gemini-1.5-flash']));
 
   let lastError;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      const res = await requestGemini(model, candidates, recentTitles, cfg, apiKey, fetchImpl);
 
-      if (res.status === 503 && attempt < 3) {
-        await new Promise((r) => setTimeout(r, 2000 * attempt));
-        continue;
-      }
-
-      if (!res.ok) {
-        const detail = (await res.text()).slice(0, 300);
-        throw new Error(`Gemini HTTP ${res.status}: ${detail}`);
-      }
-
-      const data = await res.json();
-      let content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!content) throw new Error('Gemini returned no content');
-
-      content = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
-
-      let parsed;
+  for (const currentModel of modelsToTry) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        parsed = JSON.parse(content);
-      } catch (e) {
-        throw new Error('Gemini returned invalid JSON');
-      }
+        const res = await requestGemini(currentModel, candidates, recentTitles, cfg, apiKey, fetchImpl);
 
-      return {
-        articles: Array.isArray(parsed.articles) ? parsed.articles : [],
-        model,
-        usage: data.usageMetadata || null
-      };
-    } catch (err) {
-      lastError = err;
+        // If high demand (503) or rate limit (429), wait with exponential backoff and retry
+        if ((res.status === 503 || res.status === 429) && attempt < 3) {
+          const waitMs = 2500 * Math.pow(2, attempt - 1) + Math.random() * 1000;
+          await new Promise((r) => setTimeout(r, waitMs));
+          continue;
+        }
+
+        if (!res.ok) {
+          const detail = (await res.text()).slice(0, 300);
+          throw new Error(`Gemini HTTP ${res.status} [${currentModel}]: ${detail}`);
+        }
+
+        const data = await res.json();
+        let content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!content) throw new Error('Gemini returned no content');
+
+        content = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+
+        let parsed;
+        try {
+          parsed = JSON.parse(content);
+        } catch (e) {
+          throw new Error('Gemini returned invalid JSON');
+        }
+
+        return {
+          articles: Array.isArray(parsed.articles) ? parsed.articles : [],
+          model: currentModel,
+          usage: data.usageMetadata || null
+        };
+      } catch (err) {
+        lastError = err;
+        // If it's a 503 / 429 on the final attempt of this model, break loop to let next fallback model try
+        if (err.message && (err.message.includes('503') || err.message.includes('429'))) {
+          break;
+        }
+      }
     }
   }
 
