@@ -428,5 +428,18 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
 st.forEach(function(x){if(x.getAttribute("data-id")===id)cur=x});st.forEach(function(x){x.classList.toggle("on",x===cur)});document.title=cur.getAttribute("data-title")+" \u2014 Football Stories";
 st.forEach(function(x){var t=x.querySelectorAll(".club-tab"),p=x.querySelectorAll(".club-tabpanel");t.forEach(function(b){b.addEventListener("click",function(){t.forEach(function(y){y.classList.remove("active")});p.forEach(function(y){y.classList.remove("active")});b.classList.add("active");x.querySelector('.club-tabpanel[data-panel="'+b.getAttribute("data-tab")+'"]').classList.add("active")})})})})();
 </script>
+<script>
+(function(){
+  var KEY='fs96-reads';
+  function load(){ try{ return JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ return {}; } }
+  function save(o){ try{ localStorage.setItem(KEY,JSON.stringify(o)); }catch(e){} }
+  document.addEventListener('click',function(ev){
+    var a=ev.target.closest&&ev.target.closest('a[href*="news-article.html?id="]');
+    if(!a) return;
+    var m=/[?&]id=([^&#]+)/.exec(a.getAttribute('href')); if(!m) return;
+    var o=load(), id=decodeURIComponent(m[1]); o[id]=(o[id]||0)+1; save(o);
+  },true);
+})();
+</script>
 </body>
 </html>

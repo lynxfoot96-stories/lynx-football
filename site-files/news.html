@@ -355,5 +355,18 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
 function show(c){var all=c==="All";f.style.display=all?"":"none";cs.forEach(function(x){x.style.display=all?(x===first?"none":""):(x.getAttribute("data-cat")===c?"":"none")})}
 show("All");fb.forEach(function(b){b.addEventListener("click",function(){fb.forEach(function(x){x.classList.remove("on")});b.classList.add("on");show(b.getAttribute("data-cat"))})})})();
 </script>
+<script>
+(function(){
+  var KEY='fs96-reads';
+  function load(){ try{ return JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ return {}; } }
+  function save(o){ try{ localStorage.setItem(KEY,JSON.stringify(o)); }catch(e){} }
+  document.addEventListener('click',function(ev){
+    var a=ev.target.closest&&ev.target.closest('a[href*="news-article.html?id="]');
+    if(!a) return;
+    var m=/[?&]id=([^&#]+)/.exec(a.getAttribute('href')); if(!m) return;
+    var o=load(), id=decodeURIComponent(m[1]); o[id]=(o[id]||0)+1; save(o);
+  },true);
+})();
+</script>
 </body>
 </html>

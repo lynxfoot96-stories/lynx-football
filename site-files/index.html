@@ -749,6 +749,17 @@
   }
   .news-card p{ color:var(--muted); font-size:14.5px; line-height:1.65; }
 
+  /* ---- Most Read: same cards as before, plus a rank number and a link ---- */
+  .news-card.mr-card{ display:flex; align-items:flex-start; gap:22px; text-decoration:none; color:inherit; }
+  .mr-rank{
+    flex:0 0 auto; min-width:44px;
+    font-family:'Big Shoulders Display', sans-serif; font-weight:800;
+    font-size:68px; line-height:.9; color:var(--rk,#ff1f4b);
+  }
+  .mr-body{ flex:1; min-width:0; }
+  .mr-body p{ display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  @media (max-width:560px){ .news-card.mr-card{ gap:16px; padding:22px; } .mr-rank{ font-size:52px; min-width:34px; } }
+
   .card-link{ text-decoration:none; color:inherit; display:block; }
   .featured-link{ text-decoration:none; color:inherit; display:contents; }
 
@@ -2072,15 +2083,15 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
 <section id="latest-news">
   <div class="wrap">
     <div class="section-head">
-      <h2 class="display">Latest News</h2>
+      <h2 class="display">Most Read</h2>
     </div>
-    <div class="news-grid">
-      <div class="news-card"><div class="news-meta"><span class="news-tag">Transfer Rumor</span><span class="news-date">Sep 10, 2026</span></div><h4>Alvarez To Barcelona? Talks Reportedly Heating Up</h4><p>Speculation is building around a possible move as sources close to the player hint at growing interest from Camp Nou.</p></div>
-      <div class="news-card"><div class="news-meta"><span class="news-tag">Ballon d'Or</span><span class="news-date">Sep 8, 2026</span></div><h4>Dembélé Extends His Lead In The Ballon d'Or Race</h4><p>A string of standout performances has insiders suggesting the race for this year's award may already be decided.</p></div>
-      <div class="news-card"><div class="news-meta"><span class="news-tag">World Cup 2026</span><span class="news-date">Sep 6, 2026</span></div><h4>Five Dark Horses Already Being Tipped For The Tournament</h4><p>Beyond the usual favorites, a handful of squads are quietly being backed to cause an upset next summer.</p></div>
-      <div class="news-card"><div class="news-meta"><span class="news-tag">Injury Watch</span><span class="news-date">Sep 5, 2026</span></div><h4>Fitness Updates Ahead Of This Weekend's Big Fixtures</h4><p>A look at who's expected back in the squad and who's still a doubt heading into the next round of matches.</p></div>
-      <div class="news-card"><div class="news-meta"><span class="news-tag">Opinion</span><span class="news-date">Sep 3, 2026</span></div><h4>Why The Golden Boy Race Feels More Open Than Ever</h4><p>With no single standout, this year's crop of young talents has made the conversation more interesting than usual.</p></div>
-      <div class="news-card"><div class="news-meta"><span class="news-tag">Breaking</span><span class="news-date">Sep 1, 2026</span></div><h4>Report: Major Managerial Change Could Be Imminent</h4><p>Whispers from inside a top club suggest a decision on the dugout could be made within the next few weeks.</p></div>
+    <div class="news-grid" id="mostRead">
+      <a class="news-card mr-card" href="news-article.html?id=vinicius-pressure" data-id="vinicius-pressure" style="--rk:#ff1f4b"><span class="mr-rank" aria-label="Number 1">1</span><div class="mr-body"><div class="news-meta"><span class="news-tag">Real Madrid</span><span class="news-date">Oct 5, 2026</span></div><h4>Vinícius Jr. faces pressure at Real Madrid</h4><p>The Brazilian superstar is facing criticism after a difficult start to the season with Real Madrid.</p></div></a>
+      <a class="news-card mr-card" href="news-article.html?id=ronaldo-leaves-portugal-camp" data-id="ronaldo-leaves-portugal-camp" style="--rk:#e41d46"><span class="mr-rank" aria-label="Number 2">2</span><div class="mr-body"><div class="news-meta"><span class="news-tag">Portugal</span><span class="news-date">Oct 1, 2026</span></div><h4>Cristiano Ronaldo walks out of Portugal camp</h4><p>Cristiano Ronaldo's relationship with Portugal's new manager Jorge Jesus has erupted into a major controversy.</p></div></a>
+      <a class="news-card mr-card" href="news-article.html?id=city-114-breaches" data-id="city-114-breaches" style="--rk:#ca1c40"><span class="mr-rank" aria-label="Number 3">3</span><div class="mr-body"><div class="news-meta"><span class="news-tag">Premier League</span><span class="news-date">Sep 29, 2026</span></div><h4>Manchester City found guilty of 114 financial breaches</h4><p>Manchester City have been found guilty of 114 of the 115 financial breaches brought against the club by the Premier League.</p></div></a>
+      <a class="news-card mr-card" href="news-article.html?id=mbappe-on" data-id="mbappe-on" style="--rk:#af1a3b"><span class="mr-rank" aria-label="Number 4">4</span><div class="mr-body"><div class="news-meta"><span class="news-tag">Business</span><span class="news-date">Sep 24, 2026</span></div><h4>Mbappé leaves Nike and joins On</h4><p>Mbappé leaves Nike after 20 years and joins On. The Real Madrid star becomes the face of the Swiss brand’s entry into football.</p></div></a>
+      <a class="news-card mr-card" href="news-article.html?id=alvarez-atletico" data-id="alvarez-atletico" style="--rk:#951935"><span class="mr-rank" aria-label="Number 5">5</span><div class="mr-body"><div class="news-meta"><span class="news-tag">Transfers</span><span class="news-date">Sep 23, 2026</span></div><h4>Julián Álvarez stays at Atlético Madrid</h4><p>Julián Álvarez remains at Atlético Madrid after failed transfer attempt. The Argentine striker now faces a difficult situation at the Spanish club.</p></div></a>
+      <a class="news-card mr-card" href="news-article.html?id=ballon-dor-2026" data-id="ballon-dor-2026" style="--rk:#7a1730"><span class="mr-rank" aria-label="Number 6">6</span><div class="mr-body"><div class="news-meta"><span class="news-tag">Ballon d'Or</span><span class="news-date">Sep 22, 2026</span></div><h4>Ballon d'Or 2026: the race is wide open</h4><p>The Ballon d'Or race is heating up. Mbappé, Yamal, Dembélé and Kane are among the biggest names competing for the award.</p></div></a>
     </div>
   </div>
 </section>
@@ -2503,6 +2514,99 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
 
   updateDateControls();
   loadScores();
+})();
+</script>
+<script>
+(function(){
+  var KEY='fs96-reads';
+  function load(){ try{ return JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ return {}; } }
+  function save(o){ try{ localStorage.setItem(KEY,JSON.stringify(o)); }catch(e){} }
+  document.addEventListener('click',function(ev){
+    var a=ev.target.closest&&ev.target.closest('a[href*="news-article.html?id="]');
+    if(!a) return;
+    var m=/[?&]id=([^&#]+)/.exec(a.getAttribute('href')); if(!m) return;
+    var o=load(), id=decodeURIComponent(m[1]); o[id]=(o[id]||0)+1; save(o);
+  },true);
+})();
+(function(){
+  var KEY='fs96-reads';
+  /* All stories, in default order (newest first). When two stories have the same
+     number of clicks, the one listed first ranks higher. Add new stories here. */
+  var STORIES=[
+ {
+  "id": "vinicius-pressure",
+  "title": "Vinícius Jr. faces pressure at Real Madrid",
+  "cat": "Real Madrid",
+  "date": "Oct 5, 2026",
+  "dek": "The Brazilian superstar is facing criticism after a difficult start to the season with Real Madrid."
+ },
+ {
+  "id": "ronaldo-leaves-portugal-camp",
+  "title": "Cristiano Ronaldo walks out of Portugal camp",
+  "cat": "Portugal",
+  "date": "Oct 1, 2026",
+  "dek": "Cristiano Ronaldo's relationship with Portugal's new manager Jorge Jesus has erupted into a major controversy."
+ },
+ {
+  "id": "city-114-breaches",
+  "title": "Manchester City found guilty of 114 financial breaches",
+  "cat": "Premier League",
+  "date": "Sep 29, 2026",
+  "dek": "Manchester City have been found guilty of 114 of the 115 financial breaches brought against the club by the Premier League."
+ },
+ {
+  "id": "mbappe-on",
+  "title": "Mbappé leaves Nike and joins On",
+  "cat": "Business",
+  "date": "Sep 24, 2026",
+  "dek": "Mbappé leaves Nike after 20 years and joins On. The Real Madrid star becomes the face of the Swiss brand’s entry into football."
+ },
+ {
+  "id": "alvarez-atletico",
+  "title": "Julián Álvarez stays at Atlético Madrid",
+  "cat": "Transfers",
+  "date": "Sep 23, 2026",
+  "dek": "Julián Álvarez remains at Atlético Madrid after failed transfer attempt. The Argentine striker now faces a difficult situation at the Spanish club."
+ },
+ {
+  "id": "ballon-dor-2026",
+  "title": "Ballon d'Or 2026: the race is wide open",
+  "cat": "Ballon d'Or",
+  "date": "Sep 22, 2026",
+  "dek": "The Ballon d'Or race is heating up. Mbappé, Yamal, Dembélé and Kane are among the biggest names competing for the award."
+ },
+ {
+  "id": "vinicius-difficult-moment",
+  "title": "Vinícius Jr. faces a difficult moment at Real Madrid",
+  "cat": "Real Madrid",
+  "date": "Sep 21, 2026",
+  "dek": "Vinícius Jr. is going through one of the most difficult periods of his Real Madrid career. The Brazilian now has to respond after a disappointing Madrid derby."
+ },
+ {
+  "id": "rodrygo-future",
+  "title": "Rodrygo's Real Madrid future enters another chapter",
+  "cat": "Real Madrid",
+  "date": "Sep 20, 2026",
+  "dek": "Rodrygo is getting closer to his return at Real Madrid. But his future could become one of the club's biggest questions."
+ }
+];
+  var grid=document.getElementById('mostRead'); if(!grid) return;
+  function counts(){ try{ return JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ return {}; } }
+  function color(n){ var a=[255,31,75],b=[122,23,48],t=(n-1)/5;
+    return 'rgb('+a.map(function(v,i){return Math.round(v+(b[i]-v)*t);}).join(',')+')'; }
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function render(){
+    var c=counts();
+    var ranked=STORIES.map(function(s,i){ return {s:s,i:i,n:c[s.id]||0}; })
+      .sort(function(x,y){ return (y.n-x.n)||(x.i-y.i); }).slice(0,6);
+    grid.innerHTML=ranked.map(function(r,k){ var s=r.s;
+      return '<a class="news-card mr-card" href="news-article.html?id='+s.id+'" data-id="'+s.id+'" style="--rk:'+color(k+1)+'">'
+        +'<span class="mr-rank" aria-label="Number '+(k+1)+'">'+(k+1)+'</span><div class="mr-body">'
+        +'<div class="news-meta"><span class="news-tag">'+esc(s.cat)+'</span><span class="news-date">'+esc(s.date)+'</span></div>'
+        +'<h4>'+esc(s.title)+'</h4><p>'+esc(s.dek)+'</p></div></a>'; }).join('');
+  }
+  render();
+  window.addEventListener('pageshow',render);   /* refresh when coming back with the Back button */
 })();
 </script>
 </body>
