@@ -92,8 +92,8 @@ async function requestGroq(modelName, candidates, recentTitles, cfg, apiKey, fet
 async function editorialCall(candidates, recentTitles, cfg, { fetchImpl = fetch, apiKey = process.env.GROQ_API_KEY || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY } = {}) {
   if (!apiKey) throw new Error('GROQ_API_KEY is not set');
 
-  // Active standard Groq model
-  const model = process.env.GROQ_MODEL || 'llama3-70b-8192';
+  // Currently active Groq model
+  const model = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt++) {
