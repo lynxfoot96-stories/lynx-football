@@ -1,38 +1,31 @@
 'use strict';
 /**
- * ONE OpenAI call: the model acts as editor — picks up to 3 stories from the compact candidate list
+ * ONE Gemini API call: the model acts as editor — picks up to 3 stories from the compact candidate list
  * and writes the finished articles in the site's house style. The API key is read from the
- * environment and never leaves the server.
+ * environment (GEMINI_API_KEY or OPENAI_API_KEY as fallback) and never leaves the server.
  */
 const { truncate } = require('./text');
 
 const SCHEMA = {
-  name: 'news_batch',
-  strict: true,
-  schema: {
-    type: 'object',
-    additionalProperties: false,
-    required: ['articles'],
-    properties: {
-      articles: {
-        type: 'array',
-        maxItems: 3,
-        items: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['candidate_ids', 'title', 'summary', 'body', 'highlight', 'category'],
-          properties: {
-            candidate_ids: { type: 'array', items: { type: 'integer' } },
-            title: { type: 'string' },
-            summary: { type: 'string' },
-            body: { type: 'array', items: { type: 'string' } },
-            highlight: { type: 'string' },
-            category: { type: 'string' },
-          },
+  type: 'object',
+  properties: {
+    articles: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['candidate_ids', 'title', 'summary', 'body', 'highlight', 'category'],
+        properties: {
+          candidate_ids: { type: 'array', items: { type: 'integer' } },
+          title: { type: 'string' },
+          summary: { type: 'string' },
+          body: { type: 'array', items: { type: 'string' } },
+          highlight: { type: 'string' },
+          category: { type: 'string' },
         },
       },
     },
   },
+  required: ['articles'],
 };
 
 function systemPrompt(cfg) {
@@ -62,7 +55,7 @@ HOUSE STYLE (match the existing site articles)
 - tone: professional football journalism — concise, readable, factual, engaging. International English.
 - category: one of [${cfg.categories.join(', ')}]${cfg.allowClubAsCategory ? ', or the name of the single club the story is mainly about (e.g. "Real Madrid")' : ''}.
 
-Return only JSON matching the schema.`;
+Return only JSON matching the requested response schema.`;
 }
 
 function userPrompt(candidates, recentTitles, cfg) {
@@ -75,36 +68,58 @@ function userPrompt(candidates, recentTitles, cfg) {
   return `RECENTLY PUBLISHED HEADLINES (do not repeat these stories):\n${recent}\n\nCANDIDATES:\n${lines.join('\n\n')}`;
 }
 
-async function editorialCall(candidates, recentTitles, cfg, { fetchImpl = fetch, apiKey = process.env.OPENAI_API_KEY } = {}) {
-  if (!apiKey) throw new Error('OPENAI_API_KEY is not set');
-  const model = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
+async function editorialCall(candidates, recentTitles, cfg, { fetchImpl = fetch, apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY } = {}) {
+  if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 50000);
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
   try {
-    const res = await fetchImpl('https://api.openai.com/v1/chat/completions', {
+    const res = await fetchImpl(url, {
       method: 'POST',
       signal: ctrl.signal,
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt(cfg) },
-          { role: 'user', content: userPrompt(candidates, recentTitles, cfg) },
+        system_instruction: {
+          parts: [{ text: systemPrompt(cfg) }]
+        },
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: userPrompt(candidates, recentTitles, cfg) }]
+          }
         ],
-        response_format: { type: 'json_schema', json_schema: SCHEMA },
-        max_completion_tokens: 2500,
+        generationConfig: {
+          response_mime_type: 'application/json',
+          response_schema: SCHEMA,
+          maxOutputTokens: 2500
+        }
       }),
     });
+
     if (!res.ok) {
       const detail = (await res.text()).slice(0, 300);
-      throw new Error(`OpenAI HTTP ${res.status}: ${detail}`);
+      throw new Error(`Gemini HTTP ${res.status}: ${detail}`);
     }
+
     const data = await res.json();
-    const content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-    if (!content) throw new Error('OpenAI returned no content');
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!content) throw new Error('Gemini returned no content');
+
     let parsed;
-    try { parsed = JSON.parse(content); } catch (e) { throw new Error('OpenAI returned invalid JSON'); }
-    return { articles: Array.isArray(parsed.articles) ? parsed.articles : [], model, usage: data.usage || null };
+    try { 
+      parsed = JSON.parse(content); 
+    } catch (e) { 
+      throw new Error('Gemini returned invalid JSON'); 
+    }
+
+    return { 
+      articles: Array.isArray(parsed.articles) ? parsed.articles : [], 
+      model, 
+      usage: data.usageMetadata || null 
+    };
   } finally {
     clearTimeout(timer);
   }
