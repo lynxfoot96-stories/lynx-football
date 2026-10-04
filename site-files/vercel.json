@@ -1,0 +1,10 @@
+{
+  "cleanUrls": false,
+  "trailingSlash": false,
+  "crons": [
+    { "path": "/api/automated-news", "schedule": "0 8 * * *" }
+  ],
+  "functions": {
+    "api/automated-news.js": { "maxDuration": 60 }
+  }
+}
