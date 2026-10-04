@@ -129,7 +129,7 @@ a.league-group-head:hover{ background:#201d29; color:var(--purple-bright); }
   display:flex; align-items:center; gap:10px; padding:13px 16px;
   border-top:1px solid var(--line); font-size:13.5px;
 }
-.match-row:hover{ background:var(--panel-2); }
+/* no longer a link, so no hover highlight */
 .match-row .status-pill{
   flex-shrink:0; width:46px; text-align:center; font-size:11px; font-weight:700;
   color:var(--muted); text-transform:uppercase;
@@ -495,7 +495,7 @@ function renderMatchesList(fixtures, leagues){
         ? escapeHtml(statusLabel(f))
         : (f.goals.home === null || f.goals.home === undefined ? '-' : f.goals.home) +
           ' &ndash; ' + (f.goals.away === null || f.goals.away === undefined ? '-' : f.goals.away);
-      html += '<a class="match-row" href="match.html?id=' + f.id + '">' +
+      html += '<div class="match-row">' +
         '<span class="status-pill' + (f.isLive ? ' live' : '') + '">' + escapeHtml(statusLabel(f)) + '</span>' +
         '<span class="team home">' + (f.home.logo ? '<img src="' + f.home.logo + '" alt="" />' : '') +
           '<span class="n">' + escapeHtml(f.home.name) + '</span></span>' +
@@ -503,7 +503,7 @@ function renderMatchesList(fixtures, leagues){
         '<span class="team away">' +
           '<span class="n">' + escapeHtml(f.away.name) + '</span>' +
           (f.away.logo ? '<img src="' + f.away.logo + '" alt="" />' : '') + '</span>' +
-      '</a>';
+      '</div>';
     });
     html += '</div>';
   });
