@@ -1,32 +1,9 @@
 'use strict';
 /**
- * ONE Gemini API call: the model acts as editor — picks up to 3 stories from the compact candidate list
- * and writes the finished articles in the site's house style. The API key is read from the
- * environment (GEMINI_API_KEY or OPENAI_API_KEY as fallback) and never leaves the server.
+ * ONE Groq API call: the model acts as editor — picks up to 3 stories from the compact candidate list
+ * and writes the finished articles in the site's house style.
  */
 const { truncate } = require('./text');
-
-const SCHEMA = {
-  type: 'object',
-  properties: {
-    articles: {
-      type: 'array',
-      items: {
-        type: 'object',
-        required: ['candidate_ids', 'title', 'summary', 'body', 'highlight', 'category'],
-        properties: {
-          candidate_ids: { type: 'array', items: { type: 'integer' } },
-          title: { type: 'string' },
-          summary: { type: 'string' },
-          body: { type: 'array', items: { type: 'string' } },
-          highlight: { type: 'string' },
-          category: { type: 'string' },
-        },
-      },
-    },
-  },
-  required: ['articles'],
-};
 
 function systemPrompt(cfg) {
   const s = cfg.style;
@@ -50,12 +27,24 @@ FACTS — STRICT
 HOUSE STYLE (match the existing site articles)
 - title: a short, plain, sentence-case news headline, ${s.title.minWords}-${s.title.maxWords} words (typically 6-9), no clickbait, no question marks, no exclamation marks, no trailing full stop.
 - summary: the "dek" — 1-2 sentences, ${s.summary.minWords}-${s.summary.maxWords} words, stating the news and why it matters.
-- body: ${s.paragraphs.min}-${s.paragraphs.max} short paragraphs (usually one or two sentences each, typically 15-30 words), about ${s.bodyWords.min + 40}-${s.bodyWords.max - 40} words in total. Open with the core news in the first paragraph, then context, then what comes next. No subheadings, no HTML.
+- body: ${s.paragraphs.min}-${s.paragraphs.max} short paragraphs (usually one or two sentences each, typically 15-30 words), about ${s.bodyWords.min + 40}-${s.bodyWords.max - 40} words in total. Open with the core news in the first paragraph, then context, then what comes next. No subheadings, no HTML. Format body as an array of paragraph strings.
 - highlight: a closing 1-2 sentence takeaway (${s.highlight.minWords}-${s.highlight.maxWords} words) that sums up the significance without adding new facts.
 - tone: professional football journalism — concise, readable, factual, engaging. International English.
 - category: one of [${cfg.categories.join(', ')}]${cfg.allowClubAsCategory ? ', or the name of the single club the story is mainly about (e.g. "Real Madrid")' : ''}.
 
-Return only valid JSON matching the requested response schema. Do not use Markdown formatting or code blocks.`;
+You MUST respond strictly with a valid JSON object matching this structure:
+{
+  "articles": [
+    {
+      "candidate_ids": [1],
+      "title": "Example Headline Here",
+      "summary": "Example summary sentence.",
+      "body": ["First paragraph here.", "Second paragraph here."],
+      "highlight": "Closing takeaway sentence.",
+      "category": "Premier League"
+    }
+  ]
+}`;
 }
 
 function userPrompt(candidates, recentTitles, cfg) {
@@ -68,32 +57,29 @@ function userPrompt(candidates, recentTitles, cfg) {
   return `RECENTLY PUBLISHED HEADLINES (do not repeat these stories):\n${recent}\n\nCANDIDATES:\n${lines.join('\n\n')}`;
 }
 
-async function requestGemini(modelName, candidates, recentTitles, cfg, apiKey, fetchImpl) {
+async function requestGroq(modelName, candidates, recentTitles, cfg, apiKey, fetchImpl) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 45000);
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+  const url = 'https://api.groq.com/openai/v1/chat/completions';
 
   try {
     const res = await fetchImpl(url, {
       method: 'POST',
       signal: ctrl.signal,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
       body: JSON.stringify({
-        system_instruction: {
-          parts: [{ text: systemPrompt(cfg) }]
-        },
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: userPrompt(candidates, recentTitles, cfg) }]
-          }
+        model: modelName,
+        messages: [
+          { role: 'system', content: systemPrompt(cfg) },
+          { role: 'user', content: userPrompt(candidates, recentTitles, cfg) }
         ],
-        generationConfig: {
-          response_mime_type: 'application/json',
-          response_schema: SCHEMA,
-          maxOutputTokens: 2500
-        }
+        response_format: { type: 'json_object' },
+        temperature: 0.2,
+        max_tokens: 3000
       }),
     });
 
@@ -103,61 +89,51 @@ async function requestGemini(modelName, candidates, recentTitles, cfg, apiKey, f
   }
 }
 
-async function editorialCall(candidates, recentTitles, cfg, { fetchImpl = fetch, apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY } = {}) {
-  if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
+async function editorialCall(candidates, recentTitles, cfg, { fetchImpl = fetch, apiKey = process.env.GROQ_API_KEY || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY } = {}) {
+  if (!apiKey) throw new Error('GROQ_API_KEY is not set');
 
-  // List of models to try in order if the primary model is busy (503/429)
-  const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
-  const modelsToTry = Array.from(new Set([primaryModel, 'gemini-2.5-flash', 'gemini-1.5-flash']));
+  // Uses GROQ_MODEL or falls back to production model
+  const model = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 
   let lastError;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await requestGroq(model, candidates, recentTitles, cfg, apiKey, fetchImpl);
 
-  for (const currentModel of modelsToTry) {
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const res = await requestGemini(currentModel, candidates, recentTitles, cfg, apiKey, fetchImpl);
-
-        // If high demand (503) or rate limit (429), wait with exponential backoff and retry
-        if ((res.status === 503 || res.status === 429) && attempt < 3) {
-          const waitMs = 2500 * Math.pow(2, attempt - 1) + Math.random() * 1000;
-          await new Promise((r) => setTimeout(r, waitMs));
-          continue;
-        }
-
-        if (!res.ok) {
-          const detail = (await res.text()).slice(0, 300);
-          throw new Error(`Gemini HTTP ${res.status} [${currentModel}]: ${detail}`);
-        }
-
-        const data = await res.json();
-        let content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!content) throw new Error('Gemini returned no content');
-
-        content = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
-
-        let parsed;
-        try {
-          parsed = JSON.parse(content);
-        } catch (e) {
-          throw new Error('Gemini returned invalid JSON');
-        }
-
-        return {
-          articles: Array.isArray(parsed.articles) ? parsed.articles : [],
-          model: currentModel,
-          usage: data.usageMetadata || null
-        };
-      } catch (err) {
-        lastError = err;
-        // If it's a 503 / 429 on the final attempt of this model, break loop to let next fallback model try
-        if (err.message && (err.message.includes('503') || err.message.includes('429'))) {
-          break;
-        }
+      if ((res.status === 503 || res.status === 429) && attempt < 3) {
+        await new Promise((r) => setTimeout(r, 2000 * attempt));
+        continue;
       }
+
+      if (!res.ok) {
+        const detail = (await res.text()).slice(0, 300);
+        throw new Error(`Groq HTTP ${res.status}: ${detail}`);
+      }
+
+      const data = await res.json();
+      let content = data.choices?.[0]?.message?.content;
+      if (!content) throw new Error('Groq returned no content');
+
+      content = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+
+      let parsed;
+      try {
+        parsed = JSON.parse(content);
+      } catch (e) {
+        throw new Error('Groq returned invalid JSON');
+      }
+
+      return {
+        articles: Array.isArray(parsed.articles) ? parsed.articles : [],
+        model,
+        usage: data.usage || null
+      };
+    } catch (err) {
+      lastError = err;
     }
   }
 
-  throw lastError || new Error('Gemini API call failed');
+  throw lastError || new Error('Groq API call failed');
 }
 
-module.exports = { editorialCall, systemPrompt, userPrompt, SCHEMA };
+module.exports = { editorialCall, systemPrompt, userPrompt };
