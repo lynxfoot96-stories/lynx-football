@@ -68,13 +68,11 @@ function userPrompt(candidates, recentTitles, cfg) {
   return `RECENTLY PUBLISHED HEADLINES (do not repeat these stories):\n${recent}\n\nCANDIDATES:\n${lines.join('\n\n')}`;
 }
 
-async function editorialCall(candidates, recentTitles, cfg, { fetchImpl = fetch, apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY } = {}) {
-  if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
-  const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+async function requestGemini(modelName, candidates, recentTitles, cfg, apiKey, fetchImpl) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 50000);
+  const timer = setTimeout(() => ctrl.abort(), 45000);
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
   try {
     const res = await fetchImpl(url, {
@@ -99,33 +97,62 @@ async function editorialCall(candidates, recentTitles, cfg, { fetchImpl = fetch,
       }),
     });
 
-    if (!res.ok) {
-      const detail = (await res.text()).slice(0, 300);
-      throw new Error(`Gemini HTTP ${res.status}: ${detail}`);
-    }
-
-    const data = await res.json();
-    let content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!content) throw new Error('Gemini returned no content');
-
-    // Clean up potential Markdown block formatting from Gemini output
-    content = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
-
-    let parsed;
-    try { 
-      parsed = JSON.parse(content); 
-    } catch (e) { 
-      throw new Error('Gemini returned invalid JSON'); 
-    }
-
-    return { 
-      articles: Array.isArray(parsed.articles) ? parsed.articles : [], 
-      model, 
-      usage: data.usageMetadata || null 
-    };
+    return res;
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function editorialCall(candidates, recentTitles, cfg, { fetchImpl = fetch, apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY } = {}) {
+  if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
+
+  const modelsToTry = [
+    process.env.GEMINI_MODEL || 'gemini-3.8-flash',
+    'gemini-1.5-flash'
+  ];
+
+  let lastError;
+  for (const model of modelsToTry) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const res = await requestGemini(model, candidates, recentTitles, cfg, apiKey, fetchImpl);
+
+        if (res.status === 503 && attempt === 1) {
+          // Wait 2 seconds before retrying on high demand
+          await new Promise((r) => setTimeout(r, 2000));
+          continue;
+        }
+
+        if (!res.ok) {
+          const detail = (await res.text()).slice(0, 300);
+          throw new Error(`Gemini HTTP ${res.status}: ${detail}`);
+        }
+
+        const data = await res.json();
+        let content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!content) throw new Error('Gemini returned no content');
+
+        content = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+
+        let parsed;
+        try {
+          parsed = JSON.parse(content);
+        } catch (e) {
+          throw new Error('Gemini returned invalid JSON');
+        }
+
+        return {
+          articles: Array.isArray(parsed.articles) ? parsed.articles : [],
+          model,
+          usage: data.usageMetadata || null
+        };
+      } catch (err) {
+        lastError = err;
+      }
+    }
+  }
+
+  throw lastError || new Error('All Gemini model attempts failed');
 }
 
 module.exports = { editorialCall, systemPrompt, userPrompt, SCHEMA };
