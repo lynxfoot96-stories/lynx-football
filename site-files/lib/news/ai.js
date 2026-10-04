@@ -92,8 +92,8 @@ async function requestGroq(modelName, candidates, recentTitles, cfg, apiKey, fet
 async function editorialCall(candidates, recentTitles, cfg, { fetchImpl = fetch, apiKey = process.env.GROQ_API_KEY || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY } = {}) {
   if (!apiKey) throw new Error('GROQ_API_KEY is not set');
 
-  // Updated fallback model to llama-3.3-70b-versatile
-  const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+  // Active standard Groq model
+  const model = process.env.GROQ_MODEL || 'llama3-70b-8192';
 
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt++) {
