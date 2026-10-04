@@ -64,7 +64,19 @@ function validateArticle(raw, candidates, cfg, { recentTitles = [], now = new Da
   if (errors.length) return { ok: false, errors, article: null };
 
   const primary = [...cited].sort((a, b) => b.primary.weight - a.primary.weight)[0].primary;
-  const image = cfg.useSourceImages ? (cited.map(c => c.items.find(i => i.image)).find(Boolean) || {}).image || null : null;
+
+  // FIXED: Properly find the first valid RSS image across all candidate items
+  let image = null;
+  if (cfg.useSourceImages) {
+    for (const candidate of cited) {
+      const foundItem = candidate.items.find(i => i.image);
+      if (foundItem) {
+        image = foundItem.image;
+        break;
+      }
+    }
+  }
+
   const iso = now.toISOString().slice(0, 10);
 
   return {
@@ -81,7 +93,7 @@ function validateArticle(raw, candidates, cfg, { recentTitles = [], now = new Da
       source_name: primary.source,
       source_url: primary.link,
       source_urls: [...new Set(cited.flatMap(c => c.items.map(i => i.link)))],
-      image_url: image,
+      image_url: image, // Saved in database as image_url
     },
   };
 }
