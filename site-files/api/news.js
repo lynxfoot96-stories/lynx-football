@@ -31,11 +31,6 @@ export default async function handler(req, res) {
       
       if (error) throw error;
       rows = data || [];
-    } else if (typeof db.all === 'function') {
-      rows = await db.all(
-        `SELECT * FROM news_articles LIMIT ?`,
-        [limit]
-      );
     }
 
     return res.status(200).json({
