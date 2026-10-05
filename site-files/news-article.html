@@ -660,7 +660,7 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
 
     var mv=matchVideos(title,[dek,rawBody,cat].join(" "),3);
     var vids=mv.list.map(function(v){
-      return '<a class="vcard" href="https://youtu.be/'+v.id+'" target="_blank" rel="noopener"><div class="vthumb" style="background-image:url(\'https://i.ytimg.com/vi/'+v.id+'/hqdefault.jpg\')"><span class="vplay"><svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg></span></div><div class="vbody"><span class="nx-cat">'+esc(v.c)+'</span><h4>'+esc(v.t)+'</h4></div></a>';
+      return '<a class="vcard yt-trigger" href="https://youtu.be/'+v.id+'" target="_blank" rel="noopener" data-yt="'+v.id+'"><div class="vthumb" style="background-image:url(\'https://i.ytimg.com/vi/'+v.id+'/hqdefault.jpg\')"><span class="vplay"><svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg></span></div><div class="vbody"><span class="nx-cat">'+esc(v.c)+'</span><h4>'+esc(v.t)+'</h4></div></a>';
     }).join("");
 
     box.setAttribute("data-title",title);
@@ -874,15 +874,15 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
       });
     }
 
-    document.querySelectorAll('.yt-trigger').forEach(function(el){
-      el.addEventListener('click', function(e){
-        e.preventDefault();
-        const id = this.getAttribute('data-yt');
-        if (!id) return;
-        const thumb = findThumb(this);
-        if (thumb) { playInline(thumb, id); }
-        else { openVideo(id, this); }   // fallback: no thumbnail box found
-      });
+    document.addEventListener('click', function(e){
+      const el = e.target.closest ? e.target.closest('.yt-trigger') : null;
+      if (!el) return;
+      e.preventDefault();
+      const id = el.getAttribute('data-yt');
+      if (!id) return;
+      const thumb = findThumb(el);
+      if (thumb) { playInline(thumb, id); }
+      else { openVideo(id, el); }   // fallback: no thumbnail box found
     });
 
     closeBtn.addEventListener('click', closeVideo);
