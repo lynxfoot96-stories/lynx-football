@@ -8,7 +8,9 @@ export default async function handler(req, res) {
     const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
     if (!supabaseKey) {
-      return res.status(500).json({ error: 'Missing Supabase API key in environment variables' });
+      return res.status(500).json({ 
+        error: 'Missing SUPABASE_KEY in Vercel Environment Variables. Please add it under project settings.' 
+      });
     }
 
     const limit = parseInt(req.query.limit, 10) || 30;
