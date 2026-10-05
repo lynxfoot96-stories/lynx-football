@@ -9,7 +9,7 @@
  * (Vercel Cron sends this header automatically when the CRON_SECRET env var is set.)
  */
 const crypto = require('crypto');
-const { run } = require('../lib/news/pipeline');
+const pipeline = require('../lib/news/pipeline');
 
 function authorised(req) {
   const secret = process.env.CRON_SECRET;
@@ -23,15 +23,30 @@ function authorised(req) {
 
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
-  if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  if (!process.env.CRON_SECRET) return res.status(500).json({ error: 'CRON_SECRET is not configured on the server' });
-  if (!authorised(req)) return res.status(401).json({ error: 'Unauthorized' });
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+  if (!process.env.CRON_SECRET) {
+    return res.status(500).json({ error: 'CRON_SECRET is not configured on the server' });
+  }
+  if (!authorised(req)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
 
   const q = req.query || {};
   const isTest = q.test === 'true';
   const mode = isTest ? (q.save === 'draft' ? 'draft' : 'test') : 'publish';
   const stage = q.stage === 'candidates' ? 'candidates' : 'full';
 
-  const report = await run({ mode, stage });
+  // Support both module.exports = { run } AND module.exports = run
+  const runFn = typeof pipeline === 'function' ? pipeline : (pipeline.run || pipeline.default);
+
+  if (typeof runFn !== 'function') {
+    return res.status(500).json({
+      error: 'Pipeline export error: run is not a function in lib/news/pipeline.js'
+    });
+  }
+
+  const report = await runFn({ mode, stage });
   return res.status(report.error ? 502 : 200).json(report);
 };
