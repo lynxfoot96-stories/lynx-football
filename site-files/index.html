@@ -2799,5 +2799,111 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
   window.addEventListener('pageshow',render);   /* refresh when coming back with the Back button */
 })();
 </script>
+<script src="news-videos.js"></script>
+<script>
+/* Homepage "Most Important News": newest stories first (automated + hand-written), auto-updating. */
+(function(){
+  var sec=document.getElementById('news'); if(!sec) return;
+  var feat=sec.querySelector('.nx-featured'), grid=sec.querySelector('.nx-grid');
+  if(!feat||!grid) return;
+  var GRADIENT='linear-gradient(135deg,#7c3aed,#f97316)', SHOW=5; /* 1 big + 4 cards */
+  var DEK={
+    'vinicius-pressure':'The Brazilian superstar is facing criticism after a difficult start to the season with Real Madrid.',
+    'ronaldo-leaves-portugal-camp':"Cristiano Ronaldo's relationship with Portugal's new manager Jorge Jesus has erupted into a major controversy.",
+    'city-114-breaches':'Manchester City have been found guilty of 114 of the 115 financial breaches brought against the club by the Premier League.',
+    'mbappe-on':'Mbappé leaves Nike after 20 years and joins On. The Real Madrid star becomes the face of the Swiss brand’s entry into football.',
+    'alvarez-atletico':'Julián Álvarez remains at Atlético Madrid after failed transfer attempt. The Argentine striker now faces a difficult situation at the Spanish club.'
+  };
+  var MON={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  function first(a,keys){for(var i=0;i<keys.length;i++){var v=a[keys[i]];if(v!=null&&String(v).trim()!=='')return String(v)}return ''}
+  function safeUrl(u){return /^https?:\/\//i.test(u)?u:''}
+  function shortDate(d){return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+  function parseShort(s){var m=/([A-Z][a-z]{2})\w*\s+(\d{1,2}),\s*(\d{4})/.exec(s||'');return m&&MON[m[1]]!=null?new Date(+m[3],MON[m[1]],+m[2]):new Date(0)}
+  function day(d){return new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime()}
+  function plain(s){return String(s||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim()}
+
+  /* 1) the hand-written stories already on the page */
+  var items=[];
+  var f=feat;
+  items.push(stat(f,f.querySelector('.nx-featured-title'),f.querySelector('.nx-featured-dek')));
+  [].forEach.call(grid.querySelectorAll('.nx-card'),function(c){items.push(stat(c,c.querySelector('.nx-card-title'),null))});
+  function stat(a,titleEl,dekEl){
+    var href=a.getAttribute('href'),m=/[?&]id=([^&#]+)/.exec(href),id=m?decodeURIComponent(m[1]):'';
+    var dateEl=a.querySelector('.nx-date'),d=parseShort(dateEl?dateEl.textContent:'');
+    return {auto:false,href:href,cat:a.getAttribute('data-cat')||'News',title:titleEl.textContent,
+      dek:dekEl?dekEl.textContent:(DEK[id]||''),date:shortDate(d),day:day(d),created:0,
+      imgHtml:a.querySelector('.nx-img').outerHTML,img:''};
+  }
+
+  /* 2) the automated ones */
+  function fromApi(o){
+    var d=new Date(o.published_date||o.created_at); if(isNaN(d))d=new Date();
+    if(/^\d{4}-\d{2}-\d{2}$/.test(String(o.published_date||''))){var p=o.published_date.split('-');d=new Date(+p[0],+p[1]-1,+p[2])}
+    var body=first(o,['body','content','article_body','article','full_text','text']);
+    var dek=plain(first(o,['summary','excerpt','dek','description']));
+    if(!dek){dek=plain(body).slice(0,190);if(plain(body).length>190)dek=dek.replace(/\s+\S*$/,'')+'…'}
+    var img=safeUrl(first(o,['image_url','image','cover_image','thumbnail']));
+    if(!img&&window.FSVideos){
+      var m=window.FSVideos.matchVideos(o.title||'',[dek,body].join(' '),1);
+      if(m.matched)img='https://i.ytimg.com/vi/'+m.list[0].id+'/'+'hqdefault.jpg';
+    }
+    return {auto:true,href:'news-article.html?slug='+encodeURIComponent(o.slug),cat:first(o,['category','tag','topic','club'])||'News',
+      title:o.title||'Untitled',dek:dek,date:shortDate(d),day:day(d),created:Date.parse(o.created_at)||0,img:img,imgHtml:''};
+  }
+
+  function imgHtml(it){
+    if(it.imgHtml)return it.imgHtml;
+    if(it.img)return '<div class="nx-img" style="background:url(&quot;'+esc(it.img.replace(/"/g,'%22'))+'&quot;) center/cover no-repeat" data-label=""></div>';
+    return '<div class="nx-img" style="background:'+GRADIENT+';opacity:.85" data-label=""></div>';
+  }
+  var ARROW='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+  function featHtml(it){
+    return '<a class="nx-featured" href="'+esc(it.href)+'" data-cat="'+esc(it.cat)+'"><div class="nx-featured-media">'+imgHtml(it)+'</div><div class="nx-featured-body"><div class="nx-kicker"><span class="nx-cat">'+esc(it.cat)+'</span><span>&bull;</span><span>'+esc(it.date)+'</span></div><h3 class="nx-featured-title">'+esc(it.title)+'</h3>'+(it.dek?'<p class="nx-featured-dek">'+esc(it.dek)+'</p>':'')+'<div class="nx-featured-foot"><span class="nx-date">'+esc(it.date)+'</span><span class="nx-read">Read the full story '+ARROW+'</span></div></div></a>';
+  }
+  function cardHtml(it){
+    return '<a class="nx-card" href="'+esc(it.href)+'" data-cat="'+esc(it.cat)+'"><div class="nx-card-media">'+imgHtml(it)+'</div><div class="nx-card-body"><span class="nx-cat">'+esc(it.cat)+'</span><h3 class="nx-card-title">'+esc(it.title)+'</h3><span class="nx-date">'+esc(it.date)+'</span></div></a>';
+  }
+
+  /* small images: show whole over a blurred copy instead of stretching (avoids pixelation) */
+  function softenSmall(a,url){
+    var media=a.querySelector('.nx-featured-media'),bg=media&&media.querySelector('.nx-img'); if(!bg)return;
+    var im=new Image();
+    im.onload=function(){
+      if(im.naturalWidth>=900)return;
+      media.style.position='relative';
+      bg.style.filter='blur(24px) brightness(.7)';bg.style.transform='scale(1.2)';
+      var fg=document.createElement('div');
+      fg.style.cssText='position:absolute;inset:0;background:url("'+url.replace(/"/g,'%22')+'") center/contain no-repeat';
+      media.appendChild(fg);
+    };
+    im.src=url;
+  }
+
+  function render(list){
+    var top=list.slice(0,SHOW);
+    var wrap=document.createElement('div');
+    wrap.innerHTML=featHtml(top[0]);
+    var newFeat=wrap.firstChild;
+    feat.parentNode.replaceChild(newFeat,feat);
+    grid.innerHTML=top.slice(1).map(cardHtml).join('');
+    if(top[0].auto&&top[0].img)softenSmall(newFeat,top[0].img);
+    var more=sec.querySelector('.nx-more-btn'); if(more)more.textContent='See more news';
+  }
+
+  fetch('/api/news?limit=12',{headers:{Accept:'application/json'}})
+    .then(function(r){return r.ok?r.json():null})
+    .then(function(d){
+      var auto=((d&&d.articles)||[]).filter(function(o){return o&&o.slug&&o.title}).map(fromApi);
+      if(!auto.length)return;                       /* nothing new: keep the page as it is */
+      var titles={};items.forEach(function(i){titles[i.title.toLowerCase()]=1});
+      auto=auto.filter(function(i){return !titles[i.title.toLowerCase()]});
+      var all=auto.concat(items);
+      all.sort(function(a,b){return (b.day-a.day)||((b.auto?1:0)-(a.auto?1:0))||(b.created-a.created)});
+      render(all);
+    })
+    .catch(function(){});
+})();
+</script>
 </body>
 </html>
