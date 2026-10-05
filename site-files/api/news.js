@@ -22,26 +22,24 @@ export default async function handler(req, res) {
     
     const limit = parseInt(req.query.limit, 10) || 30;
 
-    // Query Supabase table directly
     let rows = [];
     if (typeof db.from === 'function') {
       const { data, error } = await db
         .from('news_articles')
         .select('*')
-        .order('published_date', { ascending: false })
         .limit(limit);
       
       if (error) throw error;
       rows = data || [];
     } else if (typeof db.all === 'function') {
       rows = await db.all(
-        `SELECT * FROM news_articles ORDER BY published_date DESC LIMIT ?`,
+        `SELECT * FROM news_articles LIMIT ?`,
         [limit]
       );
     }
 
     return res.status(200).json({
-      articles: rows.map(r => ({ ...r, date_label: dateLabel(r.published_date) })),
+      articles: rows.map(r => ({ ...r, date_label: dateLabel(r.published_date || r.created_at) })),
     });
   } catch (error) {
     console.error('Database query error:', error);
