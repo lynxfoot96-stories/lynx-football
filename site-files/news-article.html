@@ -424,9 +424,105 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
 </main>
 <footer class="page-foot"><div class="wrap">Football Stories 96 will continue to bring you the biggest football stories, transfers and controversies from around the world.</div></footer>
 <script>
-(function(){var id=new URLSearchParams(location.search).get("id")||location.hash.slice(1);var st=document.querySelectorAll(".story"),cur=st[0];
-st.forEach(function(x){if(x.getAttribute("data-id")===id)cur=x});st.forEach(function(x){x.classList.toggle("on",x===cur)});document.title=cur.getAttribute("data-title")+" \u2014 Football Stories";
-st.forEach(function(x){var t=x.querySelectorAll(".club-tab"),p=x.querySelectorAll(".club-tabpanel");t.forEach(function(b){b.addEventListener("click",function(){t.forEach(function(y){y.classList.remove("active")});p.forEach(function(y){y.classList.remove("active")});b.classList.add("active");x.querySelector('.club-tabpanel[data-panel="'+b.getAttribute("data-tab")+'"]').classList.add("active")})})})})();
+(function(){
+  var params=new URLSearchParams(location.search);
+  var id=params.get("id")||params.get("slug")||location.hash.slice(1);
+  var main=document.querySelector("main");
+  var st=Array.prototype.slice.call(document.querySelectorAll(".story"));
+
+  function wireTabs(x){
+    var t=x.querySelectorAll(".club-tab"),p=x.querySelectorAll(".club-tabpanel");
+    t.forEach(function(b){b.addEventListener("click",function(){
+      t.forEach(function(y){y.classList.remove("active")});
+      p.forEach(function(y){y.classList.remove("active")});
+      b.classList.add("active");
+      x.querySelector('.club-tabpanel[data-panel="'+b.getAttribute("data-tab")+'"]').classList.add("active");
+    })});
+  }
+  function show(el){st.forEach(function(x){x.classList.toggle("on",x===el)})}
+
+  /* 1) Hardcoded stories */
+  var cur=null;
+  st.forEach(function(x){if(id&&x.getAttribute("data-id")===id)cur=x});
+  st.forEach(wireTabs);
+  if(cur||!id){
+    cur=cur||st[0];
+    show(cur);
+    document.title=cur.getAttribute("data-title")+" — Football Stories";
+    return;
+  }
+
+  /* 2) Automated stories: load by slug from /api/news */
+  function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+  function first(a,keys){for(var i=0;i<keys.length;i++){var v=a[keys[i]];if(v!=null&&String(v).trim()!=="")return v}return ""}
+  function paras(v){
+    if(Array.isArray(v))v=v.join("\n\n");
+    return String(v||"").replace(/<\/p>\s*<p>/gi,"\n\n").replace(/<br\s*\/?>/gi,"\n").replace(/<[^>]+>/g,"")
+      .split(/\n\s*\n|\n/).map(function(s){return s.trim()}).filter(Boolean);
+  }
+  function safeUrl(u){return /^https?:\/\//i.test(u)?u:""}
+  function shortDate(a){
+    var d=new Date(a.published_date||a.created_at);
+    return isNaN(d)?(a.date_label||""):d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+  }
+
+  var box=document.createElement("div");
+  box.className="story on";
+  box.setAttribute("data-id","__dynamic");
+  box.innerHTML='<div class="wrap" style="padding:120px 0;text-align:center"><p class="panel-intro">Loading story…</p></div>';
+  main.appendChild(box);
+  st.forEach(function(x){x.classList.remove("on")});
+
+  function notFound(){
+    document.title="Story not found — Football Stories";
+    box.innerHTML='<div class="wrap" style="padding:120px 0;text-align:center"><h1 class="display">Story not found</h1><p class="panel-intro">We couldn’t find that story. It may have been removed.</p><p><a class="nav-cta" href="news.html">Back to all news</a></p></div>';
+  }
+
+  function render(a,others){
+    var title=a.title||"Untitled";
+    var cat=first(a,["category","tag","topic","club"])||"News";
+    var body=paras(first(a,["body","content","article_body","article","full_text","text"]));
+    var dek=first(a,["summary","excerpt","dek","description"]);
+    if(!body.length&&dek){body=paras(dek);dek=""}
+    else if(dek&&body.length&&body[0]===String(dek).trim()){dek=""}
+    var img=safeUrl(first(a,["image_url","image","cover_image","thumbnail"]));
+    var date=shortDate(a);
+    var src=safeUrl(first(a,["source_url"]));
+
+    var side=others.map(function(o){
+      return '<a class="side-item" href="news-article.html?slug='+encodeURIComponent(o.slug)+'"><div><h3>'+esc(o.title)+'</h3><span class="nx-date">'+esc(shortDate(o))+'</span></div></a>';
+    }).join("");
+
+    box.setAttribute("data-title",title);
+    box.innerHTML=
+      '<div class="club-banner"><div class="nx-img" data-label=""></div></div>'+
+      '<div class="club-strip"><div class="wrap"><div class="club-strip-inner"><div class="club-strip-badge">NEWS</div><div><h1 class="display">'+esc(title)+'</h1><div class="strip-meta"><span class="nx-cat">'+esc(cat)+'</span><span>&bull;</span><span>'+esc(date)+'</span></div></div></div>'+
+      '<div class="club-tabs"><button class="club-tab active" data-tab="article">Article</button></div></div></div>'+
+      '<div class="wrap"><div class="club-tabpanel active" data-panel="article"><div class="article-layout"><article class="summary-card">'+
+      '<div class="summary-card-head"><div class="summary-card-title">Full Story</div><div class="summary-tag"><b>Football Stories</b> &middot; '+esc(cat)+'</div></div>'+
+      (dek?'<p class="article-dek">'+esc(dek)+'</p>':'')+
+      '<div class="article-body">'+body.map(function(p){return '<p>'+esc(p)+'</p>'}).join("")+'</div>'+
+      (src?'<div class="article-body"><p>Source: <a href="'+esc(src)+'" target="_blank" rel="noopener noreferrer">'+esc(src.replace(/^https?:\/\/(www\.)?/i,"").split("/")[0])+'</a></p></div>':'')+
+      '</article>'+(side?'<aside class="side-card"><h2>More News</h2>'+side+'</aside>':'')+'</div></div></div>';
+
+    var banner=box.querySelector(".club-banner .nx-img");
+    if(img){banner.style.backgroundImage='url("'+img.replace(/"/g,"%22")+'")';banner.style.backgroundSize="cover";banner.style.backgroundPosition="center 25%"}
+    else{box.querySelector(".club-banner").style.display="none"}
+    document.title=title+" — Football Stories";
+    wireTabs(box);
+  }
+
+  function getJSON(u){return fetch(u,{headers:{Accept:"application/json"}}).then(function(r){return r.ok?r.json():null}).catch(function(){return null})}
+
+  getJSON("/api/news?slug="+encodeURIComponent(id)).then(function(d){
+    if(!d||!d.article){notFound();return}
+    var a=d.article;
+    getJSON("/api/news?limit=6").then(function(l){
+      var others=((l&&l.articles)||[]).filter(function(o){return o.slug&&o.slug!==a.slug}).slice(0,5);
+      render(a,others);
+    });
+  });
+})();
 </script>
 <script>
 (function(){
@@ -434,9 +530,9 @@ st.forEach(function(x){var t=x.querySelectorAll(".club-tab"),p=x.querySelectorAl
   function load(){ try{ return JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY,JSON.stringify(o)); }catch(e){} }
   document.addEventListener('click',function(ev){
-    var a=ev.target.closest&&ev.target.closest('a[href*="news-article.html?id="]');
+    var a=ev.target.closest&&ev.target.closest('a[href*="news-article.html?"]');
     if(!a) return;
-    var m=/[?&]id=([^&#]+)/.exec(a.getAttribute('href')); if(!m) return;
+    var m=/[?&](?:id|slug)=([^&#]+)/.exec(a.getAttribute('href')); if(!m) return;
     var o=load(), id=decodeURIComponent(m[1]); o[id]=(o[id]||0)+1; save(o);
   },true);
 })();
