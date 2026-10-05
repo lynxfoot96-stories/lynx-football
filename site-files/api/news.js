@@ -1,32 +1,35 @@
-'use strict';
-/**
- * Public, read-only feed of PUBLISHED articles for the website.
- *   GET /api/news?limit=30      latest published articles
- *   GET /api/news?slug=<slug>   a single published article
- */
-const { listPublished } = require('../lib/news/db');
-const { dateLabel } = require('../lib/news/text');
-const { logError } = require('../lib/news/log');
+import { getDb } from './_db.js';
 
-module.exports = async function handler(req, res) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
-  const q = req.query || {};
-  const limit = Math.min(Math.max(parseInt(q.limit, 10) || 30, 1), 60);
-  const slug = typeof q.slug === 'string' && /^[a-z0-9-]{1,80}$/.test(q.slug) ? q.slug : null;
-  if (q.slug && !slug) return res.status(400).json({ error: 'Invalid slug' });
+function dateLabel(publishedDate) {
+  if (!publishedDate) return '';
+  const d = new Date(publishedDate);
+  if (isNaN(d.getTime())) return publishedDate;
+  return d.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+}
+
+export default async function handler(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
   try {
-    const rows = await listPublished({ limit, slug });
-    
-    // Set cache control to no-store so client fetches fresh database results
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    
+    const db = await getDb();
+    const limit = parseInt(req.query.limit, 10) || 30;
+
+    const rows = await db.all(
+      `SELECT * FROM news_articles ORDER BY published_date DESC LIMIT ?`,
+      [limit]
+    );
+
     return res.status(200).json({
       articles: rows.map(r => ({ ...r, date_label: dateLabel(r.published_date) })),
     });
-  } catch (err) {
-    logError('news_read_failed', err);
-    res.setHeader('Cache-Control', 'no-store');
-    return res.status(503).json({ articles: [] });
+  } catch (error) {
+    console.error('Database query error:', error);
+    return res.status(500).json({ error: 'Failed to retrieve news articles' });
   }
-};
+}
