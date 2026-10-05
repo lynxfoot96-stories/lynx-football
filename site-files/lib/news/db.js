@@ -45,9 +45,10 @@ async function insertArticle(article, status, fetchImpl, rejectReason = null) {
 }
 
 async function listPublished({ limit = 30, slug = null } = {}, fetchImpl) {
-  const cols = 'slug,title,summary,body,highlight,category,published_date,source_name,source_url,image_url';
-  let q = `${TABLE}?select=${cols}&status=eq.published&order=published_date.desc,created_at.desc&limit=${limit}`;
-  if (slug) q += `&slug=eq.${encodeURIComponent(slug)}`;
+  // Ordered by created_at first to reliably fetch articles generated today
+  let q = `${TABLE}?select=*&status=eq.published&order=created_at.desc&limit=${limit}`;
+  if (slug) q = `${TABLE}?select=*&status=eq.published&slug=eq.${encodeURIComponent(slug)}&limit=1`;
+  
   const res = await request(q, {}, fetchImpl);
   if (!res.ok) throw new Error(`Supabase read failed: HTTP ${res.status}`);
   return res.json();
