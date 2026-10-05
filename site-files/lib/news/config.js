@@ -1,16 +1,17 @@
 'use strict';
 /**
  * Central configuration for the automated news system.
+ * Edit this file to add/remove RSS sources, change limits, categories or the editorial style.
  */
 module.exports = {
   // ---- RSS sources -------------------------------------------------------
+  // Updated with working, global, high-impact RSS feeds.
   feeds: [
     { name: 'BBC Sport',        url: 'https://feeds.bbci.co.uk/sport/football/rss.xml',  weight: 3, enabled: true },
     { name: 'Sky Sports',       url: 'https://www.skysports.com/rss/12040',              weight: 3, enabled: true },
     { name: 'The Guardian',     url: 'https://www.theguardian.com/football/rss',         weight: 3, enabled: true },
-    { name: 'ESPN FC',          url: 'https://www.espn.com/espn/rss/soccer/news',        weight: 3, enabled: true },
-    // Added Top-tier Global & Star Feeds
-    { name: 'Goal.com Top News',url: 'https://www.goal.com/feeds/en/news',               weight: 4, enabled: true },
+    { name: 'ESPN FC',          url: 'https://www.espn.com/espn/rss/soccer/news',        weight: 2, enabled: true },
+    { name: 'Goal.com Top News',url: 'https://www.goal.com/en/feeds/news?fmt=rss',       weight: 4, enabled: true },
     { name: 'Football Espana',  url: 'https://www.football-espana.net/feed',             weight: 3, enabled: true },
     { name: 'Marca English',    url: 'https://e00-marca.uecdn.es/rss/en/index.xml',     weight: 3, enabled: true },
   ],
@@ -24,7 +25,7 @@ module.exports = {
   // ---- Candidate collection / cost control ---------------------------------
   maxAgeHours: 36,          // ignore RSS items older than this
   maxCandidates: 25,        // compact batch sent to the AI (after dedupe + filtering)
-  snippetChars: 300,        // extended snippet length to give AI enough context for 120+ words
+  snippetChars: 300,        // extended snippet length to give AI enough context
   maxArticlesPerRun: 3,     // hard cap
   maxPublishedPerDay: 3,    // hard daily cap
   dedupeLookbackDays: 14,   // compare against articles published in the last N days
@@ -64,13 +65,13 @@ module.exports = {
   ],
 
   /**
-   * Style card: Adjusted minimum body words to 80 so good concise stories are not rejected.
+   * Style card: Set lower body threshold to 70 words to ensure generated articles pass validation smoothly.
    */
   style: {
     title:      { minWords: 4, maxWords: 12, maxChars: 90 },
     summary:    { minWords: 12, maxWords: 40 },
     paragraphs: { min: 3, max: 10, minWords: 4, maxWords: 60 },
-    bodyWords:  { min: 70, max: 300 }, // Lowered min threshold from 120 to 70 to stop rejections
+    bodyWords:  { min: 70, max: 300 },
     highlight:  { minWords: 8, maxWords: 55 },
   },
 };
