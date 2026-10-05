@@ -17,16 +17,28 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Handles whether getDb is a named export, default export, or the module itself
     const getDbFn = dbModule.getDb || dbModule.default?.getDb || dbModule;
     const db = typeof getDbFn === 'function' ? await getDbFn() : dbModule;
     
     const limit = parseInt(req.query.limit, 10) || 30;
 
-    const rows = await db.all(
-      `SELECT * FROM news_articles ORDER BY published_date DESC LIMIT ?`,
-      [limit]
-    );
+    // Query Supabase table directly
+    let rows = [];
+    if (typeof db.from === 'function') {
+      const { data, error } = await db
+        .from('news_articles')
+        .select('*')
+        .order('published_date', { ascending: false })
+        .limit(limit);
+      
+      if (error) throw error;
+      rows = data || [];
+    } else if (typeof db.all === 'function') {
+      rows = await db.all(
+        `SELECT * FROM news_articles ORDER BY published_date DESC LIMIT ?`,
+        [limit]
+      );
+    }
 
     return res.status(200).json({
       articles: rows.map(r => ({ ...r, date_label: dateLabel(r.published_date) })),
