@@ -767,8 +767,8 @@
     display:none;
     position:fixed;
     inset:0;
-    background:rgba(4,3,6,0.92);
-    z-index:1000;
+    background:#06050a;
+    z-index:2000;
     align-items:center;
     justify-content:center;
     padding:24px;
@@ -784,8 +784,12 @@
     border-radius:10px;
     overflow:hidden;
     box-shadow:0 20px 60px rgba(0,0,0,0.6);
+    transform-origin:0 0;
+    will-change:transform;
   }
   .yt-modal-inner iframe{
+    position:absolute;
+    inset:0;
     width:100%;
     height:100%;
     border:0;
@@ -2231,27 +2235,121 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
 <script>
   (function(){
     const overlay = document.getElementById('ytModalOverlay');
+    const inner = overlay.querySelector('.yt-modal-inner');
     const slot = document.getElementById('ytModalPlayerSlot');
     const closeBtn = document.getElementById('ytModalClose');
-
     const fallbackLink = document.getElementById('ytModalFallback');
-    function openVideo(id){
+    const EASE = 'cubic-bezier(.2,.8,.2,1)';
+    const DUR = 420;
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    let originEl = null;   // the card the user clicked
+    let busy = false;      // true while an open/close animation is running
+    let activeAnims = [];
+
+    // .featured-link uses display:contents, so it has no box of its own.
+    // Fall back to its first real child box.
+    function getOriginRect(el){
+      if (!el) return null;
+      let r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) {
+        const kid = Array.prototype.find.call(el.children, function(c){
+          const cr = c.getBoundingClientRect();
+          return cr.width > 0 && cr.height > 0;
+        });
+        if (kid) r = kid.getBoundingClientRect();
+      }
+      return (r.width && r.height) ? r : null;
+    }
+
+    // Transform that makes the modal's box (at its resting rect) sit exactly on the thumbnail rect.
+    function flipTransform(from, to){
+      const sx = from.width / to.width;
+      const sy = from.height / to.height;
+      const dx = from.left - to.left;
+      const dy = from.top - to.top;
+      return 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')';
+    }
+
+    function cancelAnims(){
+      activeAnims.forEach(function(a){ a.cancel(); });
+      activeAnims = [];
+    }
+
+    function mountPlayer(id){
       slot.innerHTML = '<iframe src="https://www.youtube.com/embed/' + id + '?autoplay=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
+    }
+
+    function openVideo(id, el){
+      if (busy) return;
+      busy = true;
+      originEl = el || null;
       fallbackLink.href = 'https://youtu.be/' + id;
+
+      // Show overlay so the inner box has its real resting size and rect.
       overlay.classList.add('open');
       document.body.style.overflow = 'hidden';
+      const to = inner.getBoundingClientRect();
+      const from = getOriginRect(originEl);
+
+      mountPlayer(id);
+
+      if (reduceMotion || !from) {
+        overlay.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200 });
+        busy = false;
+        return;
+      }
+
+      const t = flipTransform(from, to);
+      const radius = originEl ? (getComputedStyle(originEl).borderRadius || '12px') : '12px';
+      const bgAnim = overlay.animate([{ backgroundColor: 'rgba(6,5,10,0)' }, { backgroundColor: 'rgba(6,5,10,1)' }], { duration: DUR, easing: 'ease-out', fill: 'none' });
+      const boxAnim = inner.animate([
+        { transform: t, borderRadius: radius, boxShadow: '0 0 0 rgba(0,0,0,0)' },
+        { transform: 'none', borderRadius: '10px', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }
+      ], { duration: DUR, easing: EASE, fill: 'none' });
+      activeAnims = [bgAnim, boxAnim];
+      boxAnim.onfinish = function(){ activeAnims = []; busy = false; };
     }
+
     function closeVideo(){
-      overlay.classList.remove('open');
-      slot.innerHTML = '';
-      document.body.style.overflow = '';
+      if (!overlay.classList.contains('open') || busy) return;
+      busy = true;
+      cancelAnims();
+      const to = inner.getBoundingClientRect();
+      // Re-read the origin in case the page scrolled while the modal was open.
+      const from = getOriginRect(originEl);
+
+      function finish(){
+        overlay.classList.remove('open');
+        slot.innerHTML = '';
+        document.body.style.overflow = '';
+        activeAnims = [];
+        originEl = null;
+        busy = false;
+      }
+
+      if (reduceMotion || !from) {
+        const fade = overlay.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'none' });
+        fade.onfinish = finish;
+        return;
+      }
+
+      const t = flipTransform(from, to);
+      const radius = originEl ? (getComputedStyle(originEl).borderRadius || '12px') : '12px';
+      const bgAnim = overlay.animate([{ backgroundColor: 'rgba(6,5,10,1)' }, { backgroundColor: 'rgba(6,5,10,0)' }], { duration: DUR, easing: 'ease-in', fill: 'none' });
+      const boxAnim = inner.animate([
+        { transform: 'none', borderRadius: '10px' },
+        { transform: t, borderRadius: radius }
+      ], { duration: DUR, easing: EASE, fill: 'none' });
+      activeAnims = [bgAnim, boxAnim];
+      boxAnim.onfinish = finish;
     }
 
     document.querySelectorAll('.yt-trigger').forEach(function(el){
       el.addEventListener('click', function(e){
         e.preventDefault();
         const id = this.getAttribute('data-yt');
-        if (id) { openVideo(id); }
+        if (id) { openVideo(id, this); }
       });
     });
 
