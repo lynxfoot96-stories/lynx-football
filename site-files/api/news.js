@@ -1,16 +1,5 @@
 import dbModule from '../lib/news/db.js';
 
-function dateLabel(publishedDate) {
-  if (!publishedDate) return '';
-  const d = new Date(publishedDate);
-  if (isNaN(d.getTime())) return publishedDate;
-  return d.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -20,24 +9,24 @@ export default async function handler(req, res) {
     const getDbFn = dbModule.getDb || dbModule.default?.getDb || dbModule;
     const db = typeof getDbFn === 'function' ? await getDbFn() : dbModule;
     
-    const limit = parseInt(req.query.limit, 10) || 30;
+    if (!db || typeof db.from !== 'function') {
+      return res.status(500).json({ error: 'Database client not initialized correctly', dbType: typeof db });
+    }
 
-    let rows = [];
-    if (typeof db.from === 'function') {
-      const { data, error } = await db
-        .from('news_articles')
-        .select('*')
-        .limit(limit);
+    const { data, error } = await db
+      .from('news_articles')
+      .select('*')
+      .limit(30);
       
-      if (error) throw error;
-      rows = data || [];
+    if (error) {
+      return res.status(500).json({ error: 'Supabase error', details: error });
     }
 
     return res.status(200).json({
-      articles: rows.map(r => ({ ...r, date_label: dateLabel(r.published_date || r.created_at) })),
+      count: data ? data.length : 0,
+      articles: data || []
     });
-  } catch (error) {
-    console.error('Database query error:', error);
-    return res.status(500).json({ error: 'Failed to retrieve news articles' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Catch error', message: err.message });
   }
 }
