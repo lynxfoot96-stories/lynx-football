@@ -1,4 +1,4 @@
-import dbModule from '../lib/news/db.js';
+import db from '../lib/news/db.js';
 
 function dateLabel(publishedDate) {
   if (!publishedDate) return '';
@@ -17,26 +17,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    const getDbFn = dbModule.getDb || dbModule.default?.getDb || dbModule;
-    const db = typeof getDbFn === 'function' ? await getDbFn() : dbModule;
-    
     const limit = parseInt(req.query.limit, 10) || 30;
-
-    let rows = [];
-    if (db && typeof db.from === 'function') {
-      const { data, error } = await db
-        .from('news_articles')
-        .select('*')
-        .limit(limit);
-      
-      if (error) throw error;
-      rows = data || [];
-    }
+    const rows = await db.listPublished({ limit });
 
     return res.status(200).json({
-      articles: rows.map(r => ({ 
-        ...r, 
-        date_label: dateLabel(r.published_date || r.created_at) 
+      articles: rows.map(r => ({
+        ...r,
+        date_label: dateLabel(r.published_date || r.created_at)
       }))
     });
   } catch (error) {
