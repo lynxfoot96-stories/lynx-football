@@ -569,7 +569,41 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
     return '<div class="nx-img" style="background:'+GRADIENT+';opacity:.85" data-label=""></div>';
   }
   function toItem(o){
-    return {href:"news-article.html?slug="+encodeURIComponent(o.slug),title:o.title||"Untitled",cat:first(o,["category","tag","topic","club"])||"News",date:shortDate(o),img:safeUrl(first(o,["image_url","image","cover_image","thumbnail"]))};
+    var own=safeUrl(first(o,["image_url","image","cover_image","thumbnail"]));
+    if(!own){
+      var m=matchVideos(o.title||"",[first(o,["summary","excerpt","dek","description"]),first(o,["body","content","article_body","article","full_text","text"])].join(" "),1);
+      if(m.matched)own="https://i.ytimg.com/vi/"+m.list[0].id+"/hqdefault.jpg";
+    }
+    return {href:"news-article.html?slug="+encodeURIComponent(o.slug),title:o.title||"Untitled",cat:first(o,["category","tag","topic","club"])||"News",date:shortDate(o),img:own};
+  }
+
+  /* Banner: big images fill the banner; small/low-res ones are shown whole over a blurred copy of
+     themselves (instead of being stretched and looking pixelated). */
+  function setBanner(el,url,alt){
+    var bg=el.querySelector(".nx-img");
+    function gradient(){bg.style.cssText="background:"+GRADIENT+";opacity:.85"}
+    function apply(u,w){
+      if(w>=1200){
+        bg.style.backgroundImage='url("'+u.replace(/"/g,"%22")+'")';bg.style.backgroundSize="cover";bg.style.backgroundPosition="center 25%";
+      }else{
+        bg.style.backgroundImage='url("'+u.replace(/"/g,"%22")+'")';bg.style.backgroundSize="cover";bg.style.backgroundPosition="center";
+        bg.style.filter="blur(26px) brightness(.7)";bg.style.transform="scale(1.2)";
+        var fg=document.createElement("div");
+        fg.style.cssText="position:absolute;inset:0;background:url(\""+u.replace(/"/g,"%22")+"\") center/contain no-repeat";
+        el.appendChild(fg);
+      }
+    }
+    function load(u,fallback){
+      if(!u){gradient();return}
+      var im=new Image();
+      im.onload=function(){
+        if(im.naturalWidth<=120&&fallback){load(fallback,"");return}   /* YouTube's "no maxres" placeholder */
+        apply(u,im.naturalWidth);
+      };
+      im.onerror=function(){fallback?load(fallback,""):gradient()};
+      im.src=u;
+    }
+    load(url,alt);
   }
 
   function render(a,others){
@@ -617,9 +651,11 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
       '<div class="club-tabpanel" data-panel="explore"><p class="panel-intro">Keep reading &mdash; more stories from around the football world.</p><div class="nx-grid">'+explore+'</div><div class="nx-more"><a href="news.html" class="nx-more-btn">See all news</a></div></div>'+
       '</div>';
 
-    var banner=box.querySelector(".club-banner .nx-img");
-    if(img){banner.style.backgroundImage='url("'+img.replace(/"/g,"%22")+'")';banner.style.backgroundSize="cover";banner.style.backgroundPosition="center 25%"}
-    else{box.querySelector(".club-banner").style.display="none"}
+    var bannerEl=box.querySelector(".club-banner");
+    var vThumb=mv.matched?"https://i.ytimg.com/vi/"+mv.list[0].id+"/":"";
+    if(img)setBanner(bannerEl,img,"");
+    else if(vThumb)setBanner(bannerEl,vThumb+"maxresdefault.jpg",vThumb+"hqdefault.jpg");
+    else setBanner(bannerEl,"","");
     document.title=title+" — Football Stories";
     wireTabs(box);
   }
