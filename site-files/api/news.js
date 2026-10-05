@@ -1,4 +1,4 @@
-import { getDb } from './_db.js';
+import { getDb } from '../lib/news/db.js';
 
 function dateLabel(publishedDate) {
   if (!publishedDate) return '';
