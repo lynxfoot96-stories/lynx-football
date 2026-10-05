@@ -1,4 +1,4 @@
-import { getDb } from '../lib/news/db.js';
+import dbModule from '../lib/news/db.js';
 
 function dateLabel(publishedDate) {
   if (!publishedDate) return '';
@@ -17,7 +17,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const db = await getDb();
+    // Handles whether getDb is a named export, default export, or the module itself
+    const getDbFn = dbModule.getDb || dbModule.default?.getDb || dbModule;
+    const db = typeof getDbFn === 'function' ? await getDbFn() : dbModule;
+    
     const limit = parseInt(req.query.limit, 10) || 30;
 
     const rows = await db.all(
