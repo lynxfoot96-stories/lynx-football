@@ -5,6 +5,7 @@ const { cluster, prefilter, dropAlreadyPublished } = require('./dedupe');
 const ai = require('./ai');
 const { validateArticle } = require('./validate');
 const db = require('./db');
+const images = require('./images');
 const { todayISO } = require('./text');
 const { log, logError } = require('./log');
 
@@ -12,7 +13,7 @@ const { log, logError } = require('./log');
  * Full run: RSS -> dedupe -> filter -> ONE AI call -> validate -> save.
  */
 async function run({ mode = 'publish', stage = 'full', cfg = defaultConfig, deps = {} } = {}) {
-  const d = { rss, ai, db, now: new Date(), ...deps };
+  const d = { rss, ai, db, images, now: new Date(), ...deps };
   const report = { mode, startedAt: d.now.toISOString(), published: 0, saved: [], rejected: [], notes: [] };
   const today = todayISO(d.now);
   log('job_started', { mode, stage });
@@ -115,6 +116,26 @@ async function run({ mode = 'publish', stage = 'full', cfg = defaultConfig, deps
       valid.push(v.article);
     }
     log('articles_selected', { titles: valid.map(a => a.title) });
+
+    // 5b. Replace the (often tiny) RSS thumbnail with the biggest real image we can find.
+    //     Never blocks publishing: on any problem the article keeps the image it already had.
+    if (cfg.upgradeImages !== false && valid.length) {
+      const allItems = candidates.flatMap(c => c.items);
+      report.images = [];
+      await Promise.all(valid.map(async (article) => {
+        try {
+          const urls = [...new Set([article.source_url, ...(article.source_urls || [])].filter(Boolean))];
+          const srcItems = allItems.filter(i => urls.includes(i.link));
+          const rssImages = [...new Set(srcItems.flatMap(i => i.images || (i.image ? [i.image] : [])))];
+          const pick = await d.images.pickBest({ rssImages, pages: urls.slice(0, 3) }, cfg);
+          if (pick.decided) article.image_url = pick.url;
+          report.images.push({ slug: article.slug, image_url: article.image_url || null, width: pick.width, note: pick.note });
+          log('image_picked', { slug: article.slug, width: pick.width, note: pick.note });
+        } catch (err) {
+          logError('image_pick_failed', err, { slug: article.slug });
+        }
+      }));
+    }
 
     // 6. Save to Supabase
     if (mode === 'test') {

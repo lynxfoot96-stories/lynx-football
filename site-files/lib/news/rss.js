@@ -16,15 +16,36 @@ function attr(block, name, attribute) {
   return m ? decodeEntities(m[1]) : '';
 }
 
-function findImage(block, description) {
-  const candidates = [
-    attr(block, 'media:thumbnail', 'url'),
-    attr(block, 'media:content', 'url'),
+function allAttrs(block, name, attribute) {
+  const re = new RegExp(`<${name}\\b[^>]*?\\b${attribute}\\s*=\\s*["']([^"']+)["']`, 'gi');
+  const out = [];
+  let m;
+  while ((m = re.exec(block))) out.push(decodeEntities(m[1]));
+  return out;
+}
+
+/** Extra, bigger variants of known CDN thumbnail URLs. They are only *candidates*: images.js measures them. */
+function biggerVariants(u) {
+  const out = [];
+  try {
+    const url = new URL(u);
+    if (url.hostname === 'ichef.bbci.co.uk') {            // BBC: .../standard/240/... -> .../standard/976/...
+      out.push(u.replace(/\/(ace\/standard|news|live)\/\d{2,4}\//, '/$1/976/'));
+    }
+  } catch (_) { /* ignore */ }
+  return out.filter(x => x !== u);
+}
+
+/** Every https image the RSS item offers, bigger-looking ones first (media:content before thumbnails). */
+function findImages(block, description) {
+  const raw = [
+    ...allAttrs(block, 'media:content', 'url'),
     /image\//i.test(attr(block, 'enclosure', 'type')) ? attr(block, 'enclosure', 'url') : '',
+    ...allAttrs(block, 'media:thumbnail', 'url'),
     (/<img[^>]+src=["']([^"']+)["']/i.exec(description) || [])[1] || '',
-  ];
-  const url = candidates.map(decodeEntities).find(u => /^https:\/\//i.test(u));
-  return url || null;
+  ].map(decodeEntities).filter(u => /^https:\/\//i.test(u));
+  const withBigger = raw.flatMap(u => [u, ...biggerVariants(u)]);
+  return [...new Set(withBigger)];
 }
 
 function parseFeed(xml, source, snippetChars = 400) {
@@ -38,6 +59,7 @@ function parseFeed(xml, source, snippetChars = 400) {
     const dateStr = stripHtml(tag(block, 'pubDate') || tag(block, 'published') || tag(block, 'updated') || tag(block, 'dc:date'));
     const ts = Date.parse(dateStr);
     if (!title || !/^https?:\/\//i.test(link)) continue;
+    const images = findImages(block, decodeEntities(rawDesc));
     items.push({
       source: source.name,
       weight: source.weight || 1,
@@ -45,7 +67,8 @@ function parseFeed(xml, source, snippetChars = 400) {
       link: link.replace(/[?#].*$/, ''), // drop tracking params so the same article dedupes across runs
       snippet: truncate(stripHtml(rawDesc), snippetChars),
       publishedAt: Number.isFinite(ts) ? ts : null,
-      image: findImage(block, decodeEntities(rawDesc)),
+      image: images[0] || null,
+      images,
     });
   }
   return items;

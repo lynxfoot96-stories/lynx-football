@@ -30,6 +30,9 @@ module.exports = {
   maxPublishedPerDay: 3,    // hard daily cap
   dedupeLookbackDays: 14,   // compare against articles published in the last N days
   useSourceImages: true,
+  upgradeImages: true,      // look for the full-size picture (og:image) and measure real sizes before saving
+  minImageWidth: 900,       // images narrower than this are skipped (site shows a video thumbnail / gradient instead)
+  imageTimeoutMs: 5000,     // per image / page request
 
   // ---- Editorial Categories --------------------------------------------------
   categories: [
