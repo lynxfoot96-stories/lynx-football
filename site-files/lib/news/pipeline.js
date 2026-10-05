@@ -1,136 +1,237 @@
-'use strict';
-const defaultConfig = require('./config');
-const rss = require('./rss');
-const { cluster, prefilter, dropAlreadyPublished } = require('./dedupe');
-const ai = require('./ai');
-const { validateArticle } = require('./validate');
-const db = require('./db');
-const { todayISO } = require('./text');
-const { log, logError } = require('./log');
+// /api/scores.js
+const API_BASE = "https://v3.football.api-sports.io";
 
-/**
- * Full run: RSS -> dedupe -> filter -> ONE AI call -> validate -> save.
- *
- * options.mode:
- *   'publish'  production run (cron): valid articles are saved as status=published
- *   'test'     dry run: nothing is written; the generated articles are returned for inspection
- *   'draft'    like test, but the valid articles are saved as status=draft
- * options.stage = 'candidates' stops before the AI call (free; shows what the editor would see)
- */
-async function run({ mode = 'publish', stage = 'full', cfg = defaultConfig, deps = {} } = {}) {
-  const d = { rss, ai, db, now: new Date(), ...deps };
-  const report = { mode, startedAt: d.now.toISOString(), published: 0, saved: [], rejected: [], notes: [] };
-  const today = todayISO(d.now);
-  log('job_started', { mode, stage });
-
-  try {
-    // 1. What is already on the site? (needed to avoid duplicates and to enforce the daily cap)
-    let published = [];
-    try {
-      published = await d.db.recentPublished(cfg.dedupeLookbackDays);
-      if (mode === 'publish') {
-        const already = await d.db.publishedTodayCount(today);
-        report.alreadyPublishedToday = already;
-        if (already >= cfg.maxPublishedPerDay) {
-          report.notes.push(`daily cap reached (${already}/${cfg.maxPublishedPerDay}) — nothing to do`);
-          log('daily_cap_reached', { already });
-          return report;
-        }
-      }
-    } catch (err) {
-      if (mode === 'publish') throw err; // never publish blind: could create duplicates
-      report.notes.push(`database unavailable in test mode (${err.message}) — duplicate check against published news skipped`);
-      logError('db_unavailable_test_mode', err);
-    }
-    const remainingToday = Math.max(0, cfg.maxPublishedPerDay - (report.alreadyPublishedToday || 0));
-    const maxArticles = Math.min(cfg.maxArticlesPerRun, mode === 'publish' ? remainingToday : cfg.maxArticlesPerRun);
-
-    // 2. Fetch + parse feeds
-    const collected = await d.rss.collect(cfg, d.now.getTime());
-    report.rssCollected = collected.total;
-    report.rssRecent = collected.items.length;
-    report.feeds = `${collected.feedsOk}/${collected.feedsTotal} feeds reachable`;
-    if (!collected.items.length) {
-      report.notes.push('no recent RSS items — nothing published (existing news untouched)');
-      log('no_rss_items', {});
-      return report;
-    }
-
-    // 3. Dedupe, filter, rank
-    const clusters = cluster(collected.items);
-    report.duplicatesRemoved = collected.items.length - clusters.length;
-    const filtered = prefilter(clusters, cfg);
-    const candidates = dropAlreadyPublished(filtered, published);
-    report.candidatesSentToAI = candidates.length;
-    log('candidates_ready', {
-      clusters: clusters.length, duplicatesRemoved: report.duplicatesRemoved,
-      afterFilter: filtered.length, afterPublishedCheck: candidates.length,
-    });
-
-    if (stage === 'candidates') {
-      report.candidates = candidates.map((c, i) => ({
-        id: i + 1, sources: c.sources, score: Math.round(c.score * 10) / 10,
-        titles: c.items.map(x => `[${x.source}] ${x.title}`),
-      }));
-      return report;
-    }
-    if (!candidates.length) {
-      report.notes.push('no candidates left after filtering — nothing published');
-      return report;
-    }
-
-    // 4. ONE AI call (select + write)
-    const recentTitles = published.map(p => p.title).slice(0, 30);
-    const result = await d.ai.editorialCall(candidates, recentTitles, cfg);
-    report.model = result.model;
-    report.usage = result.usage;
-    log('ai_response', { model: result.model, returned: result.articles.length, usage: result.usage });
-
-    // 5. Validate (+ hard cap, + never two articles on the same candidate)
-    const used = new Set();
-    const valid = [];
-    for (const raw of result.articles.slice(0, maxArticles)) {
-      const ids = Array.isArray(raw.candidate_ids) ? raw.candidate_ids : [];
-      if (ids.some(id => used.has(id))) {
-        report.rejected.push({ title: raw.title, errors: ['overlaps another selected story'] });
-        continue;
-      }
-      const v = validateArticle(raw, candidates, cfg, { recentTitles, now: d.now });
-      if (!v.ok) {
-        report.rejected.push({ title: raw.title, errors: v.errors });
-        log('article_rejected', { title: raw.title, errors: v.errors });
-        continue;
-      }
-      ids.forEach(id => used.add(id));
-      valid.push(v.article);
-    }
-    log('articles_selected', { titles: valid.map(a => a.title) });
-
-    // 6. Save
-    if (mode === 'test') {
-      report.saved = valid.map(a => ({ ...a, status: 'not saved (test mode)' }));
-      return report;
-    }
-    const status = mode === 'draft' ? 'draft' : 'published';
-    for (const article of valid) {
-      try {
-        const r = await d.db.insertArticle(article, status);
-        report.saved.push({ slug: article.slug, title: article.title, status: r === 'saved' ? status : 'duplicate (skipped)' });
-        if (r === 'saved' && status === 'published') report.published++;
-        log(r === 'saved' ? 'article_saved' : 'article_duplicate', { slug: article.slug, status });
-      } catch (err) {
-        report.saved.push({ slug: article.slug, title: article.title, status: 'error' });
-        logError('article_save_failed', err, { slug: article.slug });
-      }
-    }
-    log('job_finished', { published: report.published, saved: report.saved.length });
-    return report;
-  } catch (err) {
-    // OpenAI / Supabase / unexpected failure: nothing is published, nothing is deleted.
-    logError('job_failed', err);
-    report.error = err.message;
-    return report;
-  }
+function buildHeaders() {
+  return {
+    "x-apisports-key": process.env.API_FOOTBALL_KEY,
+  };
 }
 
-module.exports = { run };
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const cache = new Map();
+const inFlight = new Map();
+
+const LIVE_STATUSES = new Set(["1H", "HT", "2H", "ET", "BT", "P", "LIVE"]);
+const ALLOWED_LEAGUE_IDS = new Set([39, 140, 135, 78, 61, 2, 3, 71, 94, 5, 29]);
+
+function mapFixture(item) {
+  const status = item.fixture.status || {};
+  return {
+    id: item.fixture.id,
+    date: item.fixture.date,
+    statusShort: status.short,
+    isLive: LIVE_STATUSES.has(status.short),
+    minute: status.elapsed || null,
+    league: {
+      id: item.league.id,
+      name: item.league.name,
+      logo: item.league.logo,
+    },
+    home: {
+      name: item.teams.home.name,
+      logo: item.teams.home.logo,
+      winner: item.teams.home.winner,
+    },
+    away: {
+      name: item.teams.away.name,
+      logo: item.teams.away.logo,
+      winner: item.teams.away.winner,
+    },
+    goals: {
+      home: item.goals.home,
+      away: item.goals.away,
+    },
+  };
+}
+
+function buildLeaguesMap(fixtures) {
+  const leagues = {};
+  fixtures.forEach((f) => {
+    leagues[f.league.id] = f.league.name;
+  });
+  return leagues;
+}
+
+const DAILY_BUDGET = 70;
+let budgetDay = null;
+let callsToday = 0;
+
+function budgetAvailable() {
+  const today = new Date().toISOString().slice(0, 10);
+  if (budgetDay !== today) {
+    budgetDay = today;
+    callsToday = 0;
+  }
+  return callsToday < DAILY_BUDGET;
+}
+
+async function callApiFootball(path) {
+  const key = process.env.API_FOOTBALL_KEY;
+  if (!key) {
+    throw new Error(
+      "API_FOOTBALL_KEY is not set. Add it in your project's environment variables."
+    );
+  }
+  if (!budgetAvailable()) {
+    throw new Error(
+      "Daily request budget reached for /api/scores; serving cached data until it resets."
+    );
+  }
+  callsToday++;
+  const res = await fetch(`${API_BASE}${path}`, { headers: buildHeaders() });
+  if (!res.ok) {
+    throw new Error(`API-Football request failed (${res.status})`);
+  }
+  const json = await res.json();
+  if (json.errors && Object.keys(json.errors).length) {
+    throw new Error(
+      typeof json.errors === "string"
+        ? json.errors
+        : JSON.stringify(json.errors)
+    );
+  }
+  return (json.response || [])
+    .map(mapFixture)
+    .filter((f) => ALLOWED_LEAGUE_IDS.has(f.league.id));
+}
+
+async function getCached(key, path) {
+  const cached = cache.get(key);
+  const isFresh = cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS;
+  if (isFresh) return cached.data;
+
+  if (inFlight.has(key)) return inFlight.get(key);
+
+  const promise = callApiFootball(path)
+    .then((data) => {
+      cache.set(key, { fetchedAt: Date.now(), data });
+      inFlight.delete(key);
+      return data;
+    })
+    .catch((err) => {
+      inFlight.delete(key);
+      if (cached) return cached.data;
+      throw err;
+    });
+
+  inFlight.set(key, promise);
+  return promise;
+}
+
+const SEASON_CACHE_TTL_MS = 4 * 60 * 60 * 1000;
+const seasonCache = new Map();
+const seasonInFlight = new Map();
+
+function currentSeasonYear() {
+  const now = new Date();
+  const month = now.getUTCMonth() + 1;
+  return month >= 7 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
+}
+
+async function getSeasonDates(leagueId, season) {
+  const key = leagueId + "-" + season;
+  const cached = seasonCache.get(key);
+  const isFresh = cached && Date.now() - cached.fetchedAt < SEASON_CACHE_TTL_MS;
+  if (isFresh) return cached.dates;
+
+  if (seasonInFlight.has(key)) return seasonInFlight.get(key);
+
+  const promise = callApiFootball(`/fixtures?league=${leagueId}&season=${season}`)
+    .then((fixtures) => {
+      const dateSet = new Set();
+      fixtures.forEach((f) => {
+        if (f.date) dateSet.add(f.date.slice(0, 10));
+      });
+      const dates = Array.from(dateSet).sort();
+      seasonCache.set(key, { fetchedAt: Date.now(), dates });
+      seasonInFlight.delete(key);
+      return dates;
+    })
+    .catch((err) => {
+      seasonInFlight.delete(key);
+      if (cached) return cached.dates;
+      throw err;
+    });
+
+  seasonInFlight.set(key, promise);
+  return promise;
+}
+
+module.exports = async (req, res) => {
+  try {
+    const { view, date, league } = req.query;
+    const leagueFilter = league && league !== "all" ? String(league) : null;
+
+    let fixtures = [];
+
+    if (view === "live") {
+      try {
+        fixtures = await getCached("live", "/fixtures?live=all");
+        if (leagueFilter) {
+          fixtures = fixtures.filter(
+            (f) => String(f.league.id) === leagueFilter
+          );
+        }
+      } catch (err) {
+        console.warn("[/api/scores] Live fixtures fetch failed:", err.message);
+      }
+      res.status(200).json({ ok: true, fixtures });
+      return;
+    }
+
+    if (view === "date") {
+      if (!date) {
+        res.status(400).json({ ok: false, error: "Missing date parameter." });
+        return;
+      }
+      try {
+        fixtures = await getCached(`date:${date}`, `/fixtures?date=${date}`);
+      } catch (err) {
+        console.warn(`[/api/scores] Date ${date} fetch failed:`, err.message);
+      }
+      const leagues = buildLeaguesMap(fixtures);
+      const filtered = leagueFilter
+        ? fixtures.filter((f) => String(f.league.id) === leagueFilter)
+        : fixtures;
+      res.status(200).json({ ok: true, fixtures: filtered, leagues });
+      return;
+    }
+
+    if (view === "dates") {
+      const season = req.query.season
+        ? parseInt(req.query.season, 10)
+        : currentSeasonYear();
+      const leagueIds = leagueFilter
+        ? [Number(leagueFilter)]
+        : Array.from(ALLOWED_LEAGUE_IDS);
+
+      const dateSet = new Set();
+      const errors = [];
+      for (let i = 0; i < leagueIds.length; i++) {
+        try {
+          const list = await getSeasonDates(leagueIds[i], season);
+          list.forEach((d) => dateSet.add(d));
+        } catch (err) {
+          console.error("[/api/scores dates]", leagueIds[i], err.message);
+          errors.push(err.message);
+        }
+        if (i < leagueIds.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+      }
+      const dates = Array.from(dateSet).sort();
+
+      res.status(200).json({ ok: true, season, dates, partial: errors.length > 0 });
+      return;
+    }
+
+    res.status(400).json({ ok: false, error: "Unknown view parameter." });
+  } catch (err) {
+    console.error("[/api/scores]", err.message);
+    res.status(200).json({
+      ok: false,
+      fixtures: [],
+      error: "Scores are temporarily unavailable. Please try again shortly.",
+    });
+  }
+};
