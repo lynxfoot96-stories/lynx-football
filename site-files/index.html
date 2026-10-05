@@ -763,6 +763,40 @@
   .card-link{ text-decoration:none; color:inherit; display:block; }
   .featured-link{ text-decoration:none; color:inherit; display:contents; }
 
+  .yt-inline{
+    position:absolute;
+    inset:0;
+    z-index:3;
+    background:#000;
+    overflow:hidden;
+  }
+  .yt-inline iframe{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    border:0;
+    display:block;
+  }
+  .yt-inline-expand{
+    position:absolute;
+    right:12px;
+    bottom:12px;
+    width:36px;
+    height:36px;
+    border-radius:8px;
+    background:rgba(0,0,0,0.6);
+    border:1px solid rgba(255,255,255,0.3);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    z-index:4;
+    transition:background .2s ease;
+  }
+  .yt-inline-expand:hover{ background:rgba(0,0,0,0.85); }
+
   .yt-modal-overlay{
     display:none;
     position:fixed;
@@ -2345,11 +2379,55 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
       boxAnim.onfinish = finish;
     }
 
+    // ---- Inline preview: plays inside the card's thumbnail square ----
+    let inlineState = null; // { thumb, wrap }
+
+    function findThumb(el){
+      let t = el.querySelector('.featured-media, .video-thumb');
+      if (!t) {
+        const card = el.closest('.featured, .video-card');
+        if (card) t = card.querySelector('.featured-media, .video-thumb');
+      }
+      return t;
+    }
+
+    function removeInline(){
+      if (!inlineState) return;
+      inlineState.wrap.remove();
+      inlineState = null;
+    }
+
+    function playInline(thumb, id){
+      if (inlineState && inlineState.thumb === thumb) return;
+      removeInline();
+      const wrap = document.createElement('div');
+      wrap.className = 'yt-inline';
+      wrap.innerHTML =
+        '<iframe src="https://www.youtube.com/embed/' + id + '?autoplay=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>' +
+        '<button type="button" class="yt-inline-expand" aria-label="Expand video">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6"/></svg>' +
+        '</button>';
+      thumb.appendChild(wrap);
+      inlineState = { thumb: thumb, wrap: wrap };
+
+      const expandBtn = wrap.querySelector('.yt-inline-expand');
+      expandBtn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        const cur = inlineState;
+        removeInline();                 // avoid two players playing at once
+        openVideo(id, cur ? cur.thumb : thumb);
+      });
+    }
+
     document.querySelectorAll('.yt-trigger').forEach(function(el){
       el.addEventListener('click', function(e){
         e.preventDefault();
         const id = this.getAttribute('data-yt');
-        if (id) { openVideo(id, this); }
+        if (!id) return;
+        const thumb = findThumb(this);
+        if (thumb) { playInline(thumb, id); }
+        else { openVideo(id, this); }   // fallback: no thumbnail box found
       });
     });
 
