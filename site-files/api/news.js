@@ -1,4 +1,9 @@
-import dbModule from '../lib/news/db.js';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 function dateLabel(publishedDate) {
   if (!publishedDate) return '';
@@ -17,18 +22,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Handle both direct object export and function export for the db module
-    const db = typeof dbModule.getDb === 'function' 
-      ? await dbModule.getDb() 
-      : (typeof dbModule.default === 'function' ? await dbModule.default() : dbModule);
-
-    if (!db || typeof db.from !== 'function') {
-      return res.status(500).json({ error: 'Database client missing .from() method' });
-    }
-
     const limit = parseInt(req.query.limit, 10) || 30;
 
-    const { data, error } = await db
+    const { data, error } = await supabase
       .from('news_articles')
       .select('*')
       .limit(limit);
