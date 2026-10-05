@@ -3,8 +3,6 @@
  * Public, read-only feed of PUBLISHED articles for the website.
  *   GET /api/news?limit=30      latest published articles
  *   GET /api/news?slug=<slug>   a single published article
- * Drafts and rejected articles are never returned. No secret is exposed to the browser:
- * the Supabase service key stays on the server.
  */
 const { listPublished } = require('../lib/news/db');
 const { dateLabel } = require('../lib/news/text');
@@ -19,13 +17,16 @@ module.exports = async function handler(req, res) {
 
   try {
     const rows = await listPublished({ limit, slug });
-    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=900');
+    
+    // Set cache control to no-store so client fetches fresh database results
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    
     return res.status(200).json({
       articles: rows.map(r => ({ ...r, date_label: dateLabel(r.published_date) })),
     });
   } catch (err) {
     logError('news_read_failed', err);
     res.setHeader('Cache-Control', 'no-store');
-    return res.status(503).json({ articles: [] }); // the page simply keeps showing its static news
+    return res.status(503).json({ articles: [] });
   }
 };
