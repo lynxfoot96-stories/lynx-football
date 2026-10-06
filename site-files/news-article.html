@@ -444,6 +444,12 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
   .yt-play{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:46px; height:46px; border-radius:50%; background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.35); display:flex; align-items:center; justify-content:center; z-index:2; pointer-events:none; transition:transform .25s ease, background .25s ease; }
   .club-video-card:hover .yt-play{ transform:translate(-50%,-50%) scale(1.08); background:rgba(138,63,252,.6); }
 </style>
+<style>
+/* photo credit for Wikimedia Commons banners / thumbnails */
+.club-banner .img-credit{position:absolute;right:16px;bottom:14px;z-index:3;max-width:calc(100% - 32px);padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600;line-height:1.4;
+  color:#fff;background:rgba(8,7,10,.62);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nx-card-media,.side-thumb{position:relative}
+</style>
 </head>
 <body>
 <div class="club-topbar">
@@ -523,6 +529,7 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
 </div>
 </main>
 <footer class="page-foot"><div class="wrap">Football Stories 96 will continue to bring you the biggest football stories, transfers and controversies from around the world.</div></footer>
+<script src="wiki-image.js"></script>
 <script src="news-videos.js"></script>
 <script>
 (function(){
@@ -593,7 +600,7 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
   function imgDiv(it){
     if(it.cls)return '<div class="nx-img '+it.cls+'" style="--pos:'+it.pos+'" data-label=""></div>';
     if(it.img)return '<div class="nx-img" style="background:url(&quot;'+esc(it.img.replace(/"/g,"%22"))+'&quot;) center/cover no-repeat" data-label=""></div>';
-    return '<div class="nx-img" style="background:'+GRADIENT+';opacity:.85" data-label=""></div>';
+    return '<div class="nx-img wm-pending" data-wm="'+esc(it.title)+'" style="background:'+GRADIENT+';opacity:.85" data-label=""></div>';
   }
   function toItem(o){
     var own=safeUrl(first(o,["image_url","image","cover_image","thumbnail"]));
@@ -631,6 +638,17 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
       im.src=u;
     }
     load(url,alt);
+  }
+
+  function fillThumbs(root){
+    if(!window.FSWikiImage)return;
+    Array.prototype.forEach.call(root.querySelectorAll(".nx-img.wm-pending"),function(n){
+      window.FSWikiImage.find(n.getAttribute("data-wm")).then(function(f){
+        if(!f)return;
+        n.classList.remove("wm-pending");
+        n.style.cssText='background:url("'+f.url.replace(/"/g,"%22")+'") center/cover no-repeat';
+      });
+    });
   }
 
   function render(a,others){
@@ -680,9 +698,22 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
 
     var bannerEl=box.querySelector(".club-banner");
     var vThumb=mv.matched?"https://i.ytimg.com/vi/"+mv.list[0].id+"/":"";
+    function videoOrGradient(){
+      if(vThumb)setBanner(bannerEl,vThumb+"maxresdefault.jpg",vThumb+"hqdefault.jpg");
+      else setBanner(bannerEl,"","");
+    }
     if(img)setBanner(bannerEl,img,"");
-    else if(vThumb)setBanner(bannerEl,vThumb+"maxresdefault.jpg",vThumb+"hqdefault.jpg");
-    else setBanner(bannerEl,"","");
+    else if(window.FSWikiImage){
+      /* no image on the story: use the same Wikimedia Commons photo the news list shows for it */
+      window.FSWikiImage.find(title).then(function(f){
+        if(!f){videoOrGradient();return}
+        setBanner(bannerEl,f.hi||f.url,f.hi?f.url:"");
+        var c=document.createElement("span");c.className="img-credit";c.textContent=f.credit;c.title=f.credit;
+        bannerEl.appendChild(c);
+      });
+    }
+    else videoOrGradient();
+    fillThumbs(box);
     document.title=title+" — Football Stories";
     wireTabs(box);
   }
