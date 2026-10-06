@@ -5,21 +5,26 @@ const { cluster, prefilter, dropAlreadyPublished } = require('./dedupe');
 const ai = require('./ai');
 const { validateArticle } = require('./validate');
 const db = require('./db');
-const images = require('./images');
 const { todayISO } = require('./text');
 const { log, logError } = require('./log');
 
 /**
  * Full run: RSS -> dedupe -> filter -> ONE AI call -> validate -> save.
+ *
+ * options.mode:
+ *   'publish'  production run (cron): valid articles are saved as status=published
+ *   'test'     dry run: nothing is written; the generated articles are returned for inspection
+ *   'draft'    like test, but the valid articles are saved as status=draft
+ * options.stage = 'candidates' stops before the AI call (free; shows what the editor would see)
  */
 async function run({ mode = 'publish', stage = 'full', cfg = defaultConfig, deps = {} } = {}) {
-  const d = { rss, ai, db, images, now: new Date(), ...deps };
+  const d = { rss, ai, db, now: new Date(), ...deps };
   const report = { mode, startedAt: d.now.toISOString(), published: 0, saved: [], rejected: [], notes: [] };
   const today = todayISO(d.now);
   log('job_started', { mode, stage });
 
   try {
-    // 1. Check existing published news
+    // 1. What is already on the site? (needed to avoid duplicates and to enforce the daily cap)
     let published = [];
     try {
       published = await d.db.recentPublished(cfg.dedupeLookbackDays);
@@ -33,14 +38,14 @@ async function run({ mode = 'publish', stage = 'full', cfg = defaultConfig, deps
         }
       }
     } catch (err) {
-      if (mode === 'publish') throw err;
-      report.notes.push(`database unavailable in test mode (${err.message}) — duplicate check skipped`);
+      if (mode === 'publish') throw err; // never publish blind: could create duplicates
+      report.notes.push(`database unavailable in test mode (${err.message}) — duplicate check against published news skipped`);
       logError('db_unavailable_test_mode', err);
     }
     const remainingToday = Math.max(0, cfg.maxPublishedPerDay - (report.alreadyPublishedToday || 0));
     const maxArticles = Math.min(cfg.maxArticlesPerRun, mode === 'publish' ? remainingToday : cfg.maxArticlesPerRun);
 
-    // 2. Fetch + parse RSS feeds safely
+    // 2. Fetch + parse feeds safely
     let collected = { total: 0, items: [], feedsOk: 0, feedsTotal: 0 };
     try {
       collected = await d.rss.collect(cfg, d.now.getTime());
@@ -53,7 +58,7 @@ async function run({ mode = 'publish', stage = 'full', cfg = defaultConfig, deps
     report.rssRecent = collected.items.length;
     report.feeds = `${collected.feedsOk}/${collected.feedsTotal} feeds reachable`;
     if (!collected.items || !collected.items.length) {
-      report.notes.push('no recent RSS items — nothing published');
+      report.notes.push('no recent RSS items — nothing published (existing news untouched)');
       log('no_rss_items', {});
       return report;
     }
@@ -81,7 +86,7 @@ async function run({ mode = 'publish', stage = 'full', cfg = defaultConfig, deps
       return report;
     }
 
-    // 4. AI Call safely
+    // 4. ONE AI call (select + write) wrapped safely
     const recentTitles = published.map(p => p.title).slice(0, 30);
     let result = { articles: [], model: 'none', usage: null };
     try {
@@ -96,7 +101,7 @@ async function run({ mode = 'publish', stage = 'full', cfg = defaultConfig, deps
     report.usage = result.usage;
     log('ai_response', { model: result.model, returned: (result.articles || []).length, usage: result.usage });
 
-    // 5. Validate articles
+    // 5. Validate (+ hard cap, + never two articles on the same candidate)
     const used = new Set();
     const valid = [];
     const rawArticles = Array.isArray(result.articles) ? result.articles : [];
@@ -117,27 +122,7 @@ async function run({ mode = 'publish', stage = 'full', cfg = defaultConfig, deps
     }
     log('articles_selected', { titles: valid.map(a => a.title) });
 
-    // 5b. Replace the (often tiny) RSS thumbnail with the biggest real image we can find.
-    //     Never blocks publishing: on any problem the article keeps the image it already had.
-    if (cfg.upgradeImages !== false && valid.length) {
-      const allItems = candidates.flatMap(c => c.items);
-      report.images = [];
-      await Promise.all(valid.map(async (article) => {
-        try {
-          const urls = [...new Set([article.source_url, ...(article.source_urls || [])].filter(Boolean))];
-          const srcItems = allItems.filter(i => urls.includes(i.link));
-          const rssImages = [...new Set(srcItems.flatMap(i => i.images || (i.image ? [i.image] : [])))];
-          const pick = await d.images.pickBest({ rssImages, pages: urls.slice(0, 3) }, cfg);
-          if (pick.decided) article.image_url = pick.url;
-          report.images.push({ slug: article.slug, image_url: article.image_url || null, width: pick.width, note: pick.note });
-          log('image_picked', { slug: article.slug, width: pick.width, note: pick.note });
-        } catch (err) {
-          logError('image_pick_failed', err, { slug: article.slug });
-        }
-      }));
-    }
-
-    // 6. Save to Supabase
+    // 6. Save
     if (mode === 'test') {
       report.saved = valid.map(a => ({ ...a, status: 'not saved (test mode)' }));
       return report;
