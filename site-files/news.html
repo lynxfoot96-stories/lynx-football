@@ -331,6 +331,12 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
 html[data-theme="light"] .nx-img.noimg{background:linear-gradient(135deg,rgba(123,44,255,.16),rgba(255,106,0,.14)),#F0EEF6}
 html[data-theme="light"] .nx-img.noimg::after{color:var(--purple-bright)}
 
+/* ---- image credit (Wikimedia Commons fallback photos) ---- */
+.nx-card-media,.nx-featured-media{position:relative}
+.img-credit{position:absolute;right:8px;bottom:8px;max-width:calc(100% - 16px);padding:3px 8px;border-radius:999px;font-size:10.5px;line-height:1.4;font-weight:600;
+  color:#fff;background:rgba(8,7,10,.62);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.nx-img.wm-loading{opacity:.9}
+
 /* ---- results / status line ---- */
 .news-count{font-size:13px;color:var(--muted);margin:-8px 0 18px}
 .news-note{font-size:13px;color:var(--orange-bright);margin-bottom:18px}
@@ -423,7 +429,7 @@ html[data-theme="light"] .nx-img.noimg::after{color:var(--purple-bright)}
      dek:"Rodrygo is getting closer to his return at Real Madrid. But his future could become one of the club's biggest questions."}
   ].map(function(s, i){
     return {title:s.title, dek:s.dek, cat:s.cat, date:s.date, label:s.label, ts:0, order:i,
-            href:'news-article.html?id=' + encodeURIComponent(s.id), imgClass:s.img, pos:s.pos, imgUrl:''};
+            href:'news-article.html?id=' + encodeURIComponent(s.id), imgClass:s.img, pos:s.pos, imgUrl:'', credit:'', uid:'s' + i};
   });
 
   var all = STATIC.slice();   // merged + sorted list
@@ -447,7 +453,7 @@ html[data-theme="light"] .nx-img.noimg::after{color:var(--purple-bright)}
       title: a.title || 'Untitled', dek: a.summary || a.highlight || '', cat: a.category || 'News',
       date: day, label: a.date_label || day, ts: Date.parse(a.created_at || '') || 0, order: i,
       href: a.slug ? 'news-article.html?slug=' + encodeURIComponent(a.slug) : '#',
-      imgClass: '', pos: 'center', imgUrl: safeUrl(a.image_url)
+      imgClass: '', pos: 'center', imgUrl: safeUrl(a.image_url), credit: '', uid: 'a' + i
     };
   }
   function sortAll(){
@@ -460,11 +466,14 @@ html[data-theme="light"] .nx-img.noimg::after{color:var(--purple-bright)}
   }
 
   /* ---------- rendering ---------- */
+  function creditHTML(a){
+    return a.credit ? '<span class="img-credit" title="' + esc(a.credit) + '">' + esc(a.credit) + '</span>' : '';
+  }
   function mediaHTML(a){
     var label = esc(a.cat);
     if (a.imgClass) return '<div class="nx-img ' + a.imgClass + '" style="--pos:' + esc(a.pos) + '" role="img" aria-label=""></div>';
-    if (a.imgUrl)   return '<div class="nx-img" style="background-image:url(&quot;' + a.imgUrl + '&quot;);background-size:cover;background-position:center"></div>';
-    return '<div class="nx-img noimg" data-label="' + label + '"></div>';
+    if (a.imgUrl)   return '<div class="nx-img" style="background-image:url(&quot;' + a.imgUrl + '&quot;);background-size:cover;background-position:center"></div>' + creditHTML(a);
+    return '<div class="nx-img noimg" data-uid="' + esc(a.uid) + '" data-label="' + label + '"></div>';
   }
   function cardHTML(a){
     return '<a class="nx-card" href="' + a.href + '" data-cat="' + esc(a.cat) + '">' +
@@ -513,6 +522,7 @@ html[data-theme="light"] .nx-img.noimg::after{color:var(--purple-bright)}
       (state.cat !== 'All' ? ' in ' + state.cat : '') + (pages > 1 ? ' · Page ' + state.page + ' of ' + pages : '');
     renderFilters();
     renderPager(pages);
+    fillMissingImages();
     if (moveFocus){
       topEl.scrollIntoView({behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'});
       topEl.focus({preventScroll: true});
@@ -560,6 +570,135 @@ html[data-theme="light"] .nx-img.noimg::after{color:var(--purple-bright)}
       ? link(cur + 1, '<span class="pg-label">Next</span>' + arrow('M9 18l6-6-6-6'), '', 'Next page')
       : '<span class="pg is-disabled" aria-hidden="true"><span class="pg-label">Next</span>' + arrow('M9 18l6-6-6-6') + '</span>');
     pagerEl.innerHTML = items.join('');
+  }
+
+  /* ---------- missing images: free fallback from Wikimedia Commons ---------- */
+  var WM_API = 'https://commons.wikimedia.org/w/api.php';
+  var WM_STOP = /^(the|a|an|and|or|but|for|of|to|in|on|at|as|by|with|from|after|before|over|under|into|out|up|down|is|are|was|were|be|has|have|had|will|new|first|latest|says|say|said|set|get|gets|leaves|leave|joins|join|faces|face|walks|walk|found|guilty|special|big|major|its|his|her|their|this|that|than|then|vs|v)$/i;
+  var WM_BAD_FILE = /(logo|flag|map|crest|coat of arms|signature|stamp|icon|diagram|chart|badge|emblem|kit|jersey|shirt|stadium plan|poster|screenshot)/i;
+  var wmQueue = [], wmActive = 0, wmMax = 2, wmMem = {};
+
+  function wmStore(){ try { return JSON.parse(localStorage.getItem('fs96-wm')) || {}; } catch(e){ return {}; } }
+  function wmSave(o){ try { localStorage.setItem('fs96-wm', JSON.stringify(o)); } catch(e){} }
+
+  /* "Haaland injury as Portugal clinch Nations League spot" -> ["Haaland Portugal Nations League", "Haaland Portugal", "Haaland"] */
+  function extractKeywords(title){
+    var words = String(title || '').replace(/['’]s\b/g, '').replace(/[^\p{L}\p{N}\s-]/gu, ' ').split(/\s+/).filter(Boolean);
+    var proper = words.filter(function(w){ return /^\p{Lu}/u.test(w) && !WM_STOP.test(w) && !/^\p{N}+$/u.test(w); });
+    var pool = proper.length >= 1 && proper.length < words.length ? proper
+             : words.filter(function(w){ return w.length > 3 && !WM_STOP.test(w); });   // title in ALL CAPS / no proper nouns
+    pool = pool.filter(function(w, i){ return pool.indexOf(w) === i; }).slice(0, 4);
+    var out = [];
+    for (var n = pool.length; n >= 1; n--){
+      var q = pool.slice(0, n).join(' ');
+      if (n === pool.length || n <= 2) out.push(q);
+    }
+    return out.filter(function(q, i){ return q && out.indexOf(q) === i; });
+  }
+
+  function stripHtml(h){ var d = document.createElement('div'); d.innerHTML = String(h || ''); return (d.textContent || '').replace(/\s+/g, ' ').trim(); }
+
+  function wmSearch(query){
+    var params = new URLSearchParams({
+      action: 'query', format: 'json', origin: '*', generator: 'search',
+      gsrsearch: query + ' filetype:bitmap', gsrnamespace: '6', gsrlimit: '10',
+      prop: 'imageinfo', iiprop: 'url|size|mime|extmetadata', iiurlwidth: '900',
+      iiextmetadatafilter: 'Artist|LicenseShortName|ImageDescription'
+    });
+    var ctl = ('AbortController' in window) ? new AbortController() : null;
+    var timer = setTimeout(function(){ if (ctl) ctl.abort(); }, 7000);
+    return fetch(WM_API + '?' + params.toString(), ctl ? {signal: ctl.signal} : {})
+      .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(j){
+        clearTimeout(timer);
+        var pages = (j && j.query && j.query.pages) ? Object.keys(j.query.pages).map(function(k){ return j.query.pages[k]; }) : [];
+        pages.sort(function(a, b){ return (a.index || 0) - (b.index || 0); });
+        return pages;
+      }, function(e){ clearTimeout(timer); throw e; });
+  }
+
+  function wmPick(pages, query){
+    var tokens = query.toLowerCase().split(/\s+/).filter(function(t){ return t.length > 2; });
+    var good = pages.map(function(p){
+      var ii = p.imageinfo && p.imageinfo[0]; if (!ii) return null;
+      var meta = ii.extmetadata || {};
+      var title = String(p.title || '').replace(/^File:/i, '');
+      var hay = (title + ' ' + stripHtml(meta.ImageDescription && meta.ImageDescription.value)).toLowerCase();
+      var okType = /^image\/(jpeg|png)$/.test(ii.mime || '');
+      var okSize = (ii.width || 0) >= 600 && (ii.height || 0) >= 300;
+      var relevant = tokens.some(function(t){ return hay.indexOf(t) !== -1; });
+      if (!okType || !okSize || !relevant || WM_BAD_FILE.test(title)) return null;
+      var url = safeUrl(ii.thumburl || ii.url); if (!url) return null;
+      var artist = stripHtml(meta.Artist && meta.Artist.value).slice(0, 40);
+      var lic = stripHtml(meta.LicenseShortName && meta.LicenseShortName.value);
+      return {url: url, landscape: ii.width >= ii.height,
+              credit: 'Photo: ' + (artist || 'Wikimedia Commons') + (lic ? ' · ' + lic : '') + ' · Wikimedia Commons'};
+    }).filter(Boolean);
+    return good.filter(function(g){ return g.landscape; })[0] || good[0] || null;
+  }
+
+  function wmCanLoad(url){
+    return new Promise(function(resolve){
+      var im = new Image();
+      im.onload = function(){ resolve(true); }; im.onerror = function(){ resolve(false); };
+      im.src = url;
+    });
+  }
+
+  /* Resolves to {url, credit} or null. Never rejects. Results (and misses) are cached. */
+  function findImageFor(title){
+    var queries = extractKeywords(title);
+    if (!queries.length) return Promise.resolve(null);
+    var key = queries[0].toLowerCase(), store = wmStore(), hit = store[key], now = Date.now();
+    if (wmMem[key] !== undefined) return Promise.resolve(wmMem[key]);
+    if (hit && now - hit.t < (hit.url ? 7 : 1) * 86400000) return Promise.resolve(hit.url ? hit : null);
+
+    var i = 0;
+    function next(){
+      if (i >= queries.length) return Promise.resolve(null);
+      var q = queries[i++];
+      return wmSearch(q).then(function(pages){
+        var pick = wmPick(pages, q);
+        if (!pick) return next();
+        return wmCanLoad(pick.url).then(function(ok){ return ok ? pick : next(); });
+      }, function(err){ console.warn('Wikimedia lookup failed for "' + q + '":', err && err.message); return null; });
+    }
+    return next().then(function(found){
+      wmMem[key] = found;
+      var st = wmStore(); st[key] = found ? {url: found.url, credit: found.credit, t: Date.now()} : {url: '', t: Date.now()};
+      wmSave(st);
+      return found;
+    }, function(){ return null; });
+  }
+
+  function applyImage(art, found){
+    art.imgUrl = found.url; art.credit = found.credit;
+    var nodes = document.querySelectorAll('.nx-img.noimg[data-uid="' + art.uid + '"]');
+    Array.prototype.forEach.call(nodes, function(n){
+      var holder = n.parentNode;
+      n.classList.remove('noimg'); n.removeAttribute('data-label');
+      n.style.backgroundImage = 'url("' + found.url + '")'; n.style.backgroundSize = 'cover'; n.style.backgroundPosition = 'center';
+      if (!holder.querySelector('.img-credit')) holder.insertAdjacentHTML('beforeend', creditHTML(art));
+    });
+  }
+
+  function pump(){
+    while (wmActive < wmMax && wmQueue.length){
+      var art = wmQueue.shift(); wmActive++;
+      findImageFor(art.title).then(function(found){ if (found) applyImage(this, found); }.bind(art))
+        .catch(function(){}).then(function(){ wmActive--; pump(); });
+    }
+  }
+  /* Called after every render: fills the cards currently on screen that have no image. */
+  function fillMissingImages(){
+    var seen = {};
+    Array.prototype.forEach.call(document.querySelectorAll('.nx-img.noimg[data-uid]'), function(n){
+      var uid = n.getAttribute('data-uid');
+      if (seen[uid]) return; seen[uid] = 1;
+      var art = all.filter(function(a){ return a.uid === uid; })[0];
+      if (art && !art.wmTried){ art.wmTried = true; wmQueue.push(art); }
+    });
+    pump();
   }
 
   /* ---------- url state ---------- */
