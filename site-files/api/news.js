@@ -29,9 +29,10 @@ export default async function handler(req, res) {
       return res.status(200).json({ article: withLabel(rows[0]) });
     }
 
-    // GET /api/news?limit=30  -> list
-    const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
-    const rows = await db.listPublished({ limit });
+    // GET /api/news?limit=30  -> list (max 1000; add &compact=1 to leave out the article bodies)
+    const limit = Math.min(parseInt(req.query.limit, 10) || 30, 1000);
+    const compact = req.query.compact === '1';
+    const rows = await db.listPublished({ limit, compact });
     return res.status(200).json({ articles: rows.map(withLabel) });
   } catch (error) {
     console.error('Database query error:', error);

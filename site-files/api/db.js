@@ -44,9 +44,11 @@ async function insertArticle(article, status, fetchImpl, rejectReason = null) {
   return 'saved';
 }
 
-async function listPublished({ limit = 30, slug = null } = {}, fetchImpl) {
+async function listPublished({ limit = 30, slug = null, compact = false } = {}, fetchImpl) {
   // Ordered by created_at first to reliably fetch articles generated today
-  let q = `${TABLE}?select=*&status=eq.published&order=created_at.desc&limit=${limit}`;
+  // compact = only the fields a listing page needs (no article body) so long lists stay small
+  const cols = compact ? 'slug,title,summary,category,published_date,created_at,image_url' : '*';
+  let q = `${TABLE}?select=${cols}&status=eq.published&order=created_at.desc&limit=${limit}`;
   if (slug) q = `${TABLE}?select=*&status=eq.published&slug=eq.${encodeURIComponent(slug)}&limit=1`;
   
   const res = await request(q, {}, fetchImpl);
