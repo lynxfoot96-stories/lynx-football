@@ -1,5 +1,5 @@
 'use strict';
-const defaultConfig = require('./config');
+const defaultConfig = require('./_lib/news/config');
 const rss = require('./rss');
 const { cluster, prefilter, dropAlreadyPublished } = require('./dedupe');
 const ai = require('./ai');
