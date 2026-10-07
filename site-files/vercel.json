@@ -2,9 +2,11 @@
   "cleanUrls": false,
   "trailingSlash": false,
   "crons": [
-    { "path": "/api/automated-news", "schedule": "0 8 * * *" }
+    { "path": "/api/automated-news", "schedule": "0 8 * * *" },
+    { "path": "/api/automated-news-openrouter", "schedule": "0 19 * * *" }
   ],
   "functions": {
-    "api/automated-news.js": { "maxDuration": 60 }
+    "api/automated-news.js": { "maxDuration": 60 },
+    "api/automated-news-openrouter.js": { "maxDuration": 60 }
   }
 }
