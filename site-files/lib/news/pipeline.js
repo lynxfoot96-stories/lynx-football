@@ -17,7 +17,7 @@ const { log, logError } = require('./log');
  *   'draft'    like test, but the valid articles are saved as status=draft
  * options.stage = 'candidates' stops before the AI call (free; shows what the editor would see)
  */
-async function run({ mode = 'publish', stage = 'full', cfg = defaultConfig, deps = {} } = {}) {
+async function run({ mode = 'publish', stage = 'full', cfg = defaultConfig, pipelineName = 'groq', deps = {} } = {}) {
   const d = { rss, ai, db, now: new Date(), ...deps };
   const report = { mode, startedAt: d.now.toISOString(), published: 0, saved: [], rejected: [], notes: [] };
   const today = todayISO(d.now);
@@ -29,11 +29,11 @@ async function run({ mode = 'publish', stage = 'full', cfg = defaultConfig, deps
     try {
       published = await d.db.recentPublished(cfg.dedupeLookbackDays);
       if (mode === 'publish') {
-        const already = await d.db.publishedTodayCount(today);
+        const already = await d.db.publishedTodayCount(today, pipelineName);
         report.alreadyPublishedToday = already;
         if (already >= cfg.maxPublishedPerDay) {
-          report.notes.push(`daily cap reached (${already}/${cfg.maxPublishedPerDay}) — nothing to do`);
-          log('daily_cap_reached', { already });
+          report.notes.push(`daily cap reached for pipeline=${pipelineName} (${already}/${cfg.maxPublishedPerDay}) — nothing to do`);
+          log('daily_cap_reached', { pipelineName, already });
           return report;
         }
       }
@@ -124,16 +124,17 @@ async function run({ mode = 'publish', stage = 'full', cfg = defaultConfig, deps
 
     // 6. Save
     if (mode === 'test') {
-      report.saved = valid.map(a => ({ ...a, status: 'not saved (test mode)' }));
+      report.saved = valid.map(a => ({ ...a, pipeline: pipelineName, ai_model: result.model, status: 'not saved (test mode)' }));
       return report;
     }
     const status = mode === 'draft' ? 'draft' : 'published';
     for (const article of valid) {
       try {
-        const r = await d.db.insertArticle(article, status);
+        const toSave = { ...article, pipeline: pipelineName, ai_model: result.model };
+        const r = await d.db.insertArticle(toSave, status);
         report.saved.push({ slug: article.slug, title: article.title, status: r === 'saved' ? status : 'duplicate (skipped)' });
         if (r === 'saved' && status === 'published') report.published++;
-        log(r === 'saved' ? 'article_saved' : 'article_duplicate', { slug: article.slug, status });
+        log(r === 'saved' ? 'article_saved' : 'article_duplicate', { slug: article.slug, status, pipeline: pipelineName });
       } catch (err) {
         report.saved.push({ slug: article.slug, title: article.title, status: 'error' });
         logError('article_save_failed', err, { slug: article.slug });
