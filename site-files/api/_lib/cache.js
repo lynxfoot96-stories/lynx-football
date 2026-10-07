@@ -131,9 +131,74 @@ async function incrementDailyCounter(counterName) {
   return count;
 }
 
+// ---- Public: distributed lock (cache-stampede protection) ---------------
+// Short-lived, per-key lock so that when a cache entry expires and many
+// concurrent requests see a miss at the same moment, only ONE of them
+// does the expensive upstream fetch; the rest wait briefly and then read
+// the value that request just cached instead of all calling the upstream
+// API too.
+//
+// Backed by Redis's atomic `SET key token NX EX ttl` -- NX means "only
+// set if it doesn't already exist", so exactly one concurrent caller can
+// ever win this across every serverless instance. The token is a random
+// value unique to this acquisition; release only deletes the key if it
+// still holds OUR token (via a small Lua script, run atomically), so a
+// request can never release a lock another request took over after ours
+// expired.
+//
+// Falls back to an in-memory lock (this instance only) when Upstash isn't
+// configured. That's not a true cross-instance lock, but it still
+// collapses concurrent requests landing on the SAME warm instance, and is
+// never worse than today's unlocked behavior.
+
+const localLocks = new Map(); // lockKey -> { token, expiresAt }
+
+function makeToken() {
+  return `${Date.now()}:${Math.random().toString(36).slice(2)}`;
+}
+
+// ttlSeconds should be a bit longer than the slowest expected upstream
+// call, so a crashed/killed serverless invocation can't leave a lock
+// stuck forever -- it just expires and the next request takes over.
+async function acquireLock(key, ttlSeconds = 20) {
+  const lockKey = `lock:${key}`;
+  const token = makeToken();
+
+  if (!upstashConfigured()) {
+    const now = Date.now();
+    const existing = localLocks.get(lockKey);
+    if (existing && existing.expiresAt > now) return null; // someone else holds it
+    localLocks.set(lockKey, { token, expiresAt: now + ttlSeconds * 1000 });
+    return token;
+  }
+
+  const result = await redisCommand(["set", lockKey, token, "NX", "EX", String(ttlSeconds)]);
+  // Upstash returns "OK" when the SET happened, null when NX blocked it
+  // because the key already exists (i.e. someone else holds the lock).
+  return result === "OK" ? token : null;
+}
+
+async function releaseLock(key, token) {
+  const lockKey = `lock:${key}`;
+
+  if (!upstashConfigured()) {
+    const existing = localLocks.get(lockKey);
+    if (existing && existing.token === token) localLocks.delete(lockKey);
+    return;
+  }
+
+  // Compare-and-delete in one atomic step, so we can never release a
+  // lock some other request acquired after ours expired.
+  const script =
+    'if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end';
+  await redisCommand(["eval", script, "1", lockKey, token]);
+}
+
 module.exports = {
   upstashConfigured,
   cacheGet,
   cacheSet,
   incrementDailyCounter,
+  acquireLock,
+  releaseLock,
 };
