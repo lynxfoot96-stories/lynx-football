@@ -21,6 +21,12 @@
 // is incomplete. So by default the assists tab reports "unavailable"
 // (SHOW_PARTIAL_ASSISTS = false). Set it to true to show the partial ranking.
 //
+// PLAYER PHOTOS: football-data.org has none, so ./_lib/playerPhotos.js looks
+// each player up on Wikipedia (only accepted when it is clearly the same
+// footballer) and caches the result per player. Players with no safe photo get
+// a generated initials avatar, added when the response is sent (never stored in
+// the cache). The page needs no change: it already puts `photo` in the circle.
+//
 // CACHING:
 //   fd-topscorers:{leagueId}:{season}   -- 24h TTL (86400s)
 //   fd-topassists:{leagueId}:{season}   -- 24h TTL (86400s)
@@ -37,6 +43,7 @@
 
 const { cacheGet, cacheSet, incrementDailyCounter, upstashConfigured, acquireLock, releaseLock, getLastRedisError } = require("./_lib/cache");
 const COMPETITIONS = require("./_lib/competitions");
+const { findPhotos, initialsAvatar } = require("./_lib/playerPhotos");
 
 // false = Assists tab says "unavailable"; true = show the partial ranking.
 const SHOW_PARTIAL_ASSISTS = false;
@@ -136,6 +143,7 @@ function mapBase(s) {
   return clean({
     id: s.player.id,
     name: s.player.name,
+    _dob: s.player.dateOfBirth || null, // internal: used for photo matching, removed before caching
     team: clean({ id: s.team.id, name: s.team.shortName || s.team.name, logo: s.team.crest }),
     appearances: Number.isInteger(s.playedMatches) ? s.playedMatches : null,
   });
@@ -172,10 +180,30 @@ function buildLists(raw, season) {
   return { scorers, assists };
 }
 
+// Attach Wikipedia photos where a safe match exists. Never throws and never
+// blocks the stats: on any problem players just keep no `photo` (initials
+// avatar is added at response time) and are retried on the next refresh.
+async function addPhotos(lists) {
+  const items = [...lists.scorers, ...lists.assists];
+  const unique = new Map();
+  for (const p of items) if (!unique.has(p.id)) unique.set(p.id, { id: p.id, name: p.name, dob: p._dob });
+  let found = new Map();
+  try {
+    found = await findPhotos([...unique.values()]);
+  } catch (err) {
+    console.error("[/api/stats] photo lookup failed:", err.message);
+  }
+  for (const p of items) {
+    if (found.has(p.id)) p.photo = found.get(p.id);
+    delete p._dob;
+  }
+}
+
 async function fetchAndCache(leagueId, season) {
   const code = FD_CODE[leagueId];
   const raw = await callFootballData(`/competitions/${code}/scorers?season=${season}&limit=${FETCH_LIMIT}`);
   const lists = buildLists(raw, season);
+  await addPhotos(lists);
 
   const types = SHOW_PARTIAL_ASSISTS ? ["scorers", "assists"] : ["scorers"];
   for (const type of types) {
@@ -219,7 +247,9 @@ module.exports = async (req, res) => {
     const staleKey = `${key}:stale`;
     const lockKey = `fd-stats:${leagueId}:${season}`; // one lock per league, shared by both tabs
 
-    const send = (data, stale) => res.status(200).json({ ok: true, data, league: competition, season, stale });
+    // Players without a Wikipedia photo get a generated initials avatar (added here, not cached).
+    const withPhotos = (list) => list.map((p) => (p.photo ? p : { ...p, photo: initialsAvatar(p.name) }));
+    const send = (data, stale) => res.status(200).json({ ok: true, data: withPhotos(data), league: competition, season, stale });
 
     // 1. Fresh cache hit -> no upstream call.
     const cached = await cacheGet(key);
