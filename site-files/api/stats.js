@@ -5,79 +5,92 @@
 //   GET /api/stats?league=39&type=assists
 //   GET /api/stats?league=39&type=scorers&season=2025   (override; normally auto-detected)
 //
-// Uses the SAME API-Football account as scores.js / match.js
-// (process.env.API_FOOTBALL_KEY) and the SAME shared Redis cache module as
-// match.js (./_lib/cache.js) -- nothing new is introduced there.
+// DATA SOURCE: football-data.org (the same account/key already used by
+// standings.js: process.env.API_FOOTBALL_STANDINGS_KEY), endpoint
+//   GET /v4/competitions/{code}/scorers?season={year}&limit=100
+// This replaces API-Football, whose free plan only serves seasons 2022-2024.
+// The public response shape is UNCHANGED, so standings.html needs no edits.
 //
-// CACHING (the actual point of this file):
-//   topscorers:{leagueId}:{season}   -- 24h TTL (86400s), exactly as requested
-//   topassists:{leagueId}:{season}   -- 24h TTL (86400s), exactly as requested
-// Any number of visitors hitting this endpoint inside that 24h window are
-// served straight from Redis -- NONE of them cause a new API-Football call.
-// Only the first request after the cache has expired triggers exactly one
-// upstream call, which then refills the cache for the next 24h.
+// ONE UPSTREAM CALL FEEDS BOTH TABS: football-data.org returns goals and
+// (when it has them) assists in the same response, so a single call per
+// competition fills both the scorers and the assists caches.
 //
-// STALE FALLBACK: every successful fetch also writes a second, long-lived
-// copy (30 days) under a ":stale" key. If the 24h cache has expired AND the
-// live API-Football call fails (rate limit, outage, etc.), we serve that
-// stale copy instead of an empty ranking -- same "serve stale over a hard
-// failure" philosophy already used in standings.js.
+// ASSISTS CAVEAT: on the free plan football-data.org only records an assists
+// value for roughly a third of players (the rest are null = "not recorded",
+// NOT zero), and the list is built from goal scorers. A ranking built from it
+// is incomplete. So by default the assists tab reports "unavailable"
+// (SHOW_PARTIAL_ASSISTS = false). Set it to true to show the partial ranking.
 //
-// CACHE-STAMPEDE PROTECTION: on a cache miss, a request doesn't just go
-// straight to API-Football -- it first tries to grab a short-lived Redis
-// lock (./_lib/cache.js: acquireLock/releaseLock) scoped to this exact
-// {type, league, season}, e.g. lock:topscorers:39:2026. Whichever request
-// grabs it does the one upstream call and releases the lock when done.
-// Every other request that arrives while the lock is held waits a few
-// hundred ms at a time and re-checks the cache instead of also calling
-// API-Football, so "100 visitors hit an expired cache at once" still
-// means exactly 1 upstream request, not 100.
+// CACHING:
+//   fd-topscorers:{leagueId}:{season}   -- 24h TTL (86400s)
+//   fd-topassists:{leagueId}:{season}   -- 24h TTL (86400s)
+// Visitors inside the 24h window are served from the shared Redis cache and
+// cause no upstream call. Only the first request after expiry refreshes it.
+//
+// STALE FALLBACK: every successful fetch also writes a 30-day copy under a
+// ":stale" key. If the 24h cache has expired AND the upstream call fails
+// (rate limit, outage, ...), that last good copy is served instead.
+//
+// CACHE-STAMPEDE PROTECTION: on a miss, a request first takes a short-lived
+// lock scoped to {league, season} (lock:fd-stats:39:2026), so many visitors
+// hitting an expired cache at once still cause ONE upstream call.
 
 const { cacheGet, cacheSet, incrementDailyCounter, upstashConfigured, acquireLock, releaseLock, getLastRedisError } = require("./_lib/cache");
 const COMPETITIONS = require("./_lib/competitions");
+
+// false = Assists tab says "unavailable"; true = show the partial ranking.
+const SHOW_PARTIAL_ASSISTS = false;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// How long a request is willing to wait on another request's in-flight
-// refresh before giving up and handling the refresh itself. Kept short so
-// a visitor is never stuck behind someone else's slow/failed request.
 const LOCK_TTL_SECONDS = 20;
 const LOCK_WAIT_ATTEMPTS = 8;
 const LOCK_WAIT_DELAY_MS = 350; // ~2.8s total worst-case wait
 
-const API_BASE = "https://v3.football.api-sports.io";
-function buildHeaders() {
-  return { "x-apisports-key": process.env.API_FOOTBALL_KEY };
-}
+const API_BASE = "https://api.football-data.org/v4";
+const FETCH_LIMIT = 100;       // rows requested from football-data.org
+const MAX_ROWS = 20;           // rows shown per list (same size as before)
+const FETCH_TIMEOUT_MS = 8000; // never hang a request (and its lock) on a stuck upstream
 
-const TTL_SECONDS = 24 * 60 * 60;        // 86400 -- the 24h cache that was asked for
+// Our numeric league ids -> football-data.org competition codes
+// (same mapping as standings.js).
+const FD_CODE = {
+  39: "PL",
+  140: "PD",
+  135: "SA",
+  78: "BL1",
+  61: "FL1",
+  2: "CL",
+  94: "PPL",
+  71: "BSA",
+};
+
+const TTL_SECONDS = 24 * 60 * 60;            // 86400 -- the 24h cache
 const STALE_TTL_SECONDS = 30 * 24 * 60 * 60; // long-lived fallback copy only used on upstream failure
 
-const ENDPOINT_BY_TYPE = { scorers: "/players/topscorers", assists: "/players/topassists" };
-const CACHE_PREFIX_BY_TYPE = { scorers: "topscorers", assists: "topassists" };
+// New prefixes so nothing cached from the old API-Football source is ever reused.
+const CACHE_PREFIX_BY_TYPE = { scorers: "fd-topscorers", assists: "fd-topassists" };
 
-// Same split-year season logic as scores.js/match.js, with the same Brasileirão
-// calendar-year special case already used in standings.js (id 71).
+// football-data.org labels a season by its start year (2026 = 2026-27).
+// Brasileirao runs on the calendar year (id 71), same as standings.js.
 function seasonForLeague(leagueId, now = new Date()) {
   if (Number(leagueId) === 71) return now.getUTCFullYear();
   const month = now.getUTCMonth() + 1;
   return month >= 7 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
 }
 
-// ---- Daily request budget (same pattern as match.js) ---------------------
-// Normal worst case is 16 calls/day total for this whole feature (8 leagues x
-// 2 types, once per cache expiry). This is just a generous safety backstop
-// against something looping or misbehaving, not a limit you should ever
-// realistically approach.
+// ---- Daily request budget -------------------------------------------------
+// Normal worst case is 8 calls/day (one per competition). This is only a
+// safety backstop against loops, not a limit you should approach.
 const DAILY_BUDGET = 60;
 let localBudgetDay = null;
 let localCallsToday = 0;
 
 async function budgetAvailable() {
   if (upstashConfigured()) {
-    const used = await incrementDailyCounter("api_football_stats");
+    const used = await incrementDailyCounter("fd_stats");
     return used === null || used <= DAILY_BUDGET;
   }
   const today = new Date().toISOString().slice(0, 10);
@@ -89,18 +102,25 @@ async function budgetAvailable() {
   return localCallsToday <= DAILY_BUDGET;
 }
 
-async function callApiFootball(path) {
-  const key = process.env.API_FOOTBALL_KEY;
-  if (!key) throw new Error("API_FOOTBALL_KEY is not set.");
+async function callFootballData(path) {
+  const key = process.env.API_FOOTBALL_STANDINGS_KEY;
+  if (!key) throw new Error("API_FOOTBALL_STANDINGS_KEY is not set.");
   const ok = await budgetAvailable();
   if (!ok) throw new Error("Daily request budget reached for /api/stats; serving cached data until it resets.");
-  const res = await fetch(`${API_BASE}${path}`, { headers: buildHeaders() });
-  if (!res.ok) throw new Error(`API-Football request failed (${res.status})`);
-  const json = await res.json();
-  if (json.errors && Object.keys(json.errors).length) {
-    throw new Error(typeof json.errors === "string" ? json.errors : JSON.stringify(json.errors));
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${API_BASE}${path}`, { headers: { "X-Auth-Token": key }, signal: controller.signal });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      // football-data.org errors look like { "message": "...", "errorCode": ... }
+      throw new Error(`${json.message || "football-data.org request failed"} (HTTP ${res.status})`);
+    }
+    return json;
+  } finally {
+    clearTimeout(timer);
   }
-  return json.response || [];
 }
 
 function clean(obj) {
@@ -110,34 +130,63 @@ function clean(obj) {
   return obj;
 }
 
-function mapPlayer(item, type) {
-  const stat = (item.statistics && item.statistics[0]) || {};
-  const games = stat.games || {};
-  const goals = stat.goals || {};
-  const out = clean({
-    id: item.player.id,
-    name: item.player.name,
-    photo: item.player.photo || null,
-    team: stat.team ? clean({ id: stat.team.id, name: stat.team.name, logo: stat.team.logo }) : null,
-    appearances: games.appearences != null ? games.appearences : null,
+// Same fields the page already reads. football-data.org has no player photos,
+// so `photo` is simply omitted (the page shows its placeholder circle).
+function mapBase(s) {
+  return clean({
+    id: s.player.id,
+    name: s.player.name,
+    team: clean({ id: s.team.id, name: s.team.shortName || s.team.name, logo: s.team.crest }),
+    appearances: Number.isInteger(s.playedMatches) ? s.playedMatches : null,
   });
-  if (type === "scorers") out.goals = goals.total != null ? goals.total : 0;
-  if (type === "assists") out.assists = goals.assists != null ? goals.assists : 0;
-  return out;
 }
 
-async function fetchAndCache(type, leagueId, season) {
-  const endpoint = ENDPOINT_BY_TYPE[type];
-  const raw = await callApiFootball(`${endpoint}?league=${leagueId}&season=${season}`);
-  const players = raw.map((item, i) => ({ rank: i + 1, ...mapPlayer(item, type) }));
+// Validate the upstream response and build both ranked lists from it.
+// Throws (so the caller falls back to stale data) rather than caching junk.
+function buildLists(raw, season) {
+  if (!raw || !Array.isArray(raw.scorers)) {
+    throw new Error("Unexpected response from football-data.org (no scorers list).");
+  }
+  const startYear = raw.season && raw.season.startDate ? parseInt(String(raw.season.startDate).slice(0, 4), 10) : null;
+  if (startYear !== null && startYear !== season) {
+    throw new Error(`football-data.org returned season ${startYear}, expected ${season}.`);
+  }
+  const rows = raw.scorers.filter((s) => s && s.player && s.team && Number.isInteger(s.goals));
+  if (!rows.length) throw new Error("football-data.org returned no scorers for this competition/season.");
 
-  const prefix = CACHE_PREFIX_BY_TYPE[type];
-  const key = `${prefix}:${leagueId}:${season}`;
-  const staleKey = `${key}:stale`;
-  await cacheSet(key, players, TTL_SECONDS);
-  await cacheSet(staleKey, players, STALE_TTL_SECONDS);
-  return players;
+  const scorers = rows
+    .slice()
+    .sort((a, b) => b.goals - a.goals)
+    .slice(0, MAX_ROWS)
+    .map((s, i) => ({ rank: i + 1, ...mapBase(s), goals: s.goals }));
+
+  let assists = [];
+  if (SHOW_PARTIAL_ASSISTS) {
+    // Only players with a recorded assists value (null is NOT zero) and at least one.
+    assists = rows
+      .filter((s) => Number.isInteger(s.assists) && s.assists > 0)
+      .sort((a, b) => b.assists - a.assists || (a.playedMatches ?? Infinity) - (b.playedMatches ?? Infinity))
+      .slice(0, MAX_ROWS)
+      .map((s, i) => ({ rank: i + 1, ...mapBase(s), assists: s.assists }));
+  }
+  return { scorers, assists };
 }
+
+async function fetchAndCache(leagueId, season) {
+  const code = FD_CODE[leagueId];
+  const raw = await callFootballData(`/competitions/${code}/scorers?season=${season}&limit=${FETCH_LIMIT}`);
+  const lists = buildLists(raw, season);
+
+  const types = SHOW_PARTIAL_ASSISTS ? ["scorers", "assists"] : ["scorers"];
+  for (const type of types) {
+    const key = `${CACHE_PREFIX_BY_TYPE[type]}:${leagueId}:${season}`;
+    await cacheSet(key, lists[type], TTL_SECONDS);
+    await cacheSet(`${key}:stale`, lists[type], STALE_TTL_SECONDS);
+  }
+  return lists;
+}
+
+const UNAVAILABLE = "Statistics are temporarily unavailable. Please try again shortly.";
 
 module.exports = async (req, res) => {
   try {
@@ -145,7 +194,7 @@ module.exports = async (req, res) => {
     const leagueId = Number(league);
     const competition = COMPETITIONS.find((c) => c.id === leagueId);
 
-    if (!league || !competition) {
+    if (!league || !competition || !FD_CODE[leagueId]) {
       res.status(400).json({ ok: false, error: "Unknown or missing league parameter.", supported: COMPETITIONS });
       return;
     }
@@ -154,94 +203,91 @@ module.exports = async (req, res) => {
       return;
     }
 
-    const season = req.query.season ? parseInt(req.query.season, 10) : seasonForLeague(leagueId);
-    const prefix = CACHE_PREFIX_BY_TYPE[type];
-    const key = `${prefix}:${leagueId}:${season}`;
-    const staleKey = `${key}:stale`;
-
-    // 1 & 2: a request arrives, check the cache first.
-    const cached = await cacheGet(key);
-    if (cached !== null) {
-      // 3: valid cached data exists -> return immediately, no API-Football call.
-      res.status(200).json({ ok: true, data: cached, league: competition, season, stale: false });
+    // Assists are switched off until a reliable source exists (see header).
+    // No cache or upstream call is made for them.
+    if (type === "assists" && !SHOW_PARTIAL_ASSISTS) {
+      res.status(200).json({
+        ok: false,
+        error: "Top assists are not available yet.",
+        detail: "Reliable assist data is not available on the free football-data.org plan.",
+      });
       return;
     }
 
-    // Cache missing/expired. Before calling API-Football, try to become
-    // the single request that's allowed to refresh this exact
-    // {type, league, season} combination -- this is what stops a cache
-    // expiry from turning into N simultaneous upstream calls.
-    const lockToken = await acquireLock(key, LOCK_TTL_SECONDS);
+    const season = req.query.season ? parseInt(req.query.season, 10) : seasonForLeague(leagueId);
+    const key = `${CACHE_PREFIX_BY_TYPE[type]}:${leagueId}:${season}`;
+    const staleKey = `${key}:stale`;
+    const lockKey = `fd-stats:${leagueId}:${season}`; // one lock per league, shared by both tabs
 
+    const send = (data, stale) => res.status(200).json({ ok: true, data, league: competition, season, stale });
+
+    // 1. Fresh cache hit -> no upstream call.
+    const cached = await cacheGet(key);
+    if (cached !== null) {
+      send(cached, false);
+      return;
+    }
+
+    // 2. Miss: try to become the single request that refreshes this league.
+    const lockToken = await acquireLock(lockKey, LOCK_TTL_SECONDS);
     if (lockToken) {
-      // 4 & 5: we hold the lock -> make the ONE required upstream call,
-      // then cache it for 24h, then always release the lock (success or
-      // failure) so nobody is stuck waiting on us longer than necessary.
       try {
-        const fresh = await fetchAndCache(type, leagueId, season);
-        // 6: return the fresh (now cached) data.
-        res.status(200).json({ ok: true, data: fresh, league: competition, season, stale: false });
+        const fresh = await fetchAndCache(leagueId, season);
+        send(fresh[type], false);
       } catch (err) {
         console.error("[/api/stats] upstream failed, trying stale fallback:", err.message);
         const stale = await cacheGet(staleKey);
         if (stale !== null) {
-          res.status(200).json({ ok: true, data: stale, league: competition, season, stale: true });
+          send(stale, true);
         } else {
-          res.status(200).json({ ok: false, error: "Statistics are temporarily unavailable. Please try again shortly.", detail: "lock-holder fetch failed: " + err.message });
+          res.status(200).json({ ok: false, error: UNAVAILABLE, detail: "lock-holder fetch failed: " + err.message });
         }
       } finally {
-        await releaseLock(key, lockToken);
+        await releaseLock(lockKey, lockToken);
       }
       return;
     }
 
-    // Someone else already holds the lock and is refreshing this exact
-    // key right now -- wait briefly and re-check the cache instead of
-    // also calling API-Football. This is the "100 visitors, 1 request"
-    // behavior: everyone who loses the lock race ends up here.
+    // 3. Someone else is refreshing -> wait briefly and re-check the cache.
     for (let i = 0; i < LOCK_WAIT_ATTEMPTS; i++) {
       await sleep(LOCK_WAIT_DELAY_MS);
       const waited = await cacheGet(key);
       if (waited !== null) {
-        res.status(200).json({ ok: true, data: waited, league: competition, season, stale: false });
+        send(waited, false);
         return;
       }
     }
 
-    // We waited and the lock holder still hasn't published anything --
-    // it's either unusually slow or it crashed before releasing/caching
-    // (the lock's own TTL will reclaim it either way). Rather than make
-    // this visitor wait indefinitely, try to take over: re-attempt the
-    // lock once more, and if that still fails, fall back to stale data,
-    // and only as a last resort do the fetch ourselves without a lock.
-    const takeoverToken = await acquireLock(key, LOCK_TTL_SECONDS);
+    // 4. The lock holder is slow or crashed: try to take over once.
+    const takeoverToken = await acquireLock(lockKey, LOCK_TTL_SECONDS);
     if (takeoverToken) {
       try {
-        const fresh = await fetchAndCache(type, leagueId, season);
-        res.status(200).json({ ok: true, data: fresh, league: competition, season, stale: false });
+        const fresh = await fetchAndCache(leagueId, season);
+        send(fresh[type], false);
       } catch (err) {
         console.error("[/api/stats] takeover fetch failed, trying stale fallback:", err.message);
         const stale = await cacheGet(staleKey);
         if (stale !== null) {
-          res.status(200).json({ ok: true, data: stale, league: competition, season, stale: true });
+          send(stale, true);
         } else {
-          res.status(200).json({ ok: false, error: "Statistics are temporarily unavailable. Please try again shortly.", detail: "takeover fetch failed: " + err.message });
+          res.status(200).json({ ok: false, error: UNAVAILABLE, detail: "takeover fetch failed: " + err.message });
         }
       } finally {
-        await releaseLock(key, takeoverToken);
+        await releaseLock(lockKey, takeoverToken);
       }
       return;
     }
 
+    // 5. Last resort: stale copy if we have one.
     const stale = await cacheGet(staleKey);
     if (stale !== null) {
-      res.status(200).json({ ok: true, data: stale, league: competition, season, stale: true });
+      send(stale, true);
       return;
     }
     console.error("[/api/stats] never acquired lock (initial or takeover) and no stale data for", key);
-    res.status(200).json({ ok: false, error: "Statistics are temporarily unavailable. Please try again shortly.", detail: "lock never acquired (initial + takeover both failed) and no stale cache for " + key, redisDetail: getLastRedisError() });
+    res.status(200).json({ ok: false, error: UNAVAILABLE, detail: "lock never acquired (initial + takeover both failed) and no stale cache for " + key, redisDetail: getLastRedisError() });
   } catch (err) {
     console.error("[/api/stats]", err.message);
-    res.status(200).json({ ok: false, error: "Statistics are temporarily unavailable. Please try again shortly.", detail: err.message });
+    res.status(200).json({ ok: false, error: UNAVAILABLE, detail: err.message });
   }
 };
