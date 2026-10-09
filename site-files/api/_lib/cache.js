@@ -36,6 +36,16 @@ function upstashConfigured() {
   return Boolean(UPSTASH_URL && UPSTASH_TOKEN);
 }
 
+// DEBUG: remembers the most recent Upstash failure (HTTP error body, or a
+// thrown exception) so callers can surface the REAL reason instead of a
+// generic null. This is a temporary diagnostic addition -- safe to leave in
+// (it's just bookkeeping), but the goal is to find out exactly why
+// acquireLock() has been failing for every request.
+let lastError = null;
+function getLastRedisError() {
+  return lastError;
+}
+
 async function redisCommand(parts) {
   if (!upstashConfigured()) return null;
   try {
@@ -43,10 +53,21 @@ async function redisCommand(parts) {
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => "<unreadable body>");
+      lastError = { command: parts[0], status: res.status, body: bodyText };
+      console.error("[cache] Upstash HTTP error", res.status, "for", parts[0], "->", bodyText);
+      return null;
+    }
     const json = await res.json();
+    if (json && json.error) {
+      lastError = { command: parts[0], status: res.status, body: JSON.stringify(json) };
+      console.error("[cache] Upstash returned an error for", parts[0], "->", json.error);
+      return null;
+    }
     return json.result;
   } catch (e) {
+    lastError = { command: parts[0], exception: e.message };
     console.error("[cache] Upstash request failed:", e.message);
     return null;
   }
@@ -201,4 +222,5 @@ module.exports = {
   incrementDailyCounter,
   acquireLock,
   releaseLock,
+  getLastRedisError,
 };
