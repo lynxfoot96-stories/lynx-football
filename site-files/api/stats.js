@@ -187,7 +187,7 @@ module.exports = async (req, res) => {
         if (stale !== null) {
           res.status(200).json({ ok: true, data: stale, league: competition, season, stale: true });
         } else {
-          res.status(200).json({ ok: false, error: "Statistics are temporarily unavailable. Please try again shortly." });
+          res.status(200).json({ ok: false, error: "Statistics are temporarily unavailable. Please try again shortly.", detail: "lock-holder fetch failed: " + err.message });
         }
       } finally {
         await releaseLock(key, lockToken);
@@ -225,7 +225,7 @@ module.exports = async (req, res) => {
         if (stale !== null) {
           res.status(200).json({ ok: true, data: stale, league: competition, season, stale: true });
         } else {
-          res.status(200).json({ ok: false, error: "Statistics are temporarily unavailable. Please try again shortly." });
+          res.status(200).json({ ok: false, error: "Statistics are temporarily unavailable. Please try again shortly.", detail: "takeover fetch failed: " + err.message });
         }
       } finally {
         await releaseLock(key, takeoverToken);
@@ -238,9 +238,10 @@ module.exports = async (req, res) => {
       res.status(200).json({ ok: true, data: stale, league: competition, season, stale: true });
       return;
     }
-    res.status(200).json({ ok: false, error: "Statistics are temporarily unavailable. Please try again shortly." });
+    console.error("[/api/stats] never acquired lock (initial or takeover) and no stale data for", key);
+    res.status(200).json({ ok: false, error: "Statistics are temporarily unavailable. Please try again shortly.", detail: "lock never acquired (initial + takeover both failed) and no stale cache for " + key });
   } catch (err) {
     console.error("[/api/stats]", err.message);
-    res.status(200).json({ ok: false, error: "Statistics are temporarily unavailable. Please try again shortly." });
+    res.status(200).json({ ok: false, error: "Statistics are temporarily unavailable. Please try again shortly.", detail: err.message });
   }
 };
