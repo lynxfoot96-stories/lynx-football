@@ -33,7 +33,7 @@
 // API-Football, so "100 visitors hit an expired cache at once" still
 // means exactly 1 upstream request, not 100.
 
-const { cacheGet, cacheSet, incrementDailyCounter, upstashConfigured, acquireLock, releaseLock } = require("./_lib/cache");
+const { cacheGet, cacheSet, incrementDailyCounter, upstashConfigured, acquireLock, releaseLock, getLastRedisError } = require("./_lib/cache");
 const COMPETITIONS = require("./_lib/competitions");
 
 function sleep(ms) {
@@ -239,7 +239,7 @@ module.exports = async (req, res) => {
       return;
     }
     console.error("[/api/stats] never acquired lock (initial or takeover) and no stale data for", key);
-    res.status(200).json({ ok: false, error: "Statistics are temporarily unavailable. Please try again shortly.", detail: "lock never acquired (initial + takeover both failed) and no stale cache for " + key });
+    res.status(200).json({ ok: false, error: "Statistics are temporarily unavailable. Please try again shortly.", detail: "lock never acquired (initial + takeover both failed) and no stale cache for " + key, redisDetail: getLastRedisError() });
   } catch (err) {
     console.error("[/api/stats]", err.message);
     res.status(200).json({ ok: false, error: "Statistics are temporarily unavailable. Please try again shortly.", detail: err.message });
