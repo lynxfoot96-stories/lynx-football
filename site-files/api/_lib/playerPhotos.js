@@ -13,10 +13,33 @@
  *   - the image URL is https on a *.wikimedia.org host.
  * Anything else -> no photo (the caller shows the initials avatar).
  *
+ * LOOKUP STRATEGY (two passes per player):
+ *   1. Direct title guesses from the player's name as given by the data
+ *      provider (candidateTitles) -- fast, no extra request, works whenever
+ *      the provider's name already matches the Wikipedia article title.
+ *   2. Wikipedia's own search API (searchTitles) -- tried only if every
+ *      direct guess misses. This covers cases where the data provider's name
+ *      differs from the common Wikipedia title (e.g. a player's full legal
+ *      name vs. the nickname Wikipedia uses as its article title). Results
+ *      from search go through the exact same isMatch() safety check as
+ *      direct guesses -- nothing here loosens the matching criteria, it only
+ *      widens which titles get checked against them.
+ * Every attempt (both passes) is logged via console.log('[photo]', ...) so
+ * a refresh's outcome per player is visible in the Vercel function logs.
+ * Remove or comment out those console.log lines once you've confirmed things
+ * are working the way you expect, if you'd rather not log on every refresh.
+ *
  * CACHING (per player, shared by every competition the player appears in):
  *   fd-photo:{playerId}  found   -> 30 days
  *                        missing -> 3 days (then tried again)
  *   Network errors / rate limits are NOT cached, so they are retried next refresh.
+ *
+ *   NOTE: if you're re-testing this after a previous "missing" result got
+ *   cached (e.g. during earlier debugging), that player will keep showing no
+ *   photo for up to 3 days regardless of code changes, until the cache entry
+ *   expires. Either wait it out, temporarily lower MISSING_TTL_SECONDS below,
+ *   or manually delete the relevant `fd-photo:{playerId}` key(s) in your
+ *   Redis/Upstash dashboard before testing.
  *
  * Wikimedia asks API clients to send a descriptive User-Agent with contact
  * info. Set WIKIMEDIA_CONTACT in Vercel (a website URL or an email address).
@@ -24,6 +47,7 @@
 const { cacheGet, cacheSet } = require('./cache');
 
 const WIKI_SUMMARY = 'https://en.wikipedia.org/api/rest_v1/page/summary/';
+const WIKI_SEARCH = 'https://en.wikipedia.org/w/api.php';
 const FOUND_TTL_SECONDS = 30 * 24 * 60 * 60;
 const MISSING_TTL_SECONDS = 3 * 24 * 60 * 60;
 const REQUEST_TIMEOUT_MS = 3000;
@@ -91,16 +115,73 @@ async function fetchSummary(title, fetchImpl) {
   }
 }
 
+/**
+ * Wikipedia's own search, as a fallback when direct title guesses all miss
+ * -- e.g. a data provider's full legal name vs. a player's common Wikipedia
+ * article title (frequent with Brazilian/Portuguese names).
+ * Returns a list of candidate titles (strings), possibly empty.
+ */
+async function searchTitles(name, fetchImpl) {
+  const params = new URLSearchParams({
+    action: 'query', format: 'json', list: 'search',
+    srsearch: `${name} footballer`, srlimit: '3', origin: '*',
+  });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetchImpl(`${WIKI_SEARCH}?${params.toString()}`, {
+      headers: { 'User-Agent': userAgent(), Accept: 'application/json' },
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const results = (json.query && json.query.search) || [];
+    return results.map((r) => String(r.title || '').replace(/\s+/g, '_')).filter(Boolean);
+  } catch (_) {
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** -> { state: 'found', url } | { state: 'missing' } | { state: 'error' } */
 async function lookupOne(player, fetchImpl) {
   const birthYear = player.dob ? parseInt(String(player.dob).slice(0, 4), 10) : null;
-  for (const title of candidateTitles(player.name, birthYear)) {
+  const tried = new Set();
+
+  async function tryTitle(title) {
+    if (tried.has(title)) return null;
+    tried.add(title);
     const r = await fetchSummary(title, fetchImpl);
-    if (r.state === 'error') return { state: 'error' };
-    if (r.state === 'ok' && isMatch(r.body, player.name, birthYear)) {
-      return { state: 'found', url: safeImageUrl(r.body.thumbnail.source) };
+    if (r.state === 'error') {
+      console.log('[photo]', player.name, '|', title, '-> error');
+      return { error: true };
     }
+    if (r.state === 'ok') {
+      const ok = isMatch(r.body, player.name, birthYear);
+      console.log('[photo]', player.name, '|', title, '-> ok', ok ? 'MATCH' : `no-match (${r.body.description || 'no description'})`);
+      if (ok) return { url: safeImageUrl(r.body.thumbnail.source) };
+    } else {
+      console.log('[photo]', player.name, '|', title, '->', r.state);
+    }
+    return null;
   }
+
+  // Pass 1: direct name-based guesses.
+  for (const title of candidateTitles(player.name, birthYear)) {
+    const res = await tryTitle(title);
+    if (res && res.error) return { state: 'error' };
+    if (res && res.url) return { state: 'found', url: res.url };
+  }
+
+  // Pass 2: Wikipedia search fallback, only if pass 1 found nothing.
+  const searchResults = await searchTitles(player.name, fetchImpl);
+  for (const title of searchResults) {
+    const res = await tryTitle(title);
+    if (res && res.error) return { state: 'error' };
+    if (res && res.url) return { state: 'found', url: res.url };
+  }
+
   return { state: 'missing' };
 }
 
