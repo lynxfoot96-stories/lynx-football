@@ -27,6 +27,12 @@
 // a generated initials avatar, added when the response is sent (never stored in
 // the cache). The page needs no change: it already puts `photo` in the circle.
 //
+// PHOTO LOOKUP BUDGET: findPhotos() is given 8.5s and 8 concurrent workers
+// (see addPhotos() below) -- raised from the library defaults (4s / 4) because
+// the default budget was cutting most players off before they were even
+// attempted on a 15-20 player list. Keep this comfortably under whatever your
+// Vercel function timeout is (Hobby = 10s, Pro = 60s by default).
+//
 // CACHING:
 //   fd-topscorers:{leagueId}:{season}   -- 24h TTL (86400s)
 //   fd-topassists:{leagueId}:{season}   -- 24h TTL (86400s)
@@ -183,13 +189,17 @@ function buildLists(raw, season) {
 // Attach Wikipedia photos where a safe match exists. Never throws and never
 // blocks the stats: on any problem players just keep no `photo` (initials
 // avatar is added at response time) and are retried on the next refresh.
+//
+// budgetMs/concurrency are raised above the playerPhotos.js library defaults
+// (4000ms / 4) because the defaults were cutting most players off before they
+// were even attempted on a full 15-20 player scorers+assists list.
 async function addPhotos(lists) {
   const items = [...lists.scorers, ...lists.assists];
   const unique = new Map();
   for (const p of items) if (!unique.has(p.id)) unique.set(p.id, { id: p.id, name: p.name, dob: p._dob });
   let found = new Map();
   try {
-    found = await findPhotos([...unique.values()]);
+    found = await findPhotos([...unique.values()], { budgetMs: 8500, concurrency: 8 });
   } catch (err) {
     console.error("[/api/stats] photo lookup failed:", err.message);
   }
