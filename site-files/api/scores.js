@@ -9,7 +9,15 @@
  * Env: API_FOOTBALL_KEY  (use the same variable name your api/match.js uses)
  * Response: { ok: true, fixtures: [...], leagues: { [id]: name } } or { ok: false, error }
  */
+const { cacheGet, cacheSet, acquireLock, releaseLock } = require('./_lib/cache');
+
 const API_BASE = 'https://v3.football.api-sports.io';
+
+// Flat cache window for game scores (live + by-date), per your API-Football
+// quota: everyone hitting Scores within this window gets the same cached
+// fixtures instead of each triggering a fresh upstream call. This is separate
+// from, and does not affect, the 24h stats/standings cache (API-Football.org).
+const SCORES_TTL_SECONDS = 25 * 60;
 
 // Must match the <select> options in index.html / GROUP_ORDER in matches.html
 const LEAGUES = {
@@ -20,13 +28,6 @@ const LEAGUES = {
 
 const LIVE_STATUSES = new Set(['1H', '2H', 'ET', 'BT', 'P', 'LIVE']); // HT is shown as "HT", not live
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-// Small in-memory cache per warm instance (saves API quota); CDN cache is set below.
-const memo = new Map();
-function memoGet(key, ttlMs) {
-  const hit = memo.get(key);
-  return hit && Date.now() - hit.at < ttlMs ? hit.value : null;
-}
 
 async function apiGet(path, params) {
   const key = process.env.API_FOOTBALL_KEY;
@@ -65,17 +66,14 @@ module.exports = async function handler(req, res) {
   if (league !== 'all' && !LEAGUES[league]) return res.status(400).json({ ok: false, error: 'Unknown league' });
 
   const params = {};
-  let ttl;
   if (view === 'live') {
     params.live = league === 'all' ? Object.keys(LEAGUES).join('-') : league;
-    ttl = 30 * 1000;
   } else {
     const date = String(q.date || '');
     if (!DATE_RE.test(date)) return res.status(400).json({ ok: false, error: 'date must be YYYY-MM-DD' });
     params.date = date;
     if (league !== 'all') { params.league = league; params.season = q.season || ''; }
     if (q.tz && /^[A-Za-z_]+\/[A-Za-z_\-]+$/.test(String(q.tz))) params.timezone = String(q.tz);
-    ttl = 5 * 60 * 1000;
   }
 
   try {
@@ -88,14 +86,43 @@ module.exports = async function handler(req, res) {
       params.season = params.date.slice(0, 4); // calendar-year season (Brasileirão)
     }
 
-    const cacheKey = JSON.stringify([view, params]);
-    let fixtures = memoGet(cacheKey, ttl);
+    const cacheKey = `scores:${JSON.stringify([view, params])}`;
+    let fixtures = await cacheGet(cacheKey);
+
     if (!fixtures) {
-      const raw = await apiGet('/fixtures', params);
-      fixtures = raw.filter(i => LEAGUES[i.league.id]).map(normalise);
-      memo.set(cacheKey, { at: Date.now(), value: fixtures });
+      // Cache miss: only the request that wins the lock calls API-Football;
+      // everyone else arriving in the same moment waits and reads what the
+      // winner just cached, instead of each firing their own upstream call.
+      const token = await acquireLock(cacheKey, 20);
+      if (token) {
+        try {
+          fixtures = await cacheGet(cacheKey); // re-check: someone may have just filled it
+          if (!fixtures) {
+            const raw = await apiGet('/fixtures', params);
+            fixtures = raw.filter(i => LEAGUES[i.league.id]).map(normalise);
+            await cacheSet(cacheKey, fixtures, SCORES_TTL_SECONDS);
+          }
+        } finally {
+          await releaseLock(cacheKey, token);
+        }
+      } else {
+        // Someone else is already fetching this exact key: briefly wait for
+        // their result instead of also calling the upstream API.
+        for (let i = 0; i < 8 && !fixtures; i++) {
+          await new Promise(r => setTimeout(r, 500));
+          fixtures = await cacheGet(cacheKey);
+        }
+        if (!fixtures) {
+          // Lock-holder took too long (or crashed) and nothing landed yet;
+          // fetch directly rather than fail the request.
+          const raw = await apiGet('/fixtures', params);
+          fixtures = raw.filter(i => LEAGUES[i.league.id]).map(normalise);
+          await cacheSet(cacheKey, fixtures, SCORES_TTL_SECONDS);
+        }
+      }
     }
-    res.setHeader('Cache-Control', `public, s-maxage=${Math.round(ttl / 1000)}, stale-while-revalidate=${view === 'live' ? 30 : 300}`);
+
+    res.setHeader('Cache-Control', `public, s-maxage=${SCORES_TTL_SECONDS}, stale-while-revalidate=300`);
     return res.status(200).json({ ok: true, fixtures, leagues: LEAGUES });
   } catch (err) {
     console.error('scores error:', err.message);
