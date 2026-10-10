@@ -329,7 +329,7 @@
 
   .featured-media{
     position:relative;
-    aspect-ratio:16/10;
+    aspect-ratio:16/9;
     background:
       radial-gradient(circle at 30% 20%, rgba(138,63,252,0.5), transparent 55%),
       radial-gradient(circle at 80% 80%, rgba(255,122,26,0.4), transparent 55%),
@@ -1762,7 +1762,7 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
       <p>Fresh off the edit. The story making the rounds in the football world right now.</p>
     </div>
     <div class="featured"><a href="https://youtu.be/g1znANo5gu4" class="featured-link yt-trigger" data-yt="g1znANo5gu4">
-      <div class="featured-media" style="background-image:url('https://i.ytimg.com/vi/g1znANo5gu4/hqdefault.jpg'); background-size:cover; background-position:center;">
+      <div class="featured-media" data-yt-id="g1znANo5gu4" style="background-image:url('https://i.ytimg.com/vi/g1znANo5gu4/maxresdefault.jpg'); background-size:cover; background-position:center;">
         <div class="play-btn">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
         </div>
@@ -2960,6 +2960,24 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
     });
   });
 })();
+</script>
+<script>
+  // Latest Upload thumbnail: maxresdefault.jpg is true 16:9 (no black letterboxing),
+  // but it doesn't exist for every video. YouTube serves a 120x90 gray placeholder
+  // instead of a 404, so detect that and fall back to hqdefault.jpg when it happens.
+  document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('[data-yt-id]').forEach(function(el){
+      var id = el.getAttribute('data-yt-id');
+      if (!id) return;
+      var probe = new Image();
+      probe.onload = function(){
+        if (probe.naturalWidth === 120 && probe.naturalHeight === 90) {
+          el.style.backgroundImage = "url('https://i.ytimg.com/vi/" + id + "/hqdefault.jpg')";
+        }
+      };
+      probe.src = 'https://i.ytimg.com/vi/' + id + '/maxresdefault.jpg';
+    });
+  });
 </script>
 </body>
 </html>
