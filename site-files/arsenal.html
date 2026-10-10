@@ -1463,6 +1463,8 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
   .yt-play{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:46px; height:46px; border-radius:50%; background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.35); display:flex; align-items:center; justify-content:center; z-index:2; pointer-events:none; transition:transform .25s ease, background .25s ease; }
   .club-video-card:hover .yt-play{ transform:translate(-50%,-50%) scale(1.08); background:rgba(138,63,252,.6); }
 </style>
+<link rel="stylesheet" href="news-feed.css">
+<style>.club-tabpanel .nf-wrap{padding:0}</style>
 </head>
 <body class="club-page-body">
 
@@ -1524,10 +1526,7 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
         </div>
       </div>
       <div class="club-tabpanel" data-panel="news">
-        <div class="club-news-card">
-          <span class="club-news-tag">Season Update</span>
-          <p style="margin-bottom:0;">Arsenal&rsquo;s start has been characterized by defensive rigidity and set-piece efficiency, proving that their title-challenging framework remains intact and structurally sound.</p>
-        </div>
+        <div id="clubNewsFeed" data-club="arsenal" data-label="Arsenal FC"></div>
       </div>
       <div class="club-tabpanel" data-panel="videos">
         <div class="club-video-grid">
@@ -1754,6 +1753,24 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
       if (e.key === 'Escape') { closeVideo(); }
     });
   })();
+</script>
+<script src="wiki-image.js"></script>
+<script src="news-topics.js"></script>
+<script src="news-feed.js"></script>
+<script>
+/* Club news tab: stories about this club (and its players), same layout as news.html */
+(function(){
+  var host = document.getElementById('clubNewsFeed');
+  var tab = document.querySelector('.club-tab[data-tab="news"]');
+  if (!host || !tab || !window.FSNewsFeed) return;
+  var done = false;
+  function show(){
+    if (done) return; done = true;
+    window.FSNewsFeed.mount(host, { club: host.getAttribute('data-club') }, { label: host.getAttribute('data-label') });
+  }
+  tab.addEventListener('click', show);
+  if (location.hash === '#news') tab.click();     // the homepage "See all news" link opens this tab directly
+})();
 </script>
 </body>
 </html>
