@@ -459,6 +459,7 @@ html[data-theme="light"] a.league-group-head:hover{ background:#F0EAFF; }
 html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0.025); }
 
 </style>
+<link rel="stylesheet" href="news-feed.css">
 </head>
 <body class="match-page-body">
 
@@ -515,11 +516,12 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
     </div>
   </div>
 
-  <div id="newsWrap" class="tab-panel">
-    <div class="state-msg">News for this competition is coming soon.</div>
-  </div>
+  <div id="newsWrap" class="tab-panel"></div>
 </div>
 
+<script src="wiki-image.js"></script>
+<script src="news-topics.js"></script>
+<script src="news-feed.js"></script>
 <script>
 function qsParam(name){ return new URLSearchParams(location.search).get(name); }
 function escapeHtml(s){
@@ -561,6 +563,15 @@ let activeStatType = 'scorers'; // 'scorers' | 'assists'
 let statsLoadedFor = null; // 'league:type' already fetched, avoids refetching on tab re-click
 let statsSeq = 0;
 
+// ---- League news: stories about the selected competition (clubs/players of that league, league name) ----
+let newsLoadedFor = null;
+function loadNews(){
+  const meta = STANDINGS_LEAGUES[standingsIndex];
+  if (newsLoadedFor === meta.id) return;
+  newsLoadedFor = meta.id;
+  window.FSNewsFeed.mount(newsWrap, { league: meta.id }, { label: meta.name });
+}
+
 pageNav.addEventListener('click', function(e){
   const link = e.target.closest('a[data-tab]');
   if (!link) return;
@@ -575,6 +586,7 @@ pageNav.addEventListener('click', function(e){
     tabPanels[key].classList.toggle('active', key === tab);
   });
   if (tab === 'stats') loadStats();
+  if (tab === 'news') loadNews();
 });
 
 statsWrap.addEventListener('click', function(e){
@@ -732,11 +744,13 @@ prevBtn.addEventListener('click', function(){
   standingsIndex = (standingsIndex - 1 + STANDINGS_LEAGUES.length) % STANDINGS_LEAGUES.length;
   loadStandings();
   if (activeTab === 'stats') loadStats();
+  if (activeTab === 'news') loadNews();
 });
 nextBtn.addEventListener('click', function(){
   standingsIndex = (standingsIndex + 1) % STANDINGS_LEAGUES.length;
   loadStandings();
   if (activeTab === 'stats') loadStats();
+  if (activeTab === 'news') loadNews();
 });
 
 loadStandings();

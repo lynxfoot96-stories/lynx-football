@@ -1519,6 +1519,24 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
 @media (max-width:860px){ nav.links{ display:none; } }
 @media (max-width:480px){ .nav-home span{ display:none; } .nav-home{ padding:10px 12px; } }
 </style>
+<style>
+/* homepage club carousel — "News" tab: latest story with a side image + two more headlines */
+.cs-ln{display:flex;flex-direction:column;gap:8px}
+.cs-ln-main{display:flex;gap:12px;align-items:stretch;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px;transition:border-color .2s ease,transform .2s ease;color:var(--white)}
+.cs-ln-main:hover{border-color:rgba(255,122,26,.45);transform:translateY(-1px)}
+.cs-ln-img{position:relative;width:96px;min-height:96px;flex-shrink:0;border-radius:6px;overflow:hidden;background:#14121A}
+.cs-ln-img .nx-img{position:absolute;inset:0;width:100%;height:100%}
+.cs-ln-img .nx-img.noimg{background:linear-gradient(135deg,rgba(138,63,252,.5),rgba(255,122,26,.4)),#14121A}
+.cs-ln-body{display:flex;flex-direction:column;justify-content:center;gap:5px;min-width:0}
+.cs-ln-body .cs-news-tag{align-self:flex-start;margin-bottom:0}
+.cs-ln-title{font-size:14px;font-weight:700;line-height:1.3;color:var(--white);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.cs-ln-date{font-size:11.5px;color:var(--muted)}
+.cs-ln-row{display:flex;gap:10px;justify-content:space-between;align-items:baseline;font-size:12.5px;line-height:1.4;color:var(--white);padding:7px 2px;border-bottom:1px solid var(--line)}
+.cs-ln-row:last-child{border-bottom:none}
+.cs-ln-row span:first-child{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cs-ln-row:hover span:first-child{color:var(--orange-bright)}
+.cs-ln-row .cs-ln-date{flex-shrink:0}
+</style>
 </head>
 <body>
 <div id="homeView">
@@ -2906,6 +2924,41 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
       });
     })
     .catch(function(){});
+})();
+</script>
+<script src="news-topics.js"></script>
+<script src="news-feed.js"></script>
+<script>
+/* Homepage club carousel: News tab = latest stories about that club (falls back to the old "Season Update" text). */
+(function(){
+  if (!window.FSNewsFeed) return;
+  var esc = window.FSNewsFeed.esc;
+  Array.prototype.forEach.call(document.querySelectorAll('#clubSpotlight .cs-slide'), function(slide){
+    var more = slide.querySelector('[data-tab-content="news"] .cs-seemore');
+    var pane = slide.querySelector('[data-tab-content="news"]');
+    if (!more || !pane) return;
+    var slug = (more.getAttribute('href') || '').replace(/\.html.*$/, '');
+    var name = (slide.querySelector('.cs-header h4') || {}).textContent || slug;
+    window.FSNewsFeed.latest({ club: slug }, 3).then(function(list){
+      if (!list.length) return;                               // nothing yet: keep the Season Update text
+      var a = list[0];
+      var img = a.imgUrl
+        ? '<div class="nx-img" style="background-image:url(&quot;' + a.imgUrl + '&quot;);background-size:cover;background-position:' + esc(a.pos) + '"></div>'
+        : '<div class="nx-img noimg" data-uid="' + esc(a.uid) + '"></div>';
+      var html = '<div class="cs-ln"><a class="cs-ln-main" href="' + esc(a.href) + '">' +
+        '<div class="cs-ln-img">' + img + '</div>' +
+        '<div class="cs-ln-body"><span class="cs-news-tag">' + esc(a.cat) + '</span>' +
+        '<span class="cs-ln-title">' + esc(a.title) + '</span><time class="cs-ln-date">' + esc(a.label) + '</time></div></a>' +
+        list.slice(1).map(function(b){
+          return '<a class="cs-ln-row" href="' + esc(b.href) + '"><span>' + esc(b.title) + '</span><time class="cs-ln-date">' + esc(b.label) + '</time></a>';
+        }).join('') + '</div>';
+      var old = pane.querySelector('.cs-news-item');
+      if (old) old.outerHTML = html; else more.insertAdjacentHTML('beforebegin', html);
+      more.setAttribute('href', slug + '.html#news');
+      more.innerHTML = 'See all ' + esc(name) + ' news &rarr;';
+      window.FSNewsFeed.fillMissingImages();
+    });
+  });
 })();
 </script>
 </body>
