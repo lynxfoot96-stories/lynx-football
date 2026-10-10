@@ -459,7 +459,97 @@ html[data-theme="light"] a.league-group-head:hover{ background:#F0EAFF; }
 html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0.025); }
 
 </style>
-<link rel="stylesheet" href="news-feed.css">
+<style>
+/* News feed styles — card styles used by the League/Club News tabs. Copied from news.html so the look is identical. */
+.nx-img{position:relative;width:100%;height:100%;background-size:cover;background-position:var(--pos,center);transition:transform .5s ease}
+.nx-featured{display:grid;grid-template-columns:1.15fr 1fr;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;transition:border-color .25s ease,transform .25s ease}
+.nx-featured:hover{border-color:rgba(255,122,26,.45);transform:translateY(-3px)}
+@media (max-width:860px){.nx-featured{grid-template-columns:1fr}}
+.nx-featured-media{aspect-ratio:16/10;overflow:hidden;background:#14121A}
+.nx-featured:hover .nx-img,.nx-card:hover .nx-img{transform:scale(1.04)}
+.nx-featured-body{display:flex;flex-direction:column;padding:36px 40px;gap:18px}
+@media (max-width:640px){.nx-featured-body{padding:24px 22px 26px}}
+.nx-kicker{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.nx-cat{font-size:12px;font-weight:700;color:var(--purple-bright);text-transform:uppercase;letter-spacing:.03em}
+.nx-featured-title{font-family:'Big Shoulders Display',sans-serif;font-weight:800;font-size:clamp(30px,3.4vw,44px);line-height:1.02;text-transform:uppercase;text-wrap:balance}
+.nx-featured-dek{color:var(--muted);font-size:15px;line-height:1.65;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.nx-featured-foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-top:18px;border-top:1px solid var(--line)}
+.nx-date{font-size:12.5px;color:var(--muted)}
+.nx-read{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--orange-bright)}
+.nx-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:20px}
+.nx-grid-3{grid-template-columns:repeat(3,1fr)}
+@media (max-width:1000px){.nx-grid,.nx-grid-3{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.nx-grid,.nx-grid-3{grid-template-columns:1fr}}
+.nx-card{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;transition:border-color .25s ease,transform .25s ease}
+.nx-card:hover{border-color:rgba(138,63,252,.5);transform:translateY(-4px)}
+.nx-card-media{aspect-ratio:16/9;overflow:hidden;background:#14121A}
+.nx-card-body{display:flex;flex-direction:column;gap:10px;padding:18px 18px 20px;flex:1}
+.nx-card-title{font-size:16px;font-weight:600;line-height:1.4;flex:1}
+.nx-img.noimg{background:linear-gradient(135deg,rgba(138,63,252,.35),rgba(255,122,26,.28)),#14121A;display:flex;align-items:center;justify-content:center}
+.nx-img.noimg::after{content:attr(data-label);font-family:'Big Shoulders Display',sans-serif;font-weight:800;font-size:22px;letter-spacing:.03em;text-transform:uppercase;color:rgba(255,255,255,.75);padding:12px;text-align:center}
+html[data-theme="light"] .nx-img.noimg{background:linear-gradient(135deg,rgba(123,44,255,.16),rgba(255,106,0,.14)),#F0EEF6}
+html[data-theme="light"] .nx-img.noimg::after{color:var(--purple-bright)}
+
+/* ---- image credit (Wikimedia Commons fallback photos) ---- */
+.nx-card-media,.nx-featured-media{position:relative}
+.img-credit{position:absolute;right:8px;bottom:8px;max-width:calc(100% - 16px);padding:3px 8px;border-radius:999px;font-size:10.5px;line-height:1.4;font-weight:600;
+  color:#fff;background:rgba(8,7,10,.62);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.nx-img.wm-loading{opacity:.9}
+@media (max-width:600px){.hero-art{width:100%;opacity:.3}.hero-svg{right:-30%}}
+
+/* ---- results / status line ---- */
+.news-count{font-size:13px;color:var(--muted);margin:-8px 0 18px}
+.news-note{font-size:13px;color:var(--orange-bright);margin-bottom:18px}
+.nx-featured+.nx-grid{margin-top:20px}
+.nx-empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:40px 0}
+#news-top:focus{outline:none}
+
+/* ---- pagination ---- */
+.pager{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:44px}
+.pg{min-width:44px;height:44px;padding:0 14px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);background:var(--panel);
+  border:1px solid var(--line);border-radius:10px;cursor:pointer;transition:border-color .2s ease,background .2s ease,transform .15s ease}
+.pg:hover{border-color:rgba(138,63,252,.6);transform:translateY(-1px)}
+.pg:focus-visible,.news-filter:focus-visible,.nx-card:focus-visible,.nx-featured:focus-visible{outline:2px solid var(--orange-bright);outline-offset:3px}
+.pg[aria-current="page"]{background:linear-gradient(100deg,var(--purple),#6C1FE0);border-color:transparent;color:#fff;cursor:default;transform:none}
+.pg.is-disabled{opacity:.4;pointer-events:none}
+.pg-gap{min-width:24px;text-align:center;color:var(--muted)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (max-width:480px){.pg{min-width:40px;height:40px;padding:0 10px}.pg .pg-label{display:none}}
+@media (prefers-reduced-motion:reduce){.pg,.nx-card,.nx-featured,.nx-img{transition:none!important}}
+.nf-wrap{padding:28px 0 60px}
+button.pg{appearance:none;-webkit-appearance:none}
+.nf-wrap .nx-grid{margin-top:20px}
+.nf-wrap .nx-card,.nf-wrap .nx-featured{color:inherit;text-decoration:none}
+html[data-theme="light"] .nx-featured,html[data-theme="light"] .nx-card{box-shadow:0 1px 2px rgba(17,17,22,0.03),0 10px 26px rgba(17,17,22,0.05)}
+
+/* ===== League News tab: full-width hero (league name + tagline + league logo) ===== */
+.lh-bleed{width:100vw;margin-left:calc(50% - 50vw)}
+.lh-hero{position:relative;padding:60px 0 36px;overflow:hidden}
+.lh-hero::before{content:"";position:absolute;inset:0;z-index:0;
+  background:radial-gradient(ellipse 50% 85% at 8% 25%,rgba(138,63,252,.24),transparent 62%),
+             radial-gradient(ellipse 42% 75% at 96% 80%,rgba(255,122,26,.18),transparent 62%);
+  -webkit-mask-image:linear-gradient(180deg,#000 62%,transparent 100%);mask-image:linear-gradient(180deg,#000 62%,transparent 100%)}
+html[data-theme="light"] .lh-hero::before{background:
+  radial-gradient(ellipse 50% 85% at 8% 25%,rgba(123,44,255,.10),transparent 62%),
+  radial-gradient(ellipse 42% 75% at 96% 80%,rgba(255,106,0,.10),transparent 62%)}
+.lh-hero-in{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:0 32px;display:flex;align-items:center;justify-content:space-between;gap:32px}
+.lh-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--purple-bright);margin-bottom:18px}
+.lh-eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--orange);box-shadow:0 0 12px var(--orange)}
+.lh-title{font-family:'Big Shoulders Display',sans-serif;font-weight:800;letter-spacing:.01em;line-height:.92;font-size:clamp(48px,7vw,96px);text-transform:uppercase;color:var(--white)}
+.lh-text p{color:var(--muted);font-size:17px;line-height:1.6;max-width:540px;margin-top:18px}
+.lh-logo{flex-shrink:0;width:clamp(120px,21vw,240px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;
+  background:radial-gradient(circle at 35% 30%,rgba(168,104,255,.22),rgba(255,122,26,.08) 62%,transparent 74%);
+  border:1px solid rgba(255,255,255,.09);box-shadow:0 0 90px rgba(138,63,252,.28)}
+html[data-theme="light"] .lh-logo{border-color:rgba(17,17,22,.10);box-shadow:0 0 70px rgba(123,44,255,.14)}
+.lh-logo img{width:62%;height:62%;object-fit:contain;filter:drop-shadow(0 6px 22px rgba(0,0,0,.4))}
+.lh-logo-fallback{font-family:'Big Shoulders Display',sans-serif;font-weight:800;font-size:clamp(34px,6vw,64px);color:var(--white);letter-spacing:.02em}
+.lh-inner{max-width:1180px;margin:0 auto;padding:0 32px}
+.lh-inner .nf-wrap{padding:8px 0 70px}
+@media (max-width:640px){.lh-hero{padding:40px 0 24px}.lh-hero-in,.lh-inner{padding:0 20px}.lh-logo{width:96px}}
+
+</style>
+<style>body{overflow-x:clip}</style>
 </head>
 <body class="match-page-body">
 
@@ -516,7 +606,10 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
     </div>
   </div>
 
-  <div id="newsWrap" class="tab-panel"></div>
+  <div id="newsWrap" class="tab-panel lh-bleed">
+    <section class="lh-hero" id="leagueHero"></section>
+    <div class="lh-inner"><div id="leagueNewsFeed"></div></div>
+  </div>
 </div>
 
 <script src="wiki-image.js"></script>
@@ -563,13 +656,29 @@ let activeStatType = 'scorers'; // 'scorers' | 'assists'
 let statsLoadedFor = null; // 'league:type' already fetched, avoids refetching on tab re-click
 let statsSeq = 0;
 
-// ---- League news: stories about the selected competition (clubs/players of that league, league name) ----
+// ---- League news: full-width hero (league name, tagline, logo) + stories about the selected competition ----
+const leagueLogos = {};
+function renderLeagueHero(){
+  const meta = STANDINGS_LEAGUES[standingsIndex];
+  const info = (window.FSTopics && window.FSTopics.LEAGUES[meta.id]) || {};
+  const logo = leagueLogos[meta.id];
+  document.getElementById('leagueHero').innerHTML =
+    '<div class="lh-hero-in"><div class="lh-text">' +
+      '<div class="lh-eyebrow"><span class="dot"></span>Updated every week</div>' +
+      '<h1 class="lh-title">' + escapeHtml(meta.name) + '</h1>' +
+      '<p>' + escapeHtml(info.tagline || ('All the latest ' + meta.name + ' news in one place.')) + '</p>' +
+    '</div><div class="lh-logo">' +
+      (logo ? '<img src="' + escapeHtml(logo) + '" alt="' + escapeHtml(meta.name) + ' logo" />'
+            : '<span class="lh-logo-fallback">' + escapeHtml(meta.abbr) + '</span>') +
+    '</div></div>';
+}
 let newsLoadedFor = null;
 function loadNews(){
   const meta = STANDINGS_LEAGUES[standingsIndex];
+  renderLeagueHero();
   if (newsLoadedFor === meta.id) return;
   newsLoadedFor = meta.id;
-  window.FSNewsFeed.mount(newsWrap, { league: meta.id }, { label: meta.name });
+  window.FSNewsFeed.mount(document.getElementById('leagueNewsFeed'), { league: meta.id }, { label: meta.name });
 }
 
 pageNav.addEventListener('click', function(e){
@@ -628,6 +737,7 @@ async function loadStandings(){
       return;
     }
     const d = json.data;
+    if (d.league && d.league.logo) { leagueLogos[meta.id] = d.league.logo; if (activeTab === 'news') renderLeagueHero(); }
     if (d.league.logo){
       leagueIdEl.innerHTML = '<img src="' + d.league.logo + '" alt="" />' + leagueIdEl.innerHTML;
     } else {
