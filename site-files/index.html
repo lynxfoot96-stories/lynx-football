@@ -2799,6 +2799,7 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
   window.addEventListener('pageshow',render);   /* refresh when coming back with the Back button */
 })();
 </script>
+<script src="wiki-image.js"></script>
 <script src="news-videos.js"></script>
 <script>
 /* Homepage "Most Important News": newest stories first (automated + hand-written), auto-updating. */
@@ -2844,10 +2845,6 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
     var dek=plain(first(o,['summary','excerpt','dek','description']));
     if(!dek){dek=plain(body).slice(0,190);if(plain(body).length>190)dek=dek.replace(/\s+\S*$/,'')+'…'}
     var img=safeUrl(first(o,['image_url','image','cover_image','thumbnail']));
-    if(!img&&window.FSVideos){
-      var m=window.FSVideos.matchVideos(o.title||'',[dek,body].join(' '),1);
-      if(m.matched)img='https://i.ytimg.com/vi/'+m.list[0].id+'/'+'hqdefault.jpg';
-    }
     return {auto:true,href:'news-article.html?slug='+encodeURIComponent(o.slug),cat:first(o,['category','tag','topic','club'])||'News',
       title:o.title||'Untitled',dek:dek,date:shortDate(d),day:day(d),created:Date.parse(o.created_at)||0,img:img,imgHtml:''};
   }
@@ -2898,9 +2895,15 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
       if(!auto.length)return;                       /* nothing new: keep the page as it is */
       var titles={};items.forEach(function(i){titles[i.title.toLowerCase()]=1});
       auto=auto.filter(function(i){return !titles[i.title.toLowerCase()]});
-      var all=auto.concat(items);
-      all.sort(function(a,b){return (b.day-a.day)||((b.auto?1:0)-(a.auto?1:0))||(b.created-a.created)});
-      render(all);
+      /* same rule as the news page: only fill in a Wikimedia photo when the story has no image of its own */
+      var needImg=window.FSWikiImage?auto.filter(function(i){return !i.img}):[];
+      Promise.all(needImg.map(function(i){
+        return window.FSWikiImage.find(i.title).then(function(found){ if(found)i.img=found.url; });
+      })).then(function(){
+        var all=auto.concat(items);
+        all.sort(function(a,b){return (b.day-a.day)||((b.auto?1:0)-(a.auto?1:0))||(b.created-a.created)});
+        render(all);
+      });
     })
     .catch(function(){});
 })();
