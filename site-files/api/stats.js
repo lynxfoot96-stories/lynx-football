@@ -21,11 +21,13 @@
 // is incomplete. So by default the assists tab reports "unavailable"
 // (SHOW_PARTIAL_ASSISTS = false). Set it to true to show the partial ranking.
 //
-// PLAYER PHOTOS: football-data.org has none, so ./_lib/playerPhotos.js looks
-// each player up on Wikipedia (only accepted when it is clearly the same
-// footballer) and caches the result per player. Players with no safe photo get
-// a generated initials avatar, added when the response is sent (never stored in
-// the cache). The page needs no change: it already puts `photo` in the circle.
+// PLAYER PHOTOS: football-data.org has none, so ./_lib/playerPhotos.js checks
+// (in order) the Redis cache, the manually-curated public/player-photos.json
+// database, and finally a Wikipedia lookup (only accepted when it is clearly
+// the same footballer) -- and caches whichever one hits, per player. Players
+// with no safe photo get a generated initials avatar, added when the response
+// is sent (never stored in the cache). The page needs no change: it already
+// puts `photo` in the circle.
 //
 // PHOTO LOOKUP BUDGET: findPhotos() is given 8.5s and 8 concurrent workers
 // (see addPhotos() below) -- raised from the library defaults (4s / 4) because
@@ -186,17 +188,28 @@ function buildLists(raw, season) {
   return { scorers, assists };
 }
 
-// Attach Wikipedia photos where a safe match exists. Never throws and never
-// blocks the stats: on any problem players just keep no `photo` (initials
-// avatar is added at response time) and are retried on the next refresh.
+// Attach a photo where a safe match exists: curated database first, then
+// Wikipedia (see ./_lib/playerPhotos.js for the lookup order). Never throws
+// and never blocks the stats: on any problem players just keep no `photo`
+// (initials avatar is added at response time) and are retried on the next
+// refresh.
 //
 // budgetMs/concurrency are raised above the playerPhotos.js library defaults
 // (4000ms / 4) because the defaults were cutting most players off before they
-// were even attempted on a full 15-20 player scorers+assists list.
+// were even attempted on a full 15-20 player scorers+assists list. Curated
+// matches are effectively free (no network call), so this budget is spent
+// almost entirely on players the curated DB doesn't cover.
 async function addPhotos(lists) {
   const items = [...lists.scorers, ...lists.assists];
   const unique = new Map();
-  for (const p of items) if (!unique.has(p.id)) unique.set(p.id, { id: p.id, name: p.name, dob: p._dob });
+  for (const p of items) {
+    if (unique.has(p.id)) continue;
+    // `team` (club name) is passed through so the curated database can pick
+    // the right entry when a player's name matches more than one row in it
+    // (e.g. before/after a transfer) -- see getCuratedEntry() in
+    // ./_lib/playerPhotos.js. It never causes a curated match to be rejected.
+    unique.set(p.id, { id: p.id, name: p.name, dob: p._dob, team: p.team ? p.team.name : null });
+  }
   let found = new Map();
   try {
     found = await findPhotos([...unique.values()], { budgetMs: 8500, concurrency: 8 });
