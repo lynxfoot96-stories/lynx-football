@@ -16,14 +16,20 @@
  *   3. Wikipedia lookup (unchanged from before -- see SAFETY RULES below).
  *   4. Nothing found -> caller (api/stats.js) shows the initials avatar.
  *
- * CURATED DATABASE (public/player-photos.json):
+ * CURATED DATABASE (./player-photos.json, next to this file):
  *   An array of { name, club, competition, season, goals, imagePath,
  *   attribution, license, verified }. Loaded with `require()` (not
  *   fs.readFileSync) so Vercel's build traces the dependency and bundles the
  *   JSON into the serverless function automatically -- no vercel.json
- *   "includeFiles" needed. It's also still a normal file under public/, so
- *   it's served as a static asset too if you ever want to inspect it from
- *   the browser.
+ *   "includeFiles" needed.
+ *
+ *   DELIBERATELY NOT under /public: on a zero-config ("Other" framework)
+ *   Vercel project, a top-level public/ folder is auto-detected as the
+ *   site's static output root. Since this JSON is only ever read by this
+ *   backend module (never fetched directly by the browser), putting it in
+ *   public/ serves no purpose and would make Vercel serve public/'s
+ *   contents instead of your real site at "/". Keep it here, in api/_lib/,
+ *   alongside the code that actually requires it.
  *
  *   MATCHING: players are looked up by normalized name (diacritics/case/
  *   punctuation stripped). A transfer is fine as long as the name matches --
@@ -102,7 +108,7 @@ function loadCuratedDatabase() {
   curatedByName = new Map();
   try {
     // eslint-disable-next-line global-require
-    const data = require('../../public/player-photos.json');
+    const data = require('./player-photos.json');
     if (Array.isArray(data)) {
       for (const entry of data) {
         if (!entry || !entry.name || !entry.imagePath) continue;
