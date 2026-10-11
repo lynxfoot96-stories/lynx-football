@@ -189,6 +189,38 @@ function safeCuratedImageUrl(u) {
   }
 }
 
+const CURATED_VERIFY_TIMEOUT_MS = 2500;
+
+/**
+ * Curated entries are added by hand, which is exactly why they're trusted
+ * for IDENTITY (no isMatch() safety check) -- but a hand-entered image URL
+ * can still be wrong (a renamed/deleted Commons file, a stale/incorrect
+ * FotMob image id, a typo, ...). This does a lightweight HEAD check (GET
+ * fallback for hosts that reject HEAD) so a bad URL in player-photos.json
+ * degrades to the normal Wikipedia lookup instead of showing a broken image
+ * on the site. Result is NOT cached here -- getPhoto() only caches once a
+ * URL has actually verified, so a transiently-down host is simply retried
+ * next time this player is looked up (not cached as broken for 30 days).
+ */
+async function verifyImageUrl(url, fetchImpl) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), CURATED_VERIFY_TIMEOUT_MS);
+  try {
+    let res = await fetchImpl(url, { method: 'HEAD', redirect: 'follow', signal: ctrl.signal });
+    if (res.status === 405 || res.status === 501) {
+      // Some CDNs (FotMob among them) reject HEAD -- retry with a real GET.
+      res = await fetchImpl(url, { method: 'GET', redirect: 'follow', signal: ctrl.signal });
+    }
+    if (!res.ok) return false;
+    const type = (res.headers && res.headers.get && res.headers.get('content-type')) || '';
+    return type.toLowerCase().startsWith('image/');
+  } catch (_) {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Titles to try, most likely first (Wikipedia's own disambiguation naming). */
 function candidateTitles(name, birthYear) {
   const base = String(name || '').trim().replace(/\s+/g, '_');
@@ -325,16 +357,23 @@ async function getPhoto(player, fetchImpl) {
   if (cached !== null) return cached.u || null;
 
   // Curated, manually-verified database -- checked before the automated
-  // Wikipedia lookup. Trusted by construction, so no isMatch() safety check
-  // here (that check exists specifically because the Wikipedia pass is
-  // auto-matched and could otherwise attach the wrong person's face).
+  // Wikipedia lookup. Trusted for IDENTITY by construction (no isMatch()
+  // safety check -- that check exists specifically because the Wikipedia
+  // pass is auto-matched and could otherwise attach the wrong person's
+  // face), but the image URL itself is still verified to actually load
+  // before being trusted/cached -- a hand-entered URL can be stale or
+  // simply wrong, and a verified live Wikipedia photo beats a broken image.
   const curatedEntry = getCuratedEntry(player);
   if (curatedEntry) {
     const url = safeCuratedImageUrl(curatedEntry.imagePath);
     if (url) {
-      await cacheSet(key, { u: url }, FOUND_TTL_SECONDS);
-      console.log('[photo]', player.name, '-> curated match:', curatedEntry.club || '');
-      return url;
+      const verified = await verifyImageUrl(url, fetchImpl);
+      if (verified) {
+        await cacheSet(key, { u: url }, FOUND_TTL_SECONDS);
+        console.log('[photo]', player.name, '-> curated match:', curatedEntry.club || '');
+        return url;
+      }
+      console.log('[photo]', player.name, '-> curated entry did not verify (dead/invalid URL), falling back to Wikipedia:', url);
     }
   }
 
@@ -411,5 +450,6 @@ module.exports = {
   normalizeClub,
   clubsMatch,
   safeCuratedImageUrl,
+  verifyImageUrl,
   loadCuratedDatabase,
 };
