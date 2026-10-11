@@ -189,7 +189,13 @@ function safeCuratedImageUrl(u) {
   }
 }
 
-const CURATED_VERIFY_TIMEOUT_MS = 2500;
+// Short on purpose: a real, working image URL responds to HEAD almost
+// instantly, so this only matters for a dead/unreachable one -- and every
+// millisecond spent here is taken out of the single shared time budget
+// (addPhotos() in stats.js) that the WHOLE scorers+assists list has to fit
+// photo lookups into. A slow timeout here can starve other players of their
+// turn at the (working) Wikipedia fallback. 1.2s is plenty for a live CDN.
+const CURATED_VERIFY_TIMEOUT_MS = 1200;
 
 /**
  * Curated entries are added by hand, which is exactly why they're trusted
