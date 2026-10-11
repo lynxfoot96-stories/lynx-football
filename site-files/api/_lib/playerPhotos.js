@@ -1,10 +1,39 @@
 'use strict';
 /**
- * Player photos from Wikipedia (lead image of the player's article), plus a
- * generated initials avatar for players with no safe photo.
+ * Player photos: a manually-curated database first, then Wikipedia (the lead
+ * image of the player's article), then a generated initials avatar for
+ * anyone neither source has a safe photo for.
  *
- * SAFETY RULES -- a wrong face is worse than no face, so a photo is accepted
- * only when ALL of these hold:
+ * LOOKUP ORDER (per player, cheapest/most-trusted first):
+ *   1. Redis cache (fd-photo:{playerId}) -- whatever won last time, found or
+ *      missing, is reused until its TTL expires. This already covers BOTH
+ *      curated and Wikipedia hits, so a curated match is cached exactly like
+ *      a Wikipedia one and costs nothing on repeat requests.
+ *   2. Curated local database (./player-photos.json, see below) -- manually
+ *      verified photos you've added by hand. Checked before Wikipedia
+ *      because it's trusted by construction and is usually the first place
+ *      a photo shows up after a transfer (Wikipedia can lag).
+ *   3. Wikipedia lookup (unchanged from before -- see SAFETY RULES below).
+ *   4. Nothing found -> caller (api/stats.js) shows the initials avatar.
+ *
+ * CURATED DATABASE (public/player-photos.json):
+ *   An array of { name, club, competition, season, goals, imagePath,
+ *   attribution, license, verified }. Loaded with `require()` (not
+ *   fs.readFileSync) so Vercel's build traces the dependency and bundles the
+ *   JSON into the serverless function automatically -- no vercel.json
+ *   "includeFiles" needed. It's also still a normal file under public/, so
+ *   it's served as a static asset too if you ever want to inspect it from
+ *   the browser.
+ *
+ *   MATCHING: players are looked up by normalized name (diacritics/case/
+ *   punctuation stripped). A transfer is fine as long as the name matches --
+ *   club is only used to pick between two curated entries that share a
+ *   name (see normalizeClub/clubsMatch below), never to reject a match.
+ *   Loaded and indexed once per cold start (module-level cache).
+ *
+ * SAFETY RULES (Wikipedia pass only; the curated DB is trusted because it
+ * was verified by hand, not auto-matched) -- a wrong face is worse than no
+ * face, so a Wikipedia photo is accepted only when ALL of these hold:
  *   - the page is a normal article (not a disambiguation / surname list),
  *   - its description says footballer / football player / soccer player,
  *   - if the description gives a birth year, it equals the player's real birth
@@ -13,7 +42,7 @@
  *   - the image URL is https on a *.wikimedia.org host.
  * Anything else -> no photo (the caller shows the initials avatar).
  *
- * LOOKUP STRATEGY (two passes per player):
+ * LOOKUP STRATEGY (two passes per player, Wikipedia only):
  *   1. Direct title guesses from the player's name as given by the data
  *      provider (candidateTitles) -- fast, no extra request, works whenever
  *      the provider's name already matches the Wikipedia article title.
@@ -30,7 +59,7 @@
  * are working the way you expect, if you'd rather not log on every refresh.
  *
  * CACHING (per player, shared by every competition the player appears in):
- *   fd-photo:{playerId}  found   -> 30 days
+ *   fd-photo:{playerId}  found   -> 30 days  (curated hits use the same TTL)
  *                        missing -> 3 days (then tried again)
  *   Network errors / rate limits are NOT cached, so they are retried next refresh.
  *
@@ -39,7 +68,10 @@
  *   photo for up to 3 days regardless of code changes, until the cache entry
  *   expires. Either wait it out, temporarily lower MISSING_TTL_SECONDS below,
  *   or manually delete the relevant `fd-photo:{playerId}` key(s) in your
- *   Redis/Upstash dashboard before testing.
+ *   Redis/Upstash dashboard before testing. The same applies if you add/edit
+ *   an entry in player-photos.json for a player who was already cached as
+ *   "missing" or with a Wikipedia photo -- delete that key to pick it up
+ *   immediately.
  *
  * Wikimedia asks API clients to send a descriptive User-Agent with contact
  * info. Set WIKIMEDIA_CONTACT in Vercel (a website URL or an email address).
@@ -58,6 +90,97 @@ function userAgent() {
 
 function normalize(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+// ---- Curated local database (public/player-photos.json) --------------------
+// Loaded + indexed once per cold start. require() (not fs.readFileSync) so
+// Vercel's bundler traces and includes the JSON file automatically.
+let curatedByName = null; // Map<normalizedName, entry[]>
+
+function loadCuratedDatabase() {
+  if (curatedByName) return curatedByName;
+  curatedByName = new Map();
+  try {
+    // eslint-disable-next-line global-require
+    const data = require('../../public/player-photos.json');
+    if (Array.isArray(data)) {
+      for (const entry of data) {
+        if (!entry || !entry.name || !entry.imagePath) continue;
+        const key = normalize(entry.name).replace(/[^a-z0-9]+/g, ' ').trim();
+        if (!key) continue;
+        if (!curatedByName.has(key)) curatedByName.set(key, []);
+        curatedByName.get(key).push(entry);
+      }
+    } else {
+      console.error('[photo] player-photos.json did not contain an array; curated DB disabled.');
+    }
+  } catch (e) {
+    // Missing/invalid file is not fatal -- just means no curated fallback.
+    console.error('[photo] could not load curated player-photos.json:', e.message);
+  }
+  return curatedByName;
+}
+
+// Strips common club-name noise (prefixes/suffixes, punctuation, diacritics)
+// so e.g. "Bayern München" and "FC Bayern Munich" compare equal, and a
+// substring check handles "Brest" vs "Stade Brestois 29".
+const CLUB_STOPWORDS = /\b(fc|cf|afc|sc|ac|ca|cr|cd|ud|rcd|ssc|vfb|fsv|sv|sl|ol|om|psg|the|club|calcio|futebol|futbol|clube|clube de regatas)\b/g;
+
+function normalizeClub(s) {
+  let n = String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  n = n.replace(/[&.\-]/g, ' ');
+  n = n.replace(CLUB_STOPWORDS, ' ');
+  n = n.replace(/\b\d{1,4}\b/g, ' '); // "Mainz 05", "Brest 29", "Bayer 04"
+  n = n.replace(/\s+/g, ' ').trim();
+  return n;
+}
+
+function clubsMatch(a, b) {
+  const na = normalizeClub(a);
+  const nb = normalizeClub(b);
+  if (!na || !nb) return false;
+  return na === nb || na.includes(nb) || nb.includes(na);
+}
+
+/**
+ * Looks a player up in the curated database by normalized name. If more than
+ * one entry shares that name (e.g. two seasons, or two different players
+ * with the same name), the player's current club (when known) picks between
+ * them; otherwise the first/most recent entry is used. A club mismatch is
+ * NEVER a reason to reject a name match -- it usually just means a transfer
+ * happened since the entry was added.
+ * @param {{name:string, team?:string|null}} player
+ * @returns {object|null} the raw curated entry, or null
+ */
+function getCuratedEntry(player) {
+  const byName = loadCuratedDatabase();
+  if (!byName.size) return null;
+  const key = normalize(player.name).replace(/[^a-z0-9]+/g, ' ').trim();
+  const candidates = byName.get(key);
+  if (!candidates || !candidates.length) return null;
+  if (candidates.length > 1 && player.team) {
+    const byClub = candidates.find((c) => clubsMatch(c.club, player.team));
+    if (byClub) return byClub;
+  }
+  return candidates[0];
+}
+
+/**
+ * Curated entries are trusted (verified by hand), so this only checks that
+ * the URL is well-formed https -- it does NOT restrict to wikimedia.org like
+ * safeImageUrl() below does for auto-matched Wikipedia results. Unlike
+ * safeImageUrl(), the query string is kept: some curated sources (e.g. UEFA)
+ * encode the real image URL in a query parameter.
+ */
+function safeCuratedImageUrl(u) {
+  try {
+    const url = new URL(String(u || ''));
+    if (url.protocol !== 'https:') return null;
+    url.hash = '';
+    return url.toString().replace(/["'()\\\s<>]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+  } catch (_) {
+    return null;
+  }
 }
 
 /** Titles to try, most likely first (Wikipedia's own disambiguation naming). */
@@ -185,12 +308,29 @@ async function lookupOne(player, fetchImpl) {
   return { state: 'missing' };
 }
 
-/** Cached lookup. Returns a URL string, or null when there is no (safe) photo right now. */
+/**
+ * Cached lookup. Returns a URL string, or null when there is no (safe) photo
+ * right now. Checks, in order: Redis cache -> curated database -> Wikipedia.
+ */
 async function getPhoto(player, fetchImpl) {
   if (player.id === undefined || player.id === null) return null;
   const key = `fd-photo:${player.id}`;
   const cached = await cacheGet(key);
   if (cached !== null) return cached.u || null;
+
+  // Curated, manually-verified database -- checked before the automated
+  // Wikipedia lookup. Trusted by construction, so no isMatch() safety check
+  // here (that check exists specifically because the Wikipedia pass is
+  // auto-matched and could otherwise attach the wrong person's face).
+  const curatedEntry = getCuratedEntry(player);
+  if (curatedEntry) {
+    const url = safeCuratedImageUrl(curatedEntry.imagePath);
+    if (url) {
+      await cacheSet(key, { u: url }, FOUND_TTL_SECONDS);
+      console.log('[photo]', player.name, '-> curated match:', curatedEntry.club || '');
+      return url;
+    }
+  }
 
   const r = await lookupOne(player, fetchImpl);
   if (r.state === 'found') {
@@ -207,7 +347,7 @@ async function getPhoto(player, fetchImpl) {
  * Look up photos for many players within a time budget so a stats refresh can
  * never run long. Players not reached in time simply keep the initials avatar
  * and are retried on the next refresh.
- * @param {{id:number,name:string,dob?:string}[]} players
+ * @param {{id:number,name:string,dob?:string,team?:string}[]} players
  * @returns {Promise<Map<number,string>>} id -> photo url (only players that have one)
  */
 async function findPhotos(players, { budgetMs = 4000, concurrency = 4, fetchImpl = fetch } = {}) {
@@ -252,4 +392,18 @@ function initialsAvatar(name) {
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
 
-module.exports = { findPhotos, getPhoto, initials, initialsAvatar, candidateTitles, isMatch, safeImageUrl };
+module.exports = {
+  findPhotos,
+  getPhoto,
+  initials,
+  initialsAvatar,
+  candidateTitles,
+  isMatch,
+  safeImageUrl,
+  // curated-DB internals, exported for testing/debugging
+  getCuratedEntry,
+  normalizeClub,
+  clubsMatch,
+  safeCuratedImageUrl,
+  loadCuratedDatabase,
+};
