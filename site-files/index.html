@@ -1771,18 +1771,18 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
       <h2 class="display">Latest Upload</h2>
       <p>Fresh off the edit. The story making the rounds in the football world right now.</p>
     </div>
-    <div class="featured"><a href="https://youtu.be/g1znANo5gu4" class="featured-link yt-trigger" data-yt="g1znANo5gu4">
-      <div class="featured-media" data-yt-id="g1znANo5gu4" style="background-image:url('https://i.ytimg.com/vi/g1znANo5gu4/maxresdefault.jpg'); background-size:cover; background-position:center;">
+    <div class="featured" id="latestFeatured"><a href="https://youtu.be/g1znANo5gu4" class="featured-link yt-trigger" data-yt="g1znANo5gu4" id="latestLink">
+      <div class="featured-media" id="latestMedia" data-vid="g1znANo5gu4" data-hq="1" data-yt-id="g1znANo5gu4" style="background-color:#14121A; background-size:cover; background-position:center;">
         <div class="play-btn">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
         </div>
       </div>
       <div class="featured-info">
-        <span class="tag-pill">Rankings</span>
-        <h3 class="display">Top 10 Players With the Most Goals in the 21st Century</h3>
-        <p>The players who have scored the most goals since the turn of the century, ranked and argued over.</p>
+        <span class="tag-pill" id="latestTag">Rankings</span>
+        <h3 class="display" id="latestTitle">Top 10 Players With the Most Goals in the 21st Century</h3>
+        <p id="latestText">Our newest video, straight from the channel. Press play and enjoy.</p>
         <div class="featured-meta">
-          <span>6:47</span>
+          <span>Watch now</span>
         </div>
       </div>
     </div></a>
@@ -1963,6 +1963,16 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
         var v = list.filter(function(x){ return x.c === t.n; })[0];
         if (v) picks.push(v);
       });
+      /* "Latest Upload" = the first video in videos-data.js */
+      var L = list[0];
+      if (L){
+        var lm = document.getElementById('latestMedia'), ll = document.getElementById('latestLink');
+        ll.href = 'https://youtu.be/' + L.id; ll.setAttribute('data-yt', L.id);
+        lm.setAttribute('data-vid', L.id); lm.setAttribute('data-yt-id', L.id); lm.removeAttribute('data-ok'); lm.style.backgroundImage = '';
+        document.getElementById('latestTag').textContent = L.c;
+        document.getElementById('latestTitle').textContent = L.t;
+        FSV.hydrate(lm.parentNode);
+      }
       picks.sort(function(a, b){ return list.indexOf(a) - list.indexOf(b); });
       grid.innerHTML = picks.map(FSV.cardHTML).join('');
       FSV.hydrate(grid);

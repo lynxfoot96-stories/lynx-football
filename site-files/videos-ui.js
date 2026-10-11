@@ -99,11 +99,13 @@
     if (!id || el.getAttribute('data-ok')) return;
     el.setAttribute('data-ok', '1');
     var srcs = ['video-thumbs/' + id + '.jpg', 'https://i.ytimg.com/vi/' + id + '/maxresdefault.jpg', 'https://i.ytimg.com/vi/' + id + '/hqdefault.jpg'];
+    if (el.getAttribute('data-hq')) srcs = [srcs[1], srcs[0], srcs[2]];   // big featured picture: prefer YouTube's HD one
+    var yt = function(i){ return srcs[i].indexOf('maxresdefault') > -1; };
     (function next(i){
       if (i >= srcs.length) return;
       var im = new Image();
       im.onload = function(){
-        if (i === 1 && im.naturalWidth < 320) return next(i + 1);   // YouTube's grey "no picture" placeholder
+        if (yt(i) && im.naturalWidth < 320) return next(i + 1);   // YouTube's grey "no picture" placeholder
         el.style.backgroundImage = "url('" + srcs[i] + "')";
       };
       im.onerror = function(){ next(i + 1); };
@@ -112,7 +114,7 @@
   }
   var io = null;
   function hydrate(root){
-    var els = [].slice.call((root || document).querySelectorAll('.video-thumb[data-vid]'));
+    var els = [].slice.call((root || document).querySelectorAll('.video-thumb[data-vid], .featured-media[data-vid]'));
     if (!('IntersectionObserver' in window)){ els.forEach(setThumb); return; }
     io = io || new IntersectionObserver(function(es){
       es.forEach(function(en){ if (en.isIntersecting){ setThumb(en.target); io.unobserve(en.target); } });
