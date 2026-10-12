@@ -1139,6 +1139,76 @@
   .see-all-games-btn svg{ transition:transform .2s ease; }
   .see-all-games-btn:hover svg{ transform:translateX(2px); }
 
+  .scores-header-left{
+    display:flex;
+    align-items:center;
+    gap:14px;
+  }
+
+  /* "Select League" quick-jump — same idea as the pill menu on standings.html,
+     but with squared-off corners so it matches see-all-games-btn's language. */
+  .league-nav-wrap{ position:relative; flex-shrink:0; }
+  .league-nav-btn{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--white);
+    font-size:12.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.02em;
+    padding:9px 16px;
+    border-radius:8px;
+    white-space:nowrap;
+    cursor:pointer;
+    transition:border-color .2s ease, background .2s ease;
+  }
+  .league-nav-btn:hover{ border-color:var(--purple-bright); background:var(--panel-2); }
+  .league-nav-btn.is-open{ border-color:var(--purple-bright); background:var(--panel-2); }
+  .league-nav-btn svg{ pointer-events:none; flex-shrink:0; }
+  @media (max-width:640px){
+    .league-nav-btn span{ display:none; }
+    .league-nav-btn{ padding:9px; }
+  }
+
+  .league-nav-menu{
+    position:absolute; left:0; top:calc(100% + 10px);
+    width:252px; max-width:calc(100vw - 48px);
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    box-shadow:0 16px 32px rgba(0,0,0,0.4);
+    opacity:0; visibility:hidden; transform:translateY(-6px);
+    transition:opacity .18s ease, transform .18s ease, visibility .18s ease;
+    z-index:20;
+    overflow:hidden;
+    overflow-y:auto;
+  }
+  .league-nav-menu.is-open{
+    opacity:1; visibility:visible; transform:translateY(0);
+  }
+  .league-nav-item{
+    display:flex; align-items:center; gap:12px; padding:11px 14px;
+    cursor:pointer; border-bottom:1px solid var(--line);
+    transition:background .15s ease;
+  }
+  .league-nav-item:last-child{ border-bottom:none; }
+  .league-nav-item:hover{ background:rgba(255,255,255,0.05); }
+  .league-nav-item .ln-badge{
+    width:24px; height:24px; border-radius:7px; flex-shrink:0;
+    background:linear-gradient(135deg, var(--purple), var(--orange));
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Big Shoulders Display', sans-serif; font-weight:800; font-size:9.5px; color:#fff;
+  }
+  .league-nav-item .ln-text{ display:flex; flex-direction:column; min-width:0; }
+  .league-nav-item .ln-name{ font-size:13.5px; font-weight:700; color:var(--white); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .league-nav-item .ln-country{ font-size:11px; color:var(--muted); margin-top:1px; }
+  @media (max-width:480px){
+    .league-nav-menu{ width:224px; }
+  }
+  html[data-theme="light"] .league-nav-menu{ box-shadow:0 16px 32px rgba(17,17,22,0.14); }
+  html[data-theme="light"] .league-nav-item:hover{ background:rgba(17,17,22,0.04); }
+
   .scores-controls{
     display:flex;
     align-items:center;
@@ -1601,11 +1671,20 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
 <section class="scores-section" id="scores">
   <div class="wrap">
     <div class="scores-header">
-      <div class="scores-title"><span class="live-dot" id="scoresLiveDot" style="display:none;"></span>Scores</div>
-      <a href="matches.html" class="see-all-games-btn">
-        See All Games
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 18l6-6-6-6"/></svg>
-      </a>
+      <div class="scores-header-left">
+        <div class="scores-title"><span class="live-dot" id="scoresLiveDot" style="display:none;"></span>Scores</div>
+        <a href="matches.html" class="see-all-games-btn">
+          See All Games
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 18l6-6-6-6"/></svg>
+        </a>
+      </div>
+      <div class="league-nav-wrap">
+        <button class="league-nav-btn" id="leagueNavBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Select league">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="14" y2="17"/></svg>
+          <span>Select League</span>
+        </button>
+        <div class="league-nav-menu" id="leagueNavMenu" role="menu" aria-label="Competitions"></div>
+      </div>
       <div class="scores-controls">
         <select class="scores-league-select" id="scoresLeagueSelect">
           <option value="all">All Competitions</option>
@@ -2264,6 +2343,71 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
 
     resetTimer();
   })();
+</script>
+
+<script>
+(function(){
+  // Same competitions/order as the "Select League" menu on standings.html,
+  // so picking one here always lands on the matching section there.
+  const NAV_LEAGUES = [
+    { id: 39, name: 'Premier League', country: 'England', abbr: 'PL' },
+    { id: 135, name: 'Serie A', country: 'Italy', abbr: 'SA' },
+    { id: 78, name: 'Bundesliga', country: 'Germany', abbr: 'BL' },
+    { id: 140, name: 'La Liga', country: 'Spain', abbr: 'LL' },
+    { id: 61, name: 'Ligue 1', country: 'France', abbr: 'L1' },
+    { id: 2, name: 'Champions League', country: 'Europe', abbr: 'UCL' },
+    { id: 71, name: 'Brasileirão Série A', country: 'Brazil', abbr: 'BSA' },
+    { id: 94, name: 'Primeira Liga', country: 'Portugal', abbr: 'PPL' },
+  ];
+
+  const navBtn = document.getElementById('leagueNavBtn');
+  const navMenu = document.getElementById('leagueNavMenu');
+  if (!navBtn || !navMenu) return;
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+
+  function renderNavMenu(){
+    navMenu.innerHTML = NAV_LEAGUES.map(function(l){
+      return '<div class="league-nav-item" role="menuitem" data-id="' + l.id + '">' +
+        '<div class="ln-badge">' + escapeHtml(l.abbr) + '</div>' +
+        '<div class="ln-text"><span class="ln-name">' + escapeHtml(l.name) + '</span>' +
+        '<span class="ln-country">' + escapeHtml(l.country) + '</span></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function openNavMenu(){
+    renderNavMenu();
+    navMenu.classList.add('is-open');
+    navBtn.classList.add('is-open');
+    navBtn.setAttribute('aria-expanded', 'true');
+  }
+  function closeNavMenu(){
+    navMenu.classList.remove('is-open');
+    navBtn.classList.remove('is-open');
+    navBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  navBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    if (navMenu.classList.contains('is-open')) closeNavMenu();
+    else openNavMenu();
+  });
+  navMenu.addEventListener('click', function(e){
+    const item = e.target.closest('.league-nav-item');
+    if (!item) return;
+    window.location.href = 'standings.html?league=' + item.getAttribute('data-id');
+  });
+  document.addEventListener('click', function(e){
+    if (!navMenu.classList.contains('is-open')) return;
+    if (navMenu.contains(e.target) || navBtn.contains(e.target)) return;
+    closeNavMenu();
+  });
+})();
 </script>
 
 </div>
