@@ -2584,7 +2584,7 @@ window.FSLeagueLogos = (function(){
   }
   function renderMenu(){
     var active = current().value;
-    menu.innerHTML = COMPS.map(function(c){
+    menu.innerHTML = COMPS.filter(function(c){ return !c.all; }).map(function(c){
       return '<div class="scores-league-item' + (c.value === active ? ' is-active' : '') + '" role="menuitem" data-value="' + c.value + '" title="' + esc(c.name) + '">' +
         iconFor(c) +
         '<div class="sl-text"><span class="sl-name">' + esc(c.name) + '</span><span class="sl-country">' + esc(c.sub) + '</span></div>' +
@@ -2608,6 +2608,7 @@ window.FSLeagueLogos = (function(){
     if (!item) return;
     var v = item.getAttribute('data-value');
     closeMenu();
+    if (v === select.value) v = 'all'; // tapping the selected competition again clears the filter
     if (v === select.value) return;
     select.value = v;
     select.dispatchEvent(new Event('change'));
