@@ -460,6 +460,9 @@
   .ts-goals .num{ font-family:'Big Shoulders Display', sans-serif; font-weight:900; font-size:28px; color:var(--purple-bright); line-height:1; }
   .ts-goals .label{ font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em; margin-top:3px; }
   .ts-state-msg{ text-align:center; padding:40px 20px; color:var(--muted); font-size:14px; background:var(--panel); border:1px solid var(--line); border-radius:14px; }
+  .ts-heading{ display:flex; align-items:center; gap:14px; }
+  .ts-logo{ width:42px; height:42px; object-fit:contain; flex-shrink:0; display:none; }
+  .ts-logo.is-loaded{ display:block; }
   @media (max-width:480px){
     .ts-row{ padding:14px 16px; gap:12px; }
     .ts-photo{ width:40px; height:40px; }
@@ -1864,7 +1867,10 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
 <section id="top-scorers">
   <div class="wrap">
     <div class="section-head">
-      <h2 class="display">Top Scorers</h2>
+      <div class="ts-heading">
+        <img class="ts-logo" id="tsLeagueLogo" src="" alt="" />
+        <h2 class="display">UCL Top Scorers</h2>
+      </div>
       <p>The five players leading the Champions League goal charts right now.</p>
     </div>
     <div id="topScorersList">
@@ -2571,6 +2577,22 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
   var listEl = document.getElementById('topScorersList');
   if (!listEl) return;
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  // Competition logo next to the "UCL Top Scorers" heading.
+  var logoEl = document.getElementById('tsLeagueLogo');
+  if (logoEl){
+    fetch('/api/standings?league=' + LEAGUE_ID, { headers:{ Accept:'application/json' } })
+      .then(function(res){ return res.json(); })
+      .then(function(json){
+        if (json && json.ok && json.data && json.data.league && json.data.league.logo){
+          logoEl.src = json.data.league.logo;
+          logoEl.alt = 'UEFA Champions League';
+          logoEl.classList.add('is-loaded');
+        }
+      })
+      .catch(function(){ /* heading just stays text-only */ });
+  }
+
   fetch('/api/stats?league=' + LEAGUE_ID + '&type=scorers', { headers:{ Accept:'application/json' } })
     .then(function(res){ return res.json(); })
     .then(function(json){
