@@ -454,7 +454,8 @@ html[data-theme="light"] .vt-chip.on{background:linear-gradient(160deg,rgba(123,
 .video-card{background:var(--panel);border:1px solid var(--line);border-radius:9px;overflow:hidden;transition:border-color .25s ease,transform .25s ease}
 .video-card:hover{border-color:rgba(138,63,252,.5);transform:translateY(-4px)}
 .video-card.vc-hide{display:none}
-.video-card.vc-in{animation:vcIn .45s cubic-bezier(.2,.8,.2,1) both}
+/* "backwards" (not "both"): once the entrance animation ends it must let go of transform, otherwise it freezes the card in place and blocks the hover lift */
+.video-card.vc-in{animation:vcIn .45s cubic-bezier(.2,.8,.2,1) backwards}
 @keyframes vcIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 html[data-theme="light"] .video-card{box-shadow:0 1px 2px rgba(17,17,22,.03),0 10px 26px rgba(17,17,22,.05)}
 .video-thumb{aspect-ratio:16/9;position:relative;display:flex;align-items:center;justify-content:center;background-size:cover;background-position:center}
