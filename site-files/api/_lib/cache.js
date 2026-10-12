@@ -1,80 +1,226 @@
-'use strict';
-/**
- * Small shared cache stored in Supabase.
- *
- * WHY THIS EXISTS: an in-memory cache (a plain Map inside a serverless
- * function file) only helps requests that happen to land on the same warm
- * instance. Vercel can -- and does, under a traffic spike -- run several
- * instances of the same function at once, each with its own private memory.
- * So "30 people click in the same minute" can still mean several *separate*
- * upstream calls, one per cold instance, which is exactly what was blowing
- * past football-data.org's rate limit and producing "unable to load".
- *
- * This module gives every instance a shared place to check "has anyone,
- * anywhere, already fetched this in the last N minutes?" before calling the
- * upstream API. It's deliberately tiny and best-effort: if Supabase isn't
- * configured, or a call to it fails, every function here just returns
- * null/no-ops so the caller falls back to calling the upstream API directly
- * -- this can never be the reason a request fails.
- *
- * Table (run once in the Supabase SQL editor):
- *
- *   create table if not exists api_cache (
- *     key text primary key,
- *     data jsonb not null,
- *     updated_at timestamptz not null default now()
- *   );
- *
- * No RLS policy is needed since this is only ever read/written with the
- * service role key (server-side only), same as the news_articles table.
- */
+// /api/_lib/cache.js
+// Shared cache + daily-counter helper used by every /api/*.js endpoint
+// that talks to an upstream sports API (scores.js, match.js, and -- once
+// you apply the same pattern there -- standings.js).
+//
+// WHY THIS EXISTS
+// Plain `const cache = new Map()` inside a serverless function only lives
+// as long as THAT ONE instance stays warm, and Vercel can run several
+// instances of the same function at once (or recycle one mid-session).
+// Two requests seconds apart can land on two different instances, each
+// with an empty cache -- so a 25-minute TTL never actually holds in
+// practice, and your daily request budget resets randomly instead of
+// once a day. That's the real cause of counts jumping fast even though
+// the TTL/budget numbers in the code look conservative.
+//
+// This file fixes that by backing the cache and the daily counter with
+// Upstash Redis (via its plain HTTPS REST API -- no SDK/dependency to
+// install), which is a single shared store every instance talks to.
+//
+// SETUP REQUIRED (one-time, ~2 minutes):
+//   1. Go to https://console.upstash.com and create a free Redis database.
+//   2. On that database's page, copy "REST URL" and "REST TOKEN".
+//   3. In your Vercel project: Settings -> Environment Variables, add:
+//        UPSTASH_REDIS_REST_URL   = <the REST URL>
+//        UPSTASH_REDIS_REST_TOKEN = <the REST TOKEN>
+//   4. Redeploy.
+//
+// UNTIL YOU DO THAT: every function below quietly falls back to a local
+// in-memory Map (same behavior you have today -- not worse, just not
+// fixed yet). Nothing will error or break in the meantime.
 
-function cfg() {
-  const url = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
-  return { url, headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' } };
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+function upstashConfigured() {
+  return Boolean(UPSTASH_URL && UPSTASH_TOKEN);
 }
 
-const TABLE = 'api_cache';
+// DEBUG: remembers the most recent Upstash failure (HTTP error body, or a
+// thrown exception) so callers can surface the REAL reason instead of a
+// generic null. This is a temporary diagnostic addition -- safe to leave in
+// (it's just bookkeeping), but the goal is to find out exactly why
+// acquireLock() has been failing for every request.
+let lastError = null;
+function getLastRedisError() {
+  return lastError;
+}
 
-/**
- * Returns { data, ageMs } for the given key, or null if there's no row yet,
- * or Supabase isn't configured, or the read failed for any reason.
- */
-async function readCache(key) {
-  const c = cfg();
-  if (!c) return null;
+async function redisCommand(parts) {
+  if (!upstashConfigured()) return null;
   try {
-    const res = await fetch(
-      `${c.url}/rest/v1/${TABLE}?key=eq.${encodeURIComponent(key)}&select=data,updated_at&limit=1`,
-      { headers: c.headers }
-    );
-    if (!res.ok) return null;
-    const rows = await res.json();
-    if (!rows.length) return null;
-    return { data: rows[0].data, ageMs: Date.now() - new Date(rows[0].updated_at).getTime() };
-  } catch {
+    const url = `${UPSTASH_URL}/${parts.map(encodeURIComponent).join("/")}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` },
+    });
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => "<unreadable body>");
+      lastError = { command: parts[0], status: res.status, body: bodyText };
+      console.error("[cache] Upstash HTTP error", res.status, "for", parts[0], "->", bodyText);
+      return null;
+    }
+    const json = await res.json();
+    if (json && json.error) {
+      lastError = { command: parts[0], status: res.status, body: JSON.stringify(json) };
+      console.error("[cache] Upstash returned an error for", parts[0], "->", json.error);
+      return null;
+    }
+    return json.result;
+  } catch (e) {
+    lastError = { command: parts[0], exception: e.message };
+    console.error("[cache] Upstash request failed:", e.message);
     return null;
   }
 }
 
-/**
- * Upserts a key. Fire-and-forget from the caller's point of view -- never
- * throws, never slows down the response that triggered it.
- */
-async function writeCache(key, data) {
-  const c = cfg();
-  if (!c) return;
+// ---- Local, per-instance fallback (used when Upstash isn't configured,
+// or as a first check to avoid a network round-trip when it is) --------
+const localCache = new Map(); // key -> { value, expiresAt }
+
+function localGet(key) {
+  const entry = localCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    localCache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function localSet(key, value, ttlSeconds) {
+  localCache.set(key, { value, expiresAt: Date.now() + ttlSeconds * 1000 });
+}
+
+// ---- Public: response cache ---------------------------------------------
+// Checks the fast local cache first, then Redis (if configured). A Redis
+// hit also warms the local cache so this instance doesn't need another
+// network round-trip for the same key until its TTL passes.
+
+async function cacheGet(key) {
+  const local = localGet(key);
+  if (local !== null) return local;
+  if (!upstashConfigured()) return null;
+
+  const raw = await redisCommand(["get", key]);
+  if (raw === null || raw === undefined) return null;
   try {
-    await fetch(`${c.url}/rest/v1/${TABLE}?on_conflict=key`, {
-      method: 'POST',
-      headers: { ...c.headers, Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify({ key, data, updated_at: new Date().toISOString() }),
-    });
-  } catch {
-    // best-effort -- a failed write just means the next request re-fetches
+    const value = JSON.parse(raw);
+    // Warm the local cache too. We don't know the original TTL here, so
+    // use a short 60s local re-check window -- Redis stays the source of
+    // truth for the real TTL either way.
+    localSet(key, value, 60);
+    return value;
+  } catch (e) {
+    return null;
   }
 }
 
-module.exports = { readCache, writeCache };
+async function cacheSet(key, value, ttlSeconds) {
+  localSet(key, value, ttlSeconds);
+  if (!upstashConfigured()) return;
+  const raw = JSON.stringify(value);
+  await redisCommand(["set", key, raw]);
+  await redisCommand(["expire", key, String(ttlSeconds)]);
+}
+
+// ---- Public: daily counter -----------------------------------------------
+// Increments a counter that expires automatically at the next UTC
+// midnight, so it resets exactly once a day, shared across every
+// instance -- unlike a plain in-memory `callsToday` variable. Returns the
+// new count after incrementing, or null if Upstash isn't configured (in
+// which case callers should fall back to a local-only counter, which is
+// what the per-file DAILY_BUDGET logic already does today).
+
+function secondsUntilNextUtcMidnight() {
+  const now = new Date();
+  const next = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0)
+  );
+  return Math.ceil((next.getTime() - now.getTime()) / 1000);
+}
+
+async function incrementDailyCounter(counterName) {
+  if (!upstashConfigured()) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const key = `daily:${counterName}:${today}`;
+  const count = await redisCommand(["incr", key]);
+  if (count === 1) {
+    // First hit today for this counter -- make sure it expires at
+    // midnight UTC so it self-resets without any extra scheduled job.
+    await redisCommand(["expire", key, String(secondsUntilNextUtcMidnight())]);
+  }
+  return count;
+}
+
+// ---- Public: distributed lock (cache-stampede protection) ---------------
+// Short-lived, per-key lock so that when a cache entry expires and many
+// concurrent requests see a miss at the same moment, only ONE of them
+// does the expensive upstream fetch; the rest wait briefly and then read
+// the value that request just cached instead of all calling the upstream
+// API too.
+//
+// Backed by Redis's atomic `SET key token NX EX ttl` -- NX means "only
+// set if it doesn't already exist", so exactly one concurrent caller can
+// ever win this across every serverless instance. The token is a random
+// value unique to this acquisition; release only deletes the key if it
+// still holds OUR token (via a small Lua script, run atomically), so a
+// request can never release a lock another request took over after ours
+// expired.
+//
+// Falls back to an in-memory lock (this instance only) when Upstash isn't
+// configured. That's not a true cross-instance lock, but it still
+// collapses concurrent requests landing on the SAME warm instance, and is
+// never worse than today's unlocked behavior.
+
+const localLocks = new Map(); // lockKey -> { token, expiresAt }
+
+function makeToken() {
+  return `${Date.now()}:${Math.random().toString(36).slice(2)}`;
+}
+
+// ttlSeconds should be a bit longer than the slowest expected upstream
+// call, so a crashed/killed serverless invocation can't leave a lock
+// stuck forever -- it just expires and the next request takes over.
+async function acquireLock(key, ttlSeconds = 20) {
+  const lockKey = `lock:${key}`;
+  const token = makeToken();
+
+  if (!upstashConfigured()) {
+    const now = Date.now();
+    const existing = localLocks.get(lockKey);
+    if (existing && existing.expiresAt > now) return null; // someone else holds it
+    localLocks.set(lockKey, { token, expiresAt: now + ttlSeconds * 1000 });
+    return token;
+  }
+
+  const result = await redisCommand(["set", lockKey, token, "NX", "EX", String(ttlSeconds)]);
+  // Upstash returns "OK" when the SET happened, null when NX blocked it
+  // because the key already exists (i.e. someone else holds the lock).
+  return result === "OK" ? token : null;
+}
+
+async function releaseLock(key, token) {
+  const lockKey = `lock:${key}`;
+
+  if (!upstashConfigured()) {
+    const existing = localLocks.get(lockKey);
+    if (existing && existing.token === token) localLocks.delete(lockKey);
+    return;
+  }
+
+  // Compare-and-delete in one atomic step, so we can never release a
+  // lock some other request acquired after ours expired.
+  const script =
+    'if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end';
+  await redisCommand(["eval", script, "1", lockKey, token]);
+}
+
+module.exports = {
+  upstashConfigured,
+  cacheGet,
+  cacheSet,
+  incrementDailyCounter,
+  acquireLock,
+  releaseLock,
+  getLastRedisError,
+};
