@@ -26,7 +26,7 @@
 // people hit the site in the same minute or how many serverless instances
 // Vercel happens to spin up to serve them.
 
-const { readCache, writeCache } = require("./_lib/cache");
+const { cacheGet, cacheSet, acquireLock, releaseLock } = require("./_lib/cache");
 
 const API_BASE = "https://api.football-data.org/v4";
 function buildHeaders() {
@@ -46,8 +46,8 @@ const LEAGUE_ID_TO_FD_CODE = {
   94: "PPL", // Primeira Liga
 };
 
-const TTL_MS = 5 * 60 * 1000; // 5 minutes -- see getCached() for how this is enforced across instances
-const cache = new Map(); // in this instance's memory, key `${code}-${season}` -> { fetchedAt, data }
+const TTL_SECONDS = 5 * 60; // fresh window, shared across instances via the existing cache.js
+const STALE_TTL_SECONDS = 24 * 60 * 60; // long-lived copy, only used if upstream fails
 const inFlight = new Map(); // collapses concurrent requests within this same instance
 
 // ---- Daily request budget ------------------------------------------------
@@ -106,36 +106,41 @@ async function callFootballData(path) {
 }
 
 async function getCached(key, path) {
-  const cached = cache.get(key);
-  const isFresh = cached && Date.now() - cached.fetchedAt < TTL_MS;
-  if (isFresh) return cached.data;
+  const freshKey = `standings:${key}`;
+  const staleKey = `standings:stale:${key}`;
+
+  const fresh = await cacheGet(freshKey);
+  if (fresh) return fresh;
   if (inFlight.has(key)) return inFlight.get(key);
 
   const promise = (async () => {
-    // Shared cache next -- covers the common case where ANOTHER serverless
-    // instance already fetched this within the last 5 minutes. This is what
-    // stops a burst of visitors from each triggering their own upstream
-    // call: whichever request gets there first "wins", and everyone else
-    // (on any instance) reuses what it found.
-    const shared = await readCache(key);
-    if (shared && shared.ageMs < TTL_MS) {
-      cache.set(key, { fetchedAt: Date.now() - shared.ageMs, data: shared.data });
-      return shared.data;
+    const token = await acquireLock(freshKey, 20);
+    if (!token) {
+      // Another request/instance is already fetching: wait briefly for its result.
+      for (let i = 0; i < 10; i++) {
+        await new Promise((r) => setTimeout(r, 300));
+        const f = await cacheGet(freshKey);
+        if (f) return f;
+      }
+      const stale = await cacheGet(staleKey);
+      if (stale) return stale;
+      // Nothing arrived; fall through and fetch ourselves.
     }
-
     try {
       const data = await callFootballData(path);
-      cache.set(key, { fetchedAt: Date.now(), data });
-      writeCache(key, data); // best-effort, not awaited -- never slows this response down
+      await cacheSet(freshKey, data, TTL_SECONDS);
+      await cacheSet(staleKey, data, STALE_TTL_SECONDS);
       return data;
     } catch (err) {
-      if (cached) return cached.data; // serve this instance's own stale data over a hard failure
-      if (shared) return shared.data; // or stale shared data, if that's all there is
+      const stale = await cacheGet(staleKey);
+      if (stale) return stale;
       throw err;
+    } finally {
+      if (token) await releaseLock(freshKey, token);
     }
   })();
 
-  promise.finally(() => inFlight.delete(key));
+  promise.finally(() => inFlight.delete(key)).catch(() => {});
   inFlight.set(key, promise);
   return promise;
 }
