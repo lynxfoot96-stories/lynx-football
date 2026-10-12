@@ -258,7 +258,7 @@ html[data-theme="light"] .stats-row:hover{ background:rgba(17,17,22,0.025); }
   position:absolute; left:0; top:50%; transform:translateY(-50%);
   display:flex; align-items:center; gap:8px; flex-shrink:0;
   padding:9px 16px; border-radius:999px; white-space:nowrap;
-  background:var(--panel-2); border:1px solid var(--line); color:#fff;
+  background:var(--panel-2); border:1px solid var(--line); color:var(--white);
   font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.02em;
   cursor:pointer;
   transition:border-color .2s ease, background .2s ease;
@@ -305,11 +305,10 @@ html[data-theme="light"] .stats-row:hover{ background:rgba(17,17,22,0.025); }
   font-family:'Big Shoulders Display', sans-serif; font-weight:800; font-size:9.5px; color:#fff;
 }
 .league-menu-item .lm-text{ display:flex; flex-direction:column; min-width:0; }
-.league-menu-item .lm-name{ font-size:13.5px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.league-menu-item .lm-name{ font-size:13.5px; font-weight:700; color:var(--white); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .league-menu-item .lm-country{ font-size:11px; color:var(--muted); margin-top:1px; }
 .league-menu-item.is-active .lm-name{ color:var(--purple-bright); }
 
-html[data-theme="light"] .league-menu-item .lm-name{ color:var(--white); }
 html[data-theme="light"] .league-menu{ box-shadow:0 16px 32px rgba(17,17,22,0.14); }
 html[data-theme="light"] .league-menu-item:hover{ background:rgba(17,17,22,0.04); }
 html[data-theme="light"] .league-menu-item.is-active{ background:rgba(123,44,255,0.08); }
