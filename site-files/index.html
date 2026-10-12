@@ -1206,6 +1206,64 @@
   @media (max-width:480px){
     .league-nav-menu{ width:224px; }
   }
+  /* real league logos inside the "Select League" menu */
+  .league-nav-item img{ width:24px; height:24px; object-fit:contain; flex-shrink:0; }
+
+  /* ---- "All Competitions" picker (replaces the native <select>; same look as the standings.html menu) ---- */
+  .scores-league-wrap{ position:relative; flex-shrink:0; }
+  .scores-league-btn{
+    display:flex; align-items:center; gap:9px;
+    background:var(--panel); border:1px solid var(--line); color:var(--white);
+    font-size:12.5px; font-weight:600; padding:6px 10px 6px 12px;
+    border-radius:8px; cursor:pointer; white-space:nowrap;
+    transition:border-color .2s ease, background .2s ease;
+  }
+  .scores-league-btn:hover, .scores-league-btn.is-open{ border-color:var(--purple-bright); background:var(--panel-2); }
+  .scores-league-btn .sl-label{ max-width:170px; overflow:hidden; text-overflow:ellipsis; }
+  .scores-league-btn .sl-chev{ flex-shrink:0; transition:transform .2s ease; }
+  .scores-league-btn.is-open .sl-chev{ transform:rotate(180deg); }
+  .scores-league-btn img, .scores-league-item img{ width:20px; height:20px; object-fit:contain; flex-shrink:0; }
+  .scores-league-menu{
+    position:absolute; left:0; top:calc(100% + 10px);
+    width:270px; max-width:calc(100vw - 48px);
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    box-shadow:0 20px 44px rgba(0,0,0,0.5);
+    opacity:0; visibility:hidden; transform:translateY(-8px);
+    transition:opacity .18s ease, transform .18s ease, visibility 0s linear .18s;
+    z-index:30; overflow-y:auto;
+    max-height:min(420px, calc(100vh - 160px));
+  }
+  .scores-league-menu.is-open{
+    opacity:1; visibility:visible; transform:translateY(0);
+    transition:opacity .18s ease, transform .18s ease;
+  }
+  .scores-league-item{
+    display:flex; align-items:center; gap:12px; padding:11px 14px;
+    cursor:pointer; border-bottom:1px solid var(--line);
+    transition:background .15s ease;
+  }
+  .scores-league-item:last-child{ border-bottom:none; }
+  .scores-league-item:hover{ background:rgba(255,255,255,0.05); }
+  .scores-league-item.is-active{ background:rgba(138,63,252,0.12); }
+  .scores-league-item img{ width:24px; height:24px; }
+  .sl-badge{
+    width:24px; height:24px; border-radius:7px; flex-shrink:0;
+    background:linear-gradient(135deg, var(--purple), var(--orange));
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Big Shoulders Display', sans-serif; font-weight:800; font-size:9.5px; color:#fff;
+  }
+  .scores-league-btn .sl-badge{ width:20px; height:20px; border-radius:6px; font-size:8.5px; }
+  .scores-league-item .sl-text{ display:flex; flex-direction:column; min-width:0; }
+  .scores-league-item .sl-name{ font-size:13.5px; font-weight:700; color:var(--white); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .scores-league-item .sl-country{ font-size:11px; color:var(--muted); margin-top:1px; }
+  .scores-league-item.is-active .sl-name{ color:var(--purple-bright); }
+  html[data-theme="light"] .scores-league-menu{ box-shadow:0 16px 32px rgba(17,17,22,0.14); }
+  html[data-theme="light"] .scores-league-item:hover{ background:rgba(17,17,22,0.04); }
+  html[data-theme="light"] .scores-league-item.is-active{ background:rgba(123,44,255,0.08); }
+  @media (max-width:480px){
+    .scores-league-menu{ width:240px; }
+    .scores-league-btn .sl-label{ max-width:130px; }
+  }
   html[data-theme="light"] .league-nav-menu{ box-shadow:0 16px 32px rgba(17,17,22,0.14); }
   html[data-theme="light"] .league-nav-item:hover{ background:rgba(17,17,22,0.04); }
 
@@ -1686,7 +1744,14 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
         <div class="league-nav-menu" id="leagueNavMenu" role="menu" aria-label="Competitions"></div>
       </div>
       <div class="scores-controls">
-        <select class="scores-league-select" id="scoresLeagueSelect">
+        <div class="scores-league-wrap">
+          <button class="scores-league-btn" id="scoresLeagueBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Select competition">
+            <span id="scoresLeagueIcon" style="display:flex;"></span>
+            <span class="sl-label" id="scoresLeagueLabel">All Competitions</span>
+            <svg class="sl-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="scores-league-menu" id="scoresLeagueMenu" role="menu" aria-label="Competitions"></div>
+          <select class="scores-league-select" id="scoresLeagueSelect" style="display:none;" aria-hidden="true" tabindex="-1">
           <option value="all">All Competitions</option>
           <option value="39">Premier League</option>
           <option value="140">La Liga</option>
@@ -1700,6 +1765,7 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
           <option value="5">UEFA Nations League</option>
           <option value="29">Africa Cup of Nations - Qualification</option>
         </select>
+        </div>
         <div class="scores-date-nav" id="scoresDateNav">
           <button class="date-arrow" id="datePrev" aria-label="Previous date">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
@@ -2346,6 +2412,45 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
 </script>
 
 <script>
+/* Shared league-logo source for both dropdowns. The 8 competitions on standings.html use the exact same
+   crests that page shows (read from /api/standings, cached in localStorage for 7 days, so most visits make no
+   extra calls). The 3 extra scores-only competitions use API-Football's own logo files, same as the match cards. */
+window.FSLeagueLogos = (function(){
+  var KEY = 'fs96-league-logos-v1', MAX_AGE = 7 * 24 * 3600 * 1000;
+  var IDS = [39, 135, 78, 140, 61, 2, 71, 94];
+  var EXTRA = {
+    3: 'https://media.api-sports.io/football/leagues/3.png',
+    5: 'https://media.api-sports.io/football/leagues/5.png',
+    29: 'https://media.api-sports.io/football/leagues/29.png'
+  };
+  var logos = {}, created = Date.now(), subs = [], started = false;
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY));
+    if (saved && saved.t && saved.logos && Date.now() - saved.t < MAX_AGE) { logos = saved.logos; created = saved.t; }
+  } catch (e) {}
+  function save(){ try { localStorage.setItem(KEY, JSON.stringify({ t: created, logos: logos })); } catch (e) {} }
+  function notify(){ subs.forEach(function(fn){ try { fn(); } catch (e) {} }); }
+  function get(id){ return logos[id] || EXTRA[id] || null; }
+  function start(){
+    if (started) return;
+    started = true;
+    IDS.forEach(function(id){
+      if (logos[id]) return;
+      fetch('/api/standings?league=' + id)
+        .then(function(r){ return r.json(); })
+        .then(function(j){
+          var l = j && j.ok && j.data && j.data.league && j.data.league.logo;
+          if (l) { logos[id] = l; save(); notify(); }
+        })
+        .catch(function(){ /* keep the letter badge */ });
+    });
+  }
+  if (document.readyState === 'complete') setTimeout(start, 1500);
+  else window.addEventListener('load', function(){ setTimeout(start, 1500); });
+  return { get: get, start: start, onUpdate: function(fn){ subs.push(fn); } };
+})();
+</script>
+<script>
 (function(){
   // Same competitions/order as the "Select League" menu on standings.html,
   // so picking one here always lands on the matching section there.
@@ -2372,15 +2477,33 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
 
   function renderNavMenu(){
     navMenu.innerHTML = NAV_LEAGUES.map(function(l){
+      var logo = window.FSLeagueLogos && window.FSLeagueLogos.get(l.id);
+      var icon = logo
+        ? '<img src="' + escapeHtml(logo) + '" alt="" data-abbr="' + escapeHtml(l.abbr) + '" />'
+        : '<div class="ln-badge">' + escapeHtml(l.abbr) + '</div>';
       return '<div class="league-nav-item" role="menuitem" data-id="' + l.id + '">' +
-        '<div class="ln-badge">' + escapeHtml(l.abbr) + '</div>' +
+        icon +
         '<div class="ln-text"><span class="ln-name">' + escapeHtml(l.name) + '</span>' +
         '<span class="ln-country">' + escapeHtml(l.country) + '</span></div>' +
       '</div>';
     }).join('');
   }
 
+  if (window.FSLeagueLogos){
+    window.FSLeagueLogos.onUpdate(function(){ if (navMenu.classList.contains('is-open')) renderNavMenu(); });
+  }
+  // If a logo file fails to load, fall back to the letter badge instead of a broken image.
+  navMenu.addEventListener('error', function(e){
+    var img = e.target;
+    if (!img || img.tagName !== 'IMG') return;
+    var b = document.createElement('div');
+    b.className = 'ln-badge';
+    b.textContent = img.getAttribute('data-abbr') || '';
+    img.replaceWith(b);
+  }, true);
+
   function openNavMenu(){
+    if (window.FSLeagueLogos) window.FSLeagueLogos.start();
     renderNavMenu();
     navMenu.classList.add('is-open');
     navBtn.classList.add('is-open');
@@ -2412,6 +2535,107 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
 
 </div>
 
+<script>
+(function(){
+  // Custom "All Competitions" picker. The hidden <select id="scoresLeagueSelect"> stays as the single source of
+  // truth, so the existing scores code (which listens for its "change" event) works exactly as before.
+  var COMPS = [
+    { value: 'all', name: 'All Competitions', sub: 'Every league', all: true },
+    { value: '39',  name: 'Premier League', sub: 'England', abbr: 'PL' },
+    { value: '140', name: 'La Liga', sub: 'Spain', abbr: 'LL' },
+    { value: '135', name: 'Serie A', sub: 'Italy', abbr: 'SA' },
+    { value: '78',  name: 'Bundesliga', sub: 'Germany', abbr: 'BL' },
+    { value: '61',  name: 'Ligue 1', sub: 'France', abbr: 'L1' },
+    { value: '2',   name: 'Champions League', sub: 'Europe', abbr: 'UCL' },
+    { value: '3',   name: 'Europa League', sub: 'Europe', abbr: 'UEL' },
+    { value: '71',  name: 'Brasileirão Série A', sub: 'Brazil', abbr: 'BSA' },
+    { value: '94',  name: 'Primeira Liga', sub: 'Portugal', abbr: 'PPL' },
+    { value: '5',   name: 'UEFA Nations League', sub: 'Europe', abbr: 'UNL' },
+    { value: '29',  name: 'Africa Cup of Nations - Qualification', sub: 'Africa', abbr: 'AFC' }
+  ];
+  var btn = document.getElementById('scoresLeagueBtn');
+  var menu = document.getElementById('scoresLeagueMenu');
+  var select = document.getElementById('scoresLeagueSelect');
+  var iconEl = document.getElementById('scoresLeagueIcon');
+  var labelEl = document.getElementById('scoresLeagueLabel');
+  if (!btn || !menu || !select) return;
+
+  function esc(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  var ALL_ICON = '<div class="sl-badge"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></div>';
+  function iconFor(c){
+    if (c.all) return ALL_ICON;
+    var logo = window.FSLeagueLogos && window.FSLeagueLogos.get(c.value);
+    return logo
+      ? '<img src="' + esc(logo) + '" alt="" data-abbr="' + esc(c.abbr) + '" />'
+      : '<div class="sl-badge">' + esc(c.abbr) + '</div>';
+  }
+  function current(){
+    for (var i = 0; i < COMPS.length; i++) if (COMPS[i].value === select.value) return COMPS[i];
+    return COMPS[0];
+  }
+  function renderButton(){
+    var c = current();
+    iconEl.innerHTML = iconFor(c);
+    labelEl.textContent = c.name;
+  }
+  function renderMenu(){
+    var active = current().value;
+    menu.innerHTML = COMPS.map(function(c){
+      return '<div class="scores-league-item' + (c.value === active ? ' is-active' : '') + '" role="menuitem" data-value="' + c.value + '" title="' + esc(c.name) + '">' +
+        iconFor(c) +
+        '<div class="sl-text"><span class="sl-name">' + esc(c.name) + '</span><span class="sl-country">' + esc(c.sub) + '</span></div>' +
+      '</div>';
+    }).join('');
+  }
+  function openMenu(){
+    if (window.FSLeagueLogos) window.FSLeagueLogos.start();
+    renderMenu();
+    menu.classList.add('is-open'); btn.classList.add('is-open'); btn.setAttribute('aria-expanded', 'true');
+  }
+  function closeMenu(){
+    menu.classList.remove('is-open'); btn.classList.remove('is-open'); btn.setAttribute('aria-expanded', 'false');
+  }
+  btn.addEventListener('click', function(e){
+    e.stopPropagation();
+    if (menu.classList.contains('is-open')) closeMenu(); else openMenu();
+  });
+  menu.addEventListener('click', function(e){
+    var item = e.target.closest('.scores-league-item');
+    if (!item) return;
+    var v = item.getAttribute('data-value');
+    closeMenu();
+    if (v === select.value) return;
+    select.value = v;
+    select.dispatchEvent(new Event('change'));
+    renderButton();
+  });
+  document.addEventListener('click', function(e){
+    if (!menu.classList.contains('is-open')) return;
+    if (menu.contains(e.target) || btn.contains(e.target)) return;
+    closeMenu();
+  });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeMenu(); });
+  // A logo file that fails to load falls back to the letter badge instead of a broken image.
+  function badgeOnError(e){
+    var img = e.target;
+    if (!img || img.tagName !== 'IMG') return;
+    var b = document.createElement('div');
+    b.className = 'sl-badge';
+    b.textContent = img.getAttribute('data-abbr') || '';
+    img.replaceWith(b);
+  }
+  menu.addEventListener('error', badgeOnError, true);
+  iconEl.addEventListener('error', badgeOnError, true);
+  if (window.FSLeagueLogos){
+    window.FSLeagueLogos.onUpdate(function(){ renderButton(); if (menu.classList.contains('is-open')) renderMenu(); });
+  }
+  renderButton();
+})();
+</script>
 <script>
 (function(){
   const LIVE_POLL_MS = 1800000; // 30 minutes -> 48 refreshes/day max, to stay on the free API plan
