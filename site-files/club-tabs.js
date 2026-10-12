@@ -45,6 +45,11 @@
     });
   }
   function compName(id) { return COMP_NAMES[id] || ('Competition ' + id); }
+  // football-data.org competition emblems (same provider as the API files)
+  var COMP_LOGO_IDS = { 39: 2021, 140: 2014, 135: 2019, 78: 2002, 61: 2015, 2: 2001, 94: 2017, 71: 2013 };
+  function compLogo(id) {
+    return COMP_LOGO_IDS[id] ? '<img class="ct-kp-logo" src="https://crests.football-data.org/' + COMP_LOGO_IDS[id] + '.png" alt="" onerror="this.style.display=\'none\'">' : '';
+  }
   function isClub(team) {
     if (!team) return false;
     if (team.id === club.id) return true;
@@ -66,13 +71,14 @@
   var css = '' +
     '.ct-state{padding:48px 16px;text-align:center;color:var(--muted);font-size:14px}' +
     '.ct-kp-section{margin-bottom:32px}' +
-    '.ct-kp-section h3{font-family:"Big Shoulders Display",sans-serif;font-weight:700;font-size:22px;text-transform:uppercase;color:var(--purple-bright);margin-bottom:14px}' +
+    '.ct-kp-section h3{display:flex;align-items:center;gap:12px;font-family:"Big Shoulders Display",sans-serif;font-weight:700;font-size:22px;text-transform:uppercase;color:var(--purple-bright);margin-bottom:14px}' +
+    '.ct-kp-logo{width:34px;height:34px;object-fit:contain;flex-shrink:0}' +
     '.ct-kp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}' +
     '.ct-kp-card{display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}' +
     '.ct-kp-photo{width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--panel-2);flex-shrink:0;border:2px solid var(--purple)}' +
     '.ct-kp-info{min-width:0;flex:1}' +
     '.ct-kp-role{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--orange-bright);margin-bottom:4px}' +
-    '.ct-kp-name{font-weight:700;font-size:16px;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '.ct-kp-name{font-weight:700;font-size:16px;color:var(--white);line-height:1.2}' +
     '.ct-kp-sub{font-size:12px;color:var(--muted);margin-top:2px}' +
     '.ct-kp-stat{text-align:right;flex-shrink:0}' +
     '.ct-kp-num{font-family:"Big Shoulders Display",sans-serif;font-weight:900;font-size:36px;line-height:1;color:var(--purple-bright)}' +
@@ -140,7 +146,7 @@
             '</div>';
           });
         });
-        if (cards) html += '<div class="ct-kp-section"><h3>' + esc(compName(comp)) + '</h3><div class="ct-kp-grid">' + cards + '</div></div>';
+        if (cards) html += '<div class="ct-kp-section"><h3>' + compLogo(comp) + '<span>' + esc(compName(comp)) + '</span></h3><div class="ct-kp-grid">' + cards + '</div></div>';
       });
       kpPanel.innerHTML = html ||
         '<div class="ct-state">No ' + esc(club.name) + ' players in the top scorer lists right now.</div>';
