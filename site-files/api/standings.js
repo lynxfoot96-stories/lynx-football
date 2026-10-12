@@ -20,9 +20,13 @@
 // GET /v4/competitions/{code}/standings.
 //
 // WHY THE LONG CACHE: league tables only change a handful of times a day
-// (when matches finish), and this widget only cycles through six fixed
-// competitions, so a 1-minute cache keeps this file's usage tiny and safely
-// under football-data.org's free-plan limit of 10 requests/minute.
+// (when matches finish), so a 5-minute cache keeps this file's usage tiny
+// and safely under football-data.org's free-plan limit of 10 requests/
+// minute -- and, via the shared cache below, holds no matter how many
+// people hit the site in the same minute or how many serverless instances
+// Vercel happens to spin up to serve them.
+
+const { readCache, writeCache } = require("./_lib/cache");
 
 const API_BASE = "https://api.football-data.org/v4";
 function buildHeaders() {
@@ -42,18 +46,21 @@ const LEAGUE_ID_TO_FD_CODE = {
   94: "PPL", // Primeira Liga
 };
 
-const TTL_MS = 60 * 1000; // 1 minute -- matches the ~1 request/minute cadence the frontend polls at
-const cache = new Map(); // key `${code}-${season}` -> { fetchedAt, data }
-const inFlight = new Map();
+const TTL_MS = 5 * 60 * 1000; // 5 minutes -- see getCached() for how this is enforced across instances
+const cache = new Map(); // in this instance's memory, key `${code}-${season}` -> { fetchedAt, data }
+const inFlight = new Map(); // collapses concurrent requests within this same instance
 
 // ---- Daily request budget ------------------------------------------------
-// The cache above already guarantees at most ONE upstream call per
-// competition per minute, no matter how many visitors are on the site --
-// that's what actually keeps this safe on football-data.org's free plan
-// (10 req/min). This daily cap is just a second, independent backstop
-// under that. With 8 competitions polled at most once/minute each:
-// 8 * 60 * 24 = 11,520 calls/day in the worst case (site open nonstop,
-// every competition viewed constantly).
+// The cache above guarantees at most ONE upstream call per competition per
+// 5 minutes *per warm instance* -- but Vercel can run several instances of
+// this function at once, each with its own memory, so that alone doesn't
+// bound things across a traffic spike. The shared Supabase cache in
+// getCached() closes that gap: any instance that finds a fresh-enough row
+// there reuses it instead of calling upstream. This daily cap is a second,
+// independent backstop under both of those. With 8 competitions refreshed
+// at most once every 5 minutes each: 8 * 12 * 24 = 2,304 calls/day in the
+// worst case (site open nonstop, every competition viewed constantly) --
+// comfortably under football-data.org's free-plan limits.
 const DAILY_BUDGET = 3000;
 let budgetDay = null;
 let callsToday = 0;
@@ -104,18 +111,31 @@ async function getCached(key, path) {
   if (isFresh) return cached.data;
   if (inFlight.has(key)) return inFlight.get(key);
 
-  const promise = callFootballData(path)
-    .then((data) => {
-      cache.set(key, { fetchedAt: Date.now(), data });
-      inFlight.delete(key);
-      return data;
-    })
-    .catch((err) => {
-      inFlight.delete(key);
-      if (cached) return cached.data; // serve stale over a hard failure
-      throw err;
-    });
+  const promise = (async () => {
+    // Shared cache next -- covers the common case where ANOTHER serverless
+    // instance already fetched this within the last 5 minutes. This is what
+    // stops a burst of visitors from each triggering their own upstream
+    // call: whichever request gets there first "wins", and everyone else
+    // (on any instance) reuses what it found.
+    const shared = await readCache(key);
+    if (shared && shared.ageMs < TTL_MS) {
+      cache.set(key, { fetchedAt: Date.now() - shared.ageMs, data: shared.data });
+      return shared.data;
+    }
 
+    try {
+      const data = await callFootballData(path);
+      cache.set(key, { fetchedAt: Date.now(), data });
+      writeCache(key, data); // best-effort, not awaited -- never slows this response down
+      return data;
+    } catch (err) {
+      if (cached) return cached.data; // serve this instance's own stale data over a hard failure
+      if (shared) return shared.data; // or stale shared data, if that's all there is
+      throw err;
+    }
+  })();
+
+  promise.finally(() => inFlight.delete(key));
   inFlight.set(key, promise);
   return promise;
 }
