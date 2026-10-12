@@ -2156,7 +2156,7 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
       <span>© 2026 Football Stories. Made for the fans who read past the headline.</span>
       <div class="socials">
         <a href="https://www.youtube.com/@football-stories-96" aria-label="YouTube" target="_blank" rel="noopener noreferrer"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8ZM9.6 15.5V8.5L15.8 12Z"/></svg></a>
-        <a href="https://www.instagram.com/footballstories96" aria-label="Instagram" target="_blank" rel="noopener noreferrer"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 2c2.7 0 3.1 0 4.1.06 1.1.05 1.8.22 2.5.47.7.28 1.2.6 1.8 1.16.5.5.9 1.1 1.16 1.8.25.7.42 1.4.47 2.5.05 1 .06 1.4.06 4.1s0 3.1-.06 4.1c-.05 1.1-.22 1.8-.47 2.5a4.9 4.9 0 0 1-1.16 1.8 4.9 4.9 0 0 1-1.8 1.16c-.7.25-1.4.42-2.5.47-1 .05-1.4.06-4.1.06s-3.1 0-4.1-.06c-1.1-.05-1.8-.22-2.5-.47a4.9 4.9 0 0 1-1.8-1.16 4.9 4.9 0 0 1-1.16-1.8c-.25-.7-.42-1.4-.47-2.5C2 15.1 2 14.7 2 12s0-3.1.06-4.1c.05-1.1.22-1.8.47-2.5.28-.7.6-1.2 1.16-1.8.5-.5 1.1-.9 1.8-1.16.7-.25 1.4-.42 2.5-.47C8.9 2 9.3 2 12 2Zm0 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm5.2-2.6a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Z"/></svg></a>
+        <a href="https://www.instagram.com/lynx.football.stories/" aria-label="Instagram" target="_blank" rel="noopener noreferrer"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 2c2.7 0 3.1 0 4.1.06 1.1.05 1.8.22 2.5.47.7.28 1.2.6 1.8 1.16.5.5.9 1.1 1.16 1.8.25.7.42 1.4.47 2.5.05 1 .06 1.4.06 4.1s0 3.1-.06 4.1c-.05 1.1-.22 1.8-.47 2.5a4.9 4.9 0 0 1-1.16 1.8 4.9 4.9 0 0 1-1.8 1.16c-.7.25-1.4.42-2.5.47-1 .05-1.4.06-4.1.06s-3.1 0-4.1-.06c-1.1-.05-1.8-.22-2.5-.47a4.9 4.9 0 0 1-1.8-1.16 4.9 4.9 0 0 1-1.16-1.8c-.25-.7-.42-1.4-.47-2.5C2 15.1 2 14.7 2 12s0-3.1.06-4.1c.05-1.1.22-1.8.47-2.5.28-.7.6-1.2 1.16-1.8.5-.5 1.1-.9 1.8-1.16.7-.25 1.4-.42 2.5-.47C8.9 2 9.3 2 12 2Zm0 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm5.2-2.6a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Z"/></svg></a>
       </div>
     </div>
   </div>
@@ -2184,13 +2184,15 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
     FSV.load(function(list){
       var count = {};
       list.forEach(function(v){ count[v.c] = (count[v.c] || 0) + 1; });
-      var picks = [];
-      FSV.THEMES.forEach(function(t){
-        var v = list.filter(function(x){ return x.c === t.n; })[0];
-        if (v) picks.push(v);
-      });
       /* "Latest Upload" = the first video in videos-data.js */
       var L = list[0];
+      /* One video per theme (the newest of each), but never the Latest Upload itself: it already has its own
+         section above, so that theme shows its next-newest video instead (or is skipped if it has only one). */
+      var picks = [];
+      FSV.THEMES.forEach(function(t){
+        var v = list.filter(function(x){ return x.c === t.n && x !== L; })[0];
+        if (v) picks.push(v);
+      });
       if (L){
         var lm = document.getElementById('latestMedia'), ll = document.getElementById('latestLink');
         ll.href = 'https://youtu.be/' + L.id; ll.setAttribute('data-yt', L.id);
