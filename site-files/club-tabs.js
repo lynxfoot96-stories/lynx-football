@@ -45,10 +45,10 @@
     });
   }
   function compName(id) { return COMP_NAMES[id] || ('Competition ' + id); }
-  // football-data.org competition emblems (same provider as the API files)
-  var COMP_LOGO_IDS = { 39: 2021, 140: 2014, 135: 2019, 78: 2002, 61: 2015, 2: 2001, 94: 2017, 71: 2013 };
+  // Competition logos come from /api/standings (league.logo) - the same logos the Classification tab uses.
+  var logoByComp = {};
   function compLogo(id) {
-    return COMP_LOGO_IDS[id] ? '<img class="ct-kp-logo" src="https://crests.football-data.org/' + COMP_LOGO_IDS[id] + '.png" alt="" onerror="this.style.display=\'none\'">' : '';
+    return logoByComp[id] ? '<img class="ct-kp-logo" src="' + esc(logoByComp[id]) + '" alt="" onerror="this.style.display=\'none\'">' : '';
   }
   function isClub(team) {
     if (!team) return false;
@@ -119,6 +119,10 @@
     kpPanel.innerHTML = '<div class="ct-state">Loading key players…</div>';
     var jobs = [];
     club.comps.forEach(function (comp) {
+      jobs.push(getJSON('/api/standings?league=' + comp).then(function (res) {
+        if (res && res.ok && res.data && res.data.league && res.data.league.logo) logoByComp[comp] = res.data.league.logo;
+        return { comp: comp, logoOnly: true };
+      }));
       KP_TYPES.forEach(function (t) {
         jobs.push(getJSON('/api/stats?league=' + comp + '&type=' + t.type).then(function (res) {
           return { comp: comp, t: t, res: res };
@@ -129,7 +133,7 @@
       var html = '';
       club.comps.forEach(function (comp) {
         var cards = '';
-        results.filter(function (r) { return r.comp === comp; }).forEach(function (r) {
+        results.filter(function (r) { return r.comp === comp && !r.logoOnly; }).forEach(function (r) {
           if (!r.res || !r.res.ok || !Array.isArray(r.res.data)) return; // e.g. assists not available yet
           r.res.data.filter(function (p) { return isClub(p.team); }).forEach(function (p) {
             var val = p[r.t.field];
