@@ -256,15 +256,22 @@ html[data-theme="light"] .stats-row:hover{ background:rgba(17,17,22,0.025); }
 .standings-switch-row .standings-switch{ margin-top:0; }
 .league-menu-btn{
   position:absolute; left:0; top:50%; transform:translateY(-50%);
-  width:36px; height:36px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; gap:8px; flex-shrink:0;
+  padding:9px 16px; border-radius:999px; white-space:nowrap;
   background:var(--panel-2); border:1px solid var(--line); color:#fff;
-  display:flex; align-items:center; justify-content:center; cursor:pointer;
+  font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.02em;
+  cursor:pointer;
   transition:border-color .2s ease, background .2s ease;
   z-index:6;
 }
 .league-menu-btn:hover{ border-color:var(--purple-bright); }
 .league-menu-btn.is-open{ border-color:var(--purple-bright); background:var(--panel); }
-.league-menu-btn svg{ pointer-events:none; }
+.league-menu-btn svg{ pointer-events:none; flex-shrink:0; }
+
+@media (max-width:640px){
+  .league-menu-btn span{ display:none; }
+  .league-menu-btn{ padding:9px; border-radius:50%; }
+}
 
 .league-menu{
   position:absolute; left:0; top:calc(100% + 10px);
@@ -641,8 +648,9 @@ header .wrap{ max-width:1180px; padding:0 32px; }
 
 <div class="wrap">
   <div class="standings-switch-row">
-    <button class="league-menu-btn" id="leagueMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Choose competition">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+    <button class="league-menu-btn" id="leagueMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Select league">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="14" y2="17"/></svg>
+      <span>Select League</span>
     </button>
     <div class="league-menu" id="leagueMenu" role="menu" aria-label="Competitions"></div>
 
@@ -784,6 +792,23 @@ document.addEventListener('keydown', function(e){
   if (e.key === 'Escape') closeLeagueMenu();
 });
 renderLeagueMenu();
+
+// Quietly fetch every competition's logo up front (not just the one currently
+// open) so the dropdown shows real crests right away instead of letter badges.
+function preloadLeagueLogos(){
+  STANDINGS_LEAGUES.forEach(function(l, i){
+    if (i === standingsIndex || leagueLogos[l.id]) return; // active one loads via loadStandings()
+    fetch('/api/standings?league=' + l.id)
+      .then(function(res){ return res.json(); })
+      .then(function(json){
+        if (json && json.ok && json.data && json.data.league && json.data.league.logo){
+          leagueLogos[l.id] = json.data.league.logo;
+          renderLeagueMenu();
+        }
+      })
+      .catch(function(){ /* leave the letter badge as a fallback */ });
+  });
+}
 
 // ---- League news: full-width hero (league name, tagline, logo) + stories about the selected competition ----
 function renderLeagueHero(){
@@ -998,6 +1023,7 @@ nextBtn.addEventListener('click', function(){
 });
 
 loadStandings();
+preloadLeagueLogos();
 
 </script>
 
