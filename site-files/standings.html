@@ -251,6 +251,66 @@ html[data-theme="light"] .stats-row:hover{ background:rgba(17,17,22,0.025); }
 }
 .standings-switch .arrow:hover{ border-color:var(--purple-bright); }
 
+/* ---- competition quick-select (three-dot menu + dropdown) ---- */
+.standings-switch-row{ position:relative; margin-top:28px; }
+.standings-switch-row .standings-switch{ margin-top:0; }
+.league-menu-btn{
+  position:absolute; left:0; top:50%; transform:translateY(-50%);
+  width:36px; height:36px; border-radius:50%; flex-shrink:0;
+  background:var(--panel-2); border:1px solid var(--line); color:#fff;
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+  transition:border-color .2s ease, background .2s ease;
+  z-index:6;
+}
+.league-menu-btn:hover{ border-color:var(--purple-bright); }
+.league-menu-btn.is-open{ border-color:var(--purple-bright); background:var(--panel); }
+.league-menu-btn svg{ pointer-events:none; }
+
+.league-menu{
+  position:absolute; left:0; top:calc(100% + 10px);
+  width:252px; max-width:calc(100vw - 48px);
+  background:var(--panel); border:1px solid var(--line); border-radius:14px;
+  box-shadow:0 20px 44px rgba(0,0,0,0.5);
+  overflow:hidden;
+  opacity:0; visibility:hidden; transform:translateY(-8px);
+  transition:opacity .18s ease, transform .18s ease, visibility 0s linear .18s;
+  z-index:50;
+  max-height:min(420px, calc(100vh - 160px));
+  overflow-y:auto;
+}
+.league-menu.is-open{
+  opacity:1; visibility:visible; transform:translateY(0);
+  transition:opacity .18s ease, transform .18s ease;
+}
+.league-menu-item{
+  display:flex; align-items:center; gap:12px; padding:11px 14px;
+  cursor:pointer; border-bottom:1px solid var(--line);
+  transition:background .15s ease;
+}
+.league-menu-item:last-child{ border-bottom:none; }
+.league-menu-item:hover{ background:rgba(255,255,255,0.05); }
+.league-menu-item.is-active{ background:rgba(138,63,252,0.12); }
+.league-menu-item img{ width:24px; height:24px; object-fit:contain; flex-shrink:0; }
+.league-menu-item .lm-badge-fallback{
+  width:24px; height:24px; border-radius:7px; flex-shrink:0;
+  background:linear-gradient(135deg, var(--purple), var(--orange));
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Big Shoulders Display', sans-serif; font-weight:800; font-size:9.5px; color:#fff;
+}
+.league-menu-item .lm-text{ display:flex; flex-direction:column; min-width:0; }
+.league-menu-item .lm-name{ font-size:13.5px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.league-menu-item .lm-country{ font-size:11px; color:var(--muted); margin-top:1px; }
+.league-menu-item.is-active .lm-name{ color:var(--purple-bright); }
+
+html[data-theme="light"] .league-menu-item .lm-name{ color:var(--white); }
+html[data-theme="light"] .league-menu{ box-shadow:0 16px 32px rgba(17,17,22,0.14); }
+html[data-theme="light"] .league-menu-item:hover{ background:rgba(17,17,22,0.04); }
+html[data-theme="light"] .league-menu-item.is-active{ background:rgba(123,44,255,0.08); }
+
+@media (max-width:480px){
+  .league-menu{ width:224px; }
+}
+
 .standings-full-wrap{
   margin-top:26px; background:var(--panel); border:1px solid var(--line); border-radius:14px;
   overflow:hidden;
@@ -580,16 +640,23 @@ header .wrap{ max-width:1180px; padding:0 32px; }
 </header>
 
 <div class="wrap">
-  <div class="standings-switch">
-    <button class="arrow" id="switchPrev" aria-label="Previous competition">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+  <div class="standings-switch-row">
+    <button class="league-menu-btn" id="leagueMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Choose competition">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
     </button>
-    <div class="league-id" id="leagueId">
-      <span class="names"><span class="n1">Loading&hellip;</span></span>
+    <div class="league-menu" id="leagueMenu" role="menu" aria-label="Competitions"></div>
+
+    <div class="standings-switch">
+      <button class="arrow" id="switchPrev" aria-label="Previous competition">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div class="league-id" id="leagueId">
+        <span class="names"><span class="n1">Loading&hellip;</span></span>
+      </div>
+      <button class="arrow" id="switchNext" aria-label="Next competition">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
     </div>
-    <button class="arrow" id="switchNext" aria-label="Next competition">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-    </button>
   </div>
 
   <div class="match-nav" id="pageNav">
@@ -650,6 +717,8 @@ const leagueIdEl = document.getElementById('leagueId');
 const tableWrap = document.getElementById('tableWrap');
 const prevBtn = document.getElementById('switchPrev');
 const nextBtn = document.getElementById('switchNext');
+const leagueMenuBtn = document.getElementById('leagueMenuBtn');
+const leagueMenuEl = document.getElementById('leagueMenu');
 
 // ---- Table / Player Stats / News tabs ----
 const pageNav = document.getElementById('pageNav');
@@ -662,8 +731,61 @@ let activeStatType = 'scorers'; // 'scorers' | 'assists'
 let statsLoadedFor = null; // 'league:type' already fetched, avoids refetching on tab re-click
 let statsSeq = 0;
 
-// ---- League news: full-width hero (league name, tagline, logo) + stories about the selected competition ----
+// ---- Competition quick-select dropdown (three-dot menu) ----
 const leagueLogos = {};
+function renderLeagueMenu(){
+  leagueMenuEl.innerHTML = STANDINGS_LEAGUES.map(function(l, i){
+    const logo = leagueLogos[l.id];
+    const icon = logo
+      ? '<img src="' + escapeHtml(logo) + '" alt="" />'
+      : '<div class="lm-badge-fallback">' + escapeHtml(l.abbr) + '</div>';
+    return '<div class="league-menu-item' + (i === standingsIndex ? ' is-active' : '') + '" role="menuitem" data-index="' + i + '">' +
+      icon +
+      '<div class="lm-text"><span class="lm-name">' + escapeHtml(l.name) + '</span>' +
+      '<span class="lm-country">' + escapeHtml(l.country) + '</span></div>' +
+    '</div>';
+  }).join('');
+}
+function openLeagueMenu(){
+  leagueMenuEl.classList.add('is-open');
+  leagueMenuBtn.classList.add('is-open');
+  leagueMenuBtn.setAttribute('aria-expanded', 'true');
+}
+function closeLeagueMenu(){
+  leagueMenuEl.classList.remove('is-open');
+  leagueMenuBtn.classList.remove('is-open');
+  leagueMenuBtn.setAttribute('aria-expanded', 'false');
+}
+function switchToLeague(index){
+  if (index === standingsIndex){ closeLeagueMenu(); return; }
+  standingsIndex = index;
+  loadStandings();
+  if (activeTab === 'stats') loadStats();
+  if (activeTab === 'news') loadNews();
+  closeLeagueMenu();
+}
+leagueMenuBtn.addEventListener('click', function(e){
+  e.stopPropagation();
+  renderLeagueMenu();
+  if (leagueMenuEl.classList.contains('is-open')) closeLeagueMenu();
+  else openLeagueMenu();
+});
+leagueMenuEl.addEventListener('click', function(e){
+  const item = e.target.closest('.league-menu-item');
+  if (!item) return;
+  switchToLeague(Number(item.getAttribute('data-index')));
+});
+document.addEventListener('click', function(e){
+  if (!leagueMenuEl.classList.contains('is-open')) return;
+  if (leagueMenuEl.contains(e.target) || leagueMenuBtn.contains(e.target)) return;
+  closeLeagueMenu();
+});
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape') closeLeagueMenu();
+});
+renderLeagueMenu();
+
+// ---- League news: full-width hero (league name, tagline, logo) + stories about the selected competition ----
 function renderLeagueHero(){
   const meta = STANDINGS_LEAGUES[standingsIndex];
   const info = (window.FSTopics && window.FSTopics.LEAGUES[meta.id]) || {};
@@ -743,7 +865,11 @@ async function loadStandings(){
       return;
     }
     const d = json.data;
-    if (d.league && d.league.logo) { leagueLogos[meta.id] = d.league.logo; if (activeTab === 'news') renderLeagueHero(); }
+    if (d.league && d.league.logo) {
+      leagueLogos[meta.id] = d.league.logo;
+      if (activeTab === 'news') renderLeagueHero();
+      renderLeagueMenu();
+    }
     if (d.league.logo){
       leagueIdEl.innerHTML = '<img src="' + d.league.logo + '" alt="" />' + leagueIdEl.innerHTML;
     } else {
@@ -861,12 +987,14 @@ prevBtn.addEventListener('click', function(){
   loadStandings();
   if (activeTab === 'stats') loadStats();
   if (activeTab === 'news') loadNews();
+  renderLeagueMenu();
 });
 nextBtn.addEventListener('click', function(){
   standingsIndex = (standingsIndex + 1) % STANDINGS_LEAGUES.length;
   loadStandings();
   if (activeTab === 'stats') loadStats();
   if (activeTab === 'news') loadNews();
+  renderLeagueMenu();
 });
 
 loadStandings();
