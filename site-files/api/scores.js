@@ -72,20 +72,13 @@ module.exports = async function handler(req, res) {
     const date = String(q.date || '');
     if (!DATE_RE.test(date)) return res.status(400).json({ ok: false, error: 'date must be YYYY-MM-DD' });
     params.date = date;
-    if (league !== 'all') { params.league = league; params.season = q.season || ''; }
+    // NOTE: the league is deliberately NOT sent to API-Football. A league+season query is rejected on
+    // free plans for recent seasons; the plain date query always works, so we fetch the day once
+    // (shared cache with "All Competitions") and filter by league below.
     if (q.tz && /^[A-Za-z_]+\/[A-Za-z_\-]+$/.test(String(q.tz))) params.timezone = String(q.tz);
   }
 
   try {
-    // API-Football requires `season` with `league`; derive it when not supplied.
-    if (params.league && !params.season) {
-      const d = new Date(params.date + 'T00:00:00Z');
-      params.season = String(d.getUTCMonth() >= 6 ? d.getUTCFullYear() : d.getUTCFullYear() - 1);
-    }
-    if (params.league && [71].includes(Number(params.league))) {
-      params.season = params.date.slice(0, 4); // calendar-year season (Brasileirão)
-    }
-
     const cacheKey = `scores:${JSON.stringify([view, params])}`;
     let fixtures = await cacheGet(cacheKey);
 
@@ -121,6 +114,8 @@ module.exports = async function handler(req, res) {
         }
       }
     }
+
+    if (league !== 'all') fixtures = fixtures.filter(f => String(f.league.id) === league);
 
     res.setHeader('Cache-Control', `public, s-maxage=${SCORES_TTL_SECONDS}, stale-while-revalidate=300`);
     return res.status(200).json({ ok: true, fixtures, leagues: LEAGUES });
