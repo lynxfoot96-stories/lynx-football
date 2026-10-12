@@ -444,6 +444,29 @@
   .video-body h4{ font-size:16.5px; font-weight:600; line-height:1.4; margin-bottom:10px; }
   .video-body .meta{ font-size:13px; color:var(--muted); }
 
+  /* ---------- TOP SCORERS ---------- */
+  .ts-wrap{ background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+  .ts-row{ display:flex; align-items:center; gap:16px; padding:16px 22px; border-bottom:1px solid var(--line); transition:background .15s ease; }
+  .ts-row:last-child{ border-bottom:none; }
+  .ts-row:hover{ background:rgba(255,255,255,0.03); }
+  .ts-rank{ font-family:'Big Shoulders Display', sans-serif; font-weight:800; font-size:26px; color:var(--muted); width:30px; text-align:center; flex-shrink:0; }
+  .ts-row:first-child .ts-rank{ color:var(--orange-bright); }
+  .ts-photo{ width:48px; height:48px; border-radius:50%; object-fit:cover; background:var(--panel-2); flex-shrink:0; }
+  .ts-info{ flex:1; min-width:0; }
+  .ts-name{ font-size:15.5px; font-weight:700; color:var(--white); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ts-team{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--muted); margin-top:4px; }
+  .ts-team img{ width:16px; height:16px; object-fit:contain; flex-shrink:0; }
+  .ts-goals{ text-align:right; flex-shrink:0; }
+  .ts-goals .num{ font-family:'Big Shoulders Display', sans-serif; font-weight:900; font-size:28px; color:var(--purple-bright); line-height:1; }
+  .ts-goals .label{ font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em; margin-top:3px; }
+  .ts-state-msg{ text-align:center; padding:40px 20px; color:var(--muted); font-size:14px; background:var(--panel); border:1px solid var(--line); border-radius:14px; }
+  @media (max-width:480px){
+    .ts-row{ padding:14px 16px; gap:12px; }
+    .ts-photo{ width:40px; height:40px; }
+    .ts-name{ font-size:14px; }
+    .ts-goals .num{ font-size:23px; }
+  }
+
   /* ---------- ABOUT ---------- */
   .about{
     display:grid;
@@ -1838,6 +1861,20 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
       
 </div>
   </div>
+<section id="top-scorers">
+  <div class="wrap">
+    <div class="section-head">
+      <h2 class="display">Top Scorers</h2>
+      <p>The five players leading the Champions League goal charts right now.</p>
+    </div>
+    <div id="topScorersList">
+      <div class="ts-state-msg">Loading top scorers&hellip;</div>
+    </div>
+    <div class="nx-more">
+      <a class="nx-more-btn" href="standings.html?league=2&amp;tab=stats&amp;stat=scorers">See more scorers</a>
+    </div>
+  </div>
+</section>
 <section id="latest-news">
   <div class="wrap">
     <div class="section-head">
@@ -2526,6 +2563,40 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
   }
   render();
   window.addEventListener('pageshow',render);   /* refresh when coming back with the Back button */
+})();
+</script>
+<script>
+(function(){
+  var LEAGUE_ID = 2; // Champions League, same id used on standings.html
+  var listEl = document.getElementById('topScorersList');
+  if (!listEl) return;
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  fetch('/api/stats?league=' + LEAGUE_ID + '&type=scorers', { headers:{ Accept:'application/json' } })
+    .then(function(res){ return res.json(); })
+    .then(function(json){
+      if (!json || !json.ok || !json.data || !json.data.length){
+        listEl.innerHTML = '<div class="ts-state-msg">Top scorers aren&rsquo;t available right now.</div>';
+        return;
+      }
+      var top5 = json.data.slice(0, 5);
+      listEl.innerHTML = '<div class="ts-wrap">' + top5.map(function(p){
+        var photo = p.photo ? '<img class="ts-photo" src="' + esc(p.photo) + '" alt="" />' : '<div class="ts-photo"></div>';
+        var teamLogo = p.team && p.team.logo ? '<img src="' + esc(p.team.logo) + '" alt="" />' : '';
+        var teamName = p.team ? esc(p.team.name) : '';
+        return '<div class="ts-row">' +
+            '<span class="ts-rank">' + p.rank + '</span>' +
+            photo +
+            '<div class="ts-info">' +
+              '<div class="ts-name">' + esc(p.name) + '</div>' +
+              '<div class="ts-team">' + teamLogo + '<span>' + teamName + '</span></div>' +
+            '</div>' +
+            '<div class="ts-goals"><span class="num">' + (p.goals != null ? p.goals : 0) + '</span><span class="label">Goals</span></div>' +
+          '</div>';
+      }).join('') + '</div>';
+    })
+    .catch(function(){
+      listEl.innerHTML = '<div class="ts-state-msg">Top scorers aren&rsquo;t available right now.</div>';
+    });
 })();
 </script>
 <script src="wiki-image.js"></script>

@@ -733,10 +733,29 @@ const newsWrap = document.getElementById('newsWrap');
 const statsWrap = document.getElementById('statsWrap');
 const statsListWrap = document.getElementById('statsListWrap');
 const tabPanels = { table: tableWrap, stats: statsWrap, news: newsWrap };
-let activeTab = 'table';
-let activeStatType = 'scorers'; // 'scorers' | 'assists'
+
+// Deep-link support: standings.html?league=2&tab=stats&stat=scorers opens
+// straight on the Player Stats tab (e.g. from the homepage Top Scorers widget).
+const requestedTab = qsParam('tab');
+const requestedStat = qsParam('stat');
+let activeTab = (requestedTab === 'stats' || requestedTab === 'news') ? requestedTab : 'table';
+let activeStatType = requestedStat === 'assists' ? 'assists' : 'scorers'; // 'scorers' | 'assists'
 let statsLoadedFor = null; // 'league:type' already fetched, avoids refetching on tab re-click
 let statsSeq = 0;
+
+if (activeTab !== 'table'){
+  Array.from(pageNav.querySelectorAll('a[data-tab]')).forEach(function(a){
+    a.classList.toggle('active', a.getAttribute('data-tab') === activeTab);
+  });
+  Object.keys(tabPanels).forEach(function(key){
+    tabPanels[key].classList.toggle('active', key === activeTab);
+  });
+}
+if (activeTab === 'stats'){
+  Array.from(statsWrap.querySelectorAll('.stats-sub-btn')).forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-stat') === activeStatType);
+  });
+}
 
 // ---- Competition quick-select dropdown (three-dot menu) ----
 const leagueLogos = {};
@@ -1023,6 +1042,8 @@ nextBtn.addEventListener('click', function(){
 
 loadStandings();
 preloadLeagueLogos();
+if (activeTab === 'stats') loadStats();
+if (activeTab === 'news') loadNews();
 
 </script>
 
