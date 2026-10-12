@@ -257,6 +257,33 @@
     transition:box-shadow .3s ease, transform .2s ease;
   }
   .btn-primary:hover{ box-shadow:0 8px 30px rgba(138,63,252,0.45); transform:translateY(-2px); }
+
+  /* ---- subscribe banner: YouTube + newsletter buttons, side by side and centered ---- */
+  .cta-buttons{
+    display:flex; align-items:center; justify-content:center;
+    gap:14px; flex-wrap:wrap; margin-top:4px;
+  }
+  .btn-red{
+    display:inline-flex; align-items:center; justify-content:center; gap:10px;
+    background:linear-gradient(100deg, #FF2D2D, #D90F0F);
+    color:#fff; font-weight:700; font-size:15px;
+    padding:16px 30px; border-radius:7px; border:none; cursor:pointer;
+    box-shadow:0 0 0 rgba(255,45,45,0);
+    transition:box-shadow .3s ease, transform .2s ease;
+    white-space:nowrap;
+  }
+  .btn-red:hover{ box-shadow:0 8px 30px rgba(255,45,45,0.45); transform:translateY(-2px); }
+  .btn-red svg{ flex-shrink:0; }
+  .cta-buttons .btn-primary{
+    display:inline-flex; align-items:center; justify-content:center; gap:10px;
+    white-space:nowrap; border:none; cursor:pointer;
+  }
+  .cta-buttons .btn-primary svg{ flex-shrink:0; }
+  .newsletter-note{ margin-top:14px; font-size:13.5px; color:var(--muted); min-height:20px; }
+  @media (max-width:520px){
+    .cta-buttons{ flex-direction:column; align-items:stretch; }
+    .btn-red, .cta-buttons .btn-primary{ width:100%; }
+  }
   .btn-ghost{
     border:1px solid rgba(255,255,255,0.18);
     color:var(--white);
@@ -2083,7 +2110,18 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
         </div>
         <h2 class="display">Never Miss a Story</h2>
         <p>New breakdowns land every week. Subscribe so you don't find out from a headline.</p>
-        <a href="#" class="btn-primary">Subscribe on YouTube</a>
+        <div class="cta-buttons">
+          <a href="https://www.youtube.com/@football-stories-96" target="_blank" rel="noopener noreferrer" class="btn-red">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1c.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.6 15.6V8.4l6.2 3.6-6.2 3.6z"/></svg>
+            Subscribe on YouTube
+          </a>
+          <!-- To connect the newsletter, put your signup page link in data-newsletter-url (Substack, Beehiiv, Mailchimp, etc.) -->
+          <a href="#subscribe" class="btn-primary" id="newsletterBtn" data-newsletter-url="">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+            Subscribe to Newsletter
+          </a>
+        </div>
+        <div class="newsletter-note" id="newsletterNote" aria-live="polite"></div>
       </div>
     </div>
   </div>
@@ -2117,7 +2155,7 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
     <div class="footer-bottom">
       <span>© 2026 Football Stories. Made for the fans who read past the headline.</span>
       <div class="socials">
-        <a href="https://www.youtube.com/@FootballStories96" aria-label="YouTube" target="_blank" rel="noopener noreferrer"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8ZM9.6 15.5V8.5L15.8 12Z"/></svg></a>
+        <a href="https://www.youtube.com/@football-stories-96" aria-label="YouTube" target="_blank" rel="noopener noreferrer"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8ZM9.6 15.5V8.5L15.8 12Z"/></svg></a>
         <a href="https://www.instagram.com/footballstories96" aria-label="Instagram" target="_blank" rel="noopener noreferrer"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 2c2.7 0 3.1 0 4.1.06 1.1.05 1.8.22 2.5.47.7.28 1.2.6 1.8 1.16.5.5.9 1.1 1.16 1.8.25.7.42 1.4.47 2.5.05 1 .06 1.4.06 4.1s0 3.1-.06 4.1c-.05 1.1-.22 1.8-.47 2.5a4.9 4.9 0 0 1-1.16 1.8 4.9 4.9 0 0 1-1.8 1.16c-.7.25-1.4.42-2.5.47-1 .05-1.4.06-4.1.06s-3.1 0-4.1-.06c-1.1-.05-1.8-.22-2.5-.47a4.9 4.9 0 0 1-1.8-1.16 4.9 4.9 0 0 1-1.16-1.8c-.25-.7-.42-1.4-.47-2.5C2 15.1 2 14.7 2 12s0-3.1.06-4.1c.05-1.1.22-1.8.47-2.5.28-.7.6-1.2 1.16-1.8.5-.5 1.1-.9 1.8-1.16.7-.25 1.4-.42 2.5-.47C8.9 2 9.3 2 12 2Zm0 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm5.2-2.6a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Z"/></svg></a>
       </div>
     </div>
@@ -2635,6 +2673,19 @@ window.FSLeagueLogos = (function(){
     window.FSLeagueLogos.onUpdate(function(){ renderButton(); if (menu.classList.contains('is-open')) renderMenu(); });
   }
   renderButton();
+})();
+</script>
+<script>
+(function(){
+  var btn = document.getElementById('newsletterBtn');
+  var note = document.getElementById('newsletterNote');
+  if (!btn) return;
+  btn.addEventListener('click', function(e){
+    var url = btn.getAttribute('data-newsletter-url');
+    if (url) { btn.setAttribute('href', url); btn.setAttribute('target', '_blank'); btn.setAttribute('rel', 'noopener noreferrer'); return; }
+    e.preventDefault();
+    if (note) note.textContent = 'The newsletter is coming soon. Subscribe on YouTube in the meantime!';
+  });
 })();
 </script>
 <script>
