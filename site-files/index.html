@@ -2742,12 +2742,6 @@ window.FSLeagueLogos = (function(){
     const res = await fetch('/api/scores?' + params.toString());
     return res.json();
   }
-  async function fetchLive(league){
-    const params = new URLSearchParams({ view: 'live', league: league });
-    const res = await fetch('/api/scores?' + params.toString());
-    return res.json();
-  }
-
   function renderTeamRow(team){
     const score = (team.score === null || team.score === undefined) ? '' : team.score;
     const winnerClass = team.winner ? ' winner' : '';
@@ -2822,28 +2816,17 @@ window.FSLeagueLogos = (function(){
     }
   }
 
+  // Live refresh re-reads the SAME by-date list the page already loaded (same server
+  // cache entry), so it no longer costs a separate API-Football request of its own.
+  // That list already carries live scores, minutes, finished status and match links.
   async function refreshLiveOnly(){
+    const offsetAtStart = selectedOffset, leagueAtStart = currentLeague, seqAtStart = requestSeq;
     try {
-      const json = await fetchLive(currentLeague);
+      const json = await fetchDate(toDateStr(dateForOffset(offsetAtStart)), leagueAtStart);
       if (!json.ok) return; // silently skip a failed background refresh
-      const liveById = {};
-      json.fixtures.forEach(function(f){ liveById[f.id] = f; });
-      let stillLive = false;
-      currentFixtures.forEach(function(f){
-        const upd = liveById[f.id];
-        if (upd){
-          f.goals = upd.goals;
-          f.minute = upd.minute;
-          f.statusShort = upd.statusShort;
-          f.isLive = upd.isLive;
-          if (upd.isLive) stillLive = true;
-        } else if (f.isLive) {
-          // fixture no longer in the live feed -> treat as finished for display purposes
-          f.isLive = false;
-          f.statusShort = 'FT';
-        }
-      });
-      renderFixtures(currentFixtures);
+      // user changed date/league (or a reload started) while this was in flight: drop it
+      if (offsetAtStart !== selectedOffset || leagueAtStart !== currentLeague || seqAtStart !== requestSeq) return;
+      renderFixtures(json.fixtures || []);
     } catch (e) { /* network hiccup: just try again on next tick */ }
   }
 
