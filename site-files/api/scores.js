@@ -10,7 +10,7 @@
  * Response: { ok: true, fixtures: [...], leagues: { [id]: name } } or { ok: false, error }
  */
 const { cacheGet, cacheSet, acquireLock, releaseLock } = require('./_lib/cache');
-const { selectDetailLinks, allowDetails } = require('./_lib/match-priority');
+const { selectDetailLinks, allowDetails, filterAlreadyOpened } = require('./_lib/match-priority');
 
 const API_BASE = 'https://v3.football.api-sports.io';
 
@@ -117,12 +117,17 @@ module.exports = async function handler(req, res) {
     }
 
     // Match-details links: decided per day from the FULL day list (before the league
-    // filter, so the picks don't change with the dropdown), only for the server's
-    // current UTC day, and never written back into the shared cache.
-    if (view === 'date' && params.date === new Date().toISOString().slice(0, 10)) {
-      const linkable = selectDetailLinks(fixtures);
+    // filter, so the picks don't change with the dropdown) and never written back into
+    // the shared cache.
+    //  - today (server UTC day): the day's top picks, once finished.
+    //  - any other day (e.g. yesterday): only picks that were ALREADY opened on their day
+    //    (data already cached), so nothing new can be fetched and the daily cap holds.
+    if (view === 'date') {
+      const isToday = params.date === new Date().toISOString().slice(0, 10);
+      let linkable = selectDetailLinks(fixtures);
+      if (isToday) await allowDetails(linkable); // lets /api/match call the API for exactly these ids
+      else linkable = await filterAlreadyOpened(linkable);
       fixtures = fixtures.map(f => ({ ...f, detail: linkable.has(f.id) }));
-      await allowDetails(linkable); // lets /api/match call the API for exactly these ids
     }
 
     if (league !== 'all') fixtures = fixtures.filter(f => String(f.league.id) === league);
