@@ -1637,12 +1637,7 @@ html[data-theme="light"] .lh-logo{border-color:rgba(17,17,22,.10);box-shadow:0 0
         <p>League standings data for Arsenal FC is on the way &mdash; check back soon for the full breakdown.</p>
       </div>
       </div>
-      <div class="club-tabpanel" data-panel="key-players">
-        <div class="club-placeholder">
-        <div class="display">Coming soon</div>
-        <p>Key player profiles data for Arsenal FC is on the way &mdash; check back soon for the full breakdown.</p>
-      </div>
-      </div>
+      <div class="club-tabpanel" data-panel="key-players"><div id="clubPlayers"></div></div>
 </div>
 
 <script>
@@ -1862,5 +1857,8 @@ html[data-theme="light"] .lh-logo{border-color:rgba(17,17,22,.10);box-shadow:0 0
   if (location.hash === '#news') tab.click();     // the homepage "See all news" link opens this tab directly
 })();
 </script>
+<script src="club-players-data.js"></script>
+<script src="club-players.js"></script>
+<script>FSKeyPlayers.mount(document.getElementById("clubPlayers"),{club:"arsenal",league:39,leagueName:"Premier League"});</script>
 </body>
 </html>
