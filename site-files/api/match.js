@@ -33,7 +33,8 @@
 // the default 25 minutes (safe default, just not maximally optimized
 // until summary has been fetched at least once).
 
-const { cacheGet, cacheSet, incrementDailyCounter, upstashConfigured } = require("./_lib/cache");
+const { cacheGet, cacheSet, incrementDailyCounter, upstashConfigured, acquireLock, releaseLock } = require("./_lib/cache");
+const { detailsAllowed } = require("./_lib/match-priority");
 
 const API_BASE = "https://v3.football.api-sports.io";
 function buildHeaders() {
@@ -119,33 +120,65 @@ async function callApiFootball(path) {
   return json.response || [];
 }
 
-// Per-instance in-flight map: only dedupes concurrent requests landing on
-// the SAME instance. The shared Redis cache is what prevents duplicate
-// upstream calls across different instances.
+// Per-instance in-flight map: collapses concurrent requests on the SAME
+// instance. Across instances, the Redis lock below does the same job.
 const inFlight = new Map();
+
+// Thrown (before any upstream call) for matches that are not on today's
+// curated details list -- see _lib/match-priority.js.
+class NotAllowedError extends Error {}
+
+async function fetchAndCache(key, path, ttlResolver) {
+  const data = await callApiFootball(path);
+  const ttl = await ttlResolver(data);
+  await cacheSet(key, data, ttl);
+  return data;
+}
 
 // `ttlResolver` is an async function: (rawData) => ttlSeconds, called only
 // on a cache miss, after the fresh data comes back, so the TTL can depend
 // on what was actually fetched (or on other already-cached data).
-async function getCached(key, path, ttlResolver) {
+//
+// Cache miss path (same pattern as scores.js): only the request that wins
+// the Redis lock calls API-Football; requests arriving at the same moment on
+// other instances wait briefly and read what the winner cached.
+async function getCached(key, path, ttlResolver, id) {
   const cached = await cacheGet(key);
   if (cached !== null) return cached;
   if (inFlight.has(key)) return inFlight.get(key);
 
-  const promise = callApiFootball(path)
-    .then(async (data) => {
-      const ttl = await ttlResolver(data);
-      await cacheSet(key, data, ttl);
-      inFlight.delete(key);
-      return data;
-    })
-    .catch((err) => {
-      inFlight.delete(key);
-      throw err;
-    });
+  // Budget gate: no upstream call for a match that isn't on the curated list.
+  if (!(await detailsAllowed(id))) throw new NotAllowedError("Match not on the details list");
+
+  const promise = (async () => {
+    let data = null;
+    const token = await acquireLock(key, 20);
+    if (token) {
+      try {
+        data = await cacheGet(key); // re-check: someone may have just filled it
+        if (data === null) data = await fetchAndCache(key, path, ttlResolver);
+      } finally {
+        await releaseLock(key, token);
+      }
+    } else {
+      // Someone else is already fetching this exact key: wait for their result.
+      for (let i = 0; i < 8 && data === null; i++) {
+        await new Promise((r) => setTimeout(r, 500));
+        data = await cacheGet(key);
+      }
+      // Lock-holder too slow / crashed and nothing landed: fetch directly
+      // rather than fail the request (same fallback as scores.js).
+      if (data === null) data = await fetchAndCache(key, path, ttlResolver);
+    }
+    return data;
+  })();
 
   inFlight.set(key, promise);
-  return promise;
+  try {
+    return await promise;
+  } finally {
+    inFlight.delete(key);
+  }
 }
 
 // ---------- shape helpers: reduce API-Football's raw response down to ----
@@ -282,15 +315,15 @@ function mapPlayers(raw) {
 module.exports = async (req, res) => {
   try {
     const { id, type } = req.query;
-    if (!id) {
-      res.status(400).json({ ok: false, error: "Missing id parameter." });
+    if (!id || !/^[0-9]+$/.test(String(id))) {
+      res.status(400).json({ ok: false, error: "Missing or invalid id parameter." });
       return;
     }
 
     let data;
     switch (type) {
       case "summary": {
-        const raw = await getCached(`summary:${id}`, `/fixtures?id=${id}`, (fresh) => ttlForFreshSummary(fresh));
+        const raw = await getCached(`summary:${id}`, `/fixtures?id=${id}`, (fresh) => ttlForFreshSummary(fresh), id);
         data = mapSummary(raw[0]);
         if (!data) {
           res.status(200).json({ ok: false, error: "Match not found." });
@@ -299,22 +332,22 @@ module.exports = async (req, res) => {
         break;
       }
       case "events": {
-        const raw = await getCached(`events:${id}`, `/fixtures/events?fixture=${id}`, () => ttlFromCachedSummary(id));
+        const raw = await getCached(`events:${id}`, `/fixtures/events?fixture=${id}`, () => ttlFromCachedSummary(id), id);
         data = mapEvents(raw);
         break;
       }
       case "lineups": {
-        const raw = await getCached(`lineups:${id}`, `/fixtures/lineups?fixture=${id}`, () => ttlFromCachedSummary(id));
+        const raw = await getCached(`lineups:${id}`, `/fixtures/lineups?fixture=${id}`, () => ttlFromCachedSummary(id), id);
         data = mapLineups(raw);
         break;
       }
       case "statistics": {
-        const raw = await getCached(`statistics:${id}`, `/fixtures/statistics?fixture=${id}`, () => ttlFromCachedSummary(id));
+        const raw = await getCached(`statistics:${id}`, `/fixtures/statistics?fixture=${id}`, () => ttlFromCachedSummary(id), id);
         data = mapStatistics(raw);
         break;
       }
       case "players": {
-        const raw = await getCached(`players:${id}`, `/fixtures/players?fixture=${id}`, () => ttlFromCachedSummary(id));
+        const raw = await getCached(`players:${id}`, `/fixtures/players?fixture=${id}`, () => ttlFromCachedSummary(id), id);
         data = mapPlayers(raw);
         break;
       }
@@ -325,6 +358,10 @@ module.exports = async (req, res) => {
 
     res.status(200).json({ ok: true, data });
   } catch (err) {
+    if (err instanceof NotAllowedError) {
+      res.status(200).json({ ok: false, error: "Match details are not available for this match." });
+      return;
+    }
     console.error("[/api/match]", err.message);
     res.status(200).json({
       ok: false,

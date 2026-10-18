@@ -10,6 +10,7 @@
  * Response: { ok: true, fixtures: [...], leagues: { [id]: name } } or { ok: false, error }
  */
 const { cacheGet, cacheSet, acquireLock, releaseLock } = require('./_lib/cache');
+const { selectDetailLinks, allowDetails } = require('./_lib/match-priority');
 
 const API_BASE = 'https://v3.football.api-sports.io';
 
@@ -113,6 +114,15 @@ module.exports = async function handler(req, res) {
           await cacheSet(cacheKey, fixtures, SCORES_TTL_SECONDS);
         }
       }
+    }
+
+    // Match-details links: decided per day from the FULL day list (before the league
+    // filter, so the picks don't change with the dropdown), only for the server's
+    // current UTC day, and never written back into the shared cache.
+    if (view === 'date' && params.date === new Date().toISOString().slice(0, 10)) {
+      const linkable = selectDetailLinks(fixtures);
+      fixtures = fixtures.map(f => ({ ...f, detail: linkable.has(f.id) }));
+      await allowDetails(linkable); // lets /api/match call the API for exactly these ids
     }
 
     if (league !== 'all') fixtures = fixtures.filter(f => String(f.league.id) === league);
