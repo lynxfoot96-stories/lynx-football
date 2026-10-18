@@ -1442,7 +1442,9 @@
     gap:11px;
     transition:border-color .2s ease, transform .15s ease, box-shadow .2s ease;
   }
-  /* no longer a link, so no hover-lift affordance */
+  /* only matches picked for match details (finished, priority list) are links */
+  a.match-col.has-detail{ color:inherit; text-decoration:none; cursor:pointer; }
+  a.match-col.has-detail:hover{ border-color:rgba(123,44,255,0.35); transform:translateY(-2px); }
   .match-col.is-live{
     border-color:rgba(255,122,26,0.55);
     box-shadow:0 0 0 1px rgba(255,122,26,0.18), 0 10px 24px rgba(255,122,26,0.10);
@@ -2782,13 +2784,15 @@ window.FSLeagueLogos = (function(){
 
     let cards = '';
     fixtures.forEach(function(f){
-      cards += '<div class="match-col' + (f.isLive ? ' is-live' : '') + '" data-fixture-id="' + f.id + '">' +
+      const hasDetail = f.detail === true;
+      cards += '<' + (hasDetail ? 'a href="match.html?id=' + encodeURIComponent(f.id) + '"' : 'div') +
+        ' class="match-col' + (f.isLive ? ' is-live' : '') + (hasDetail ? ' has-detail' : '') + '" data-fixture-id="' + f.id + '">' +
         '<div class="match-col-head"><span class="match-col-league">' +
           (f.league.logo ? '<img src="' + f.league.logo + '" alt="" />' : '') + f.league.name +
         '</span>' + statusBlock(f) + '</div>' +
         renderTeamRow({ name: f.home.name, logo: f.home.logo, winner: f.home.winner, score: f.goals.home }) +
         renderTeamRow({ name: f.away.name, logo: f.away.logo, winner: f.away.winner, score: f.goals.away }) +
-      '</div>';
+      '</' + (hasDetail ? 'a' : 'div') + '>';
     });
     body.innerHTML = '<div class="scores-strip-wrap">' +
       '<button class="scores-arrow prev" id="scoresPrev" aria-label="Scroll left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>' +
