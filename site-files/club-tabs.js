@@ -33,6 +33,12 @@
     '.kp-card{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;transition:transform .25s,border-color .25s}.kp-card:hover{transform:translateY(-3px);border-color:var(--purple-bright)}' +
     '.kp-top{display:flex;align-items:center;gap:12px;margin-bottom:14px}.kp-pos{flex:none;min-width:44px;height:44px;padding:0 8px;border-radius:11px;display:grid;place-items:center;font:800 14px Inter;color:#fff;background:linear-gradient(135deg,#7c3aed,#6d28d9)}' +
     '.kp-pos.gk{background:linear-gradient(135deg,#f59e0b,#d97706)}.kp-pos.df{background:linear-gradient(135deg,#0ea5e9,#2563eb)}.kp-pos.mf{background:linear-gradient(135deg,#10b981,#059669)}.kp-pos.fw{background:linear-gradient(135deg,#ff7a1a,#e11d48)}' +
+    /* Team tab: player photo (same look as Key Players) with the colored position badge on its corner */
+    '.kp-ph{position:relative;flex:none;width:62px;height:62px;margin-right:8px}' +
+    '.kp-photo,.kp-ini{position:absolute;top:0;left:0;width:62px;height:62px;border-radius:50%;border:2px solid var(--purple)}' +
+    '.kp-photo{object-fit:cover;object-position:center top;background:var(--panel-2)}' +
+    '.kp-ini{display:grid;place-items:center;background:var(--panel-2);color:var(--muted);font:800 18px Inter}' +
+    '.kp-ph .kp-pos{position:absolute;right:-10px;bottom:-4px;min-width:34px;height:24px;padding:0 6px;border-radius:8px;font-size:12px;border:2px solid var(--panel)}' +
     '.kp-name{font:800 22px "Big Shoulders Display",sans-serif;text-transform:uppercase;line-height:1}' +
     '.kp-goal{display:inline-flex;gap:6px;align-items:center;margin-top:5px;font:700 11px Inter;color:var(--orange-bright);background:rgba(255,122,26,.12);border:1px solid rgba(255,122,26,.3);border-radius:20px;padding:3px 9px}' +
     '.kp-lbl{font:800 10.5px Inter;letter-spacing:.06em;text-transform:uppercase;color:var(--purple-bright);margin-bottom:6px}' +
@@ -176,11 +182,44 @@
       // data.js assigns window.FS_PLAYERS, data-2.js adds to it, so load them in this order
       return loadScript('club-players-data.js').then(function () { return loadScript('club-players-data-2.js'); });
     }
+    /* ---------- squad photos (Team tab) ---------- */
+    var photos = {}, photoTries = 0, photosBusy = false;   // photos[name] = url, or '' when none exists
+    function initialsOf(name) {
+      var w = String(name || '').trim().split(/\s+/);
+      return (w.length > 1 ? w[0][0] + w[w.length - 1][0] : w[0].slice(0, 2)).toUpperCase();
+    }
+    function applyPhotos() {
+      if (!panels.team) return;
+      panels.team.querySelectorAll('.kp-ph').forEach(function (box) {
+        var u = photos[box.getAttribute('data-name')];
+        if (!u || box.querySelector('.kp-photo')) return;
+        var img = new Image();
+        img.className = 'kp-photo'; img.alt = '';
+        img.onload = function () { var ini = box.querySelector('.kp-ini'); if (ini) ini.style.display = 'none'; box.insertBefore(img, box.firstChild); };
+        img.src = u; // if it fails to load, the initials circle simply stays
+      });
+    }
+    function loadPhotos(list) {
+      var need = list.map(function (p) { return p[0]; }).filter(function (n) { return !(n in photos); });
+      if (photosBusy || !need.length || photoTries >= 4) return;
+      photosBusy = true; photoTries++;
+      fetch('/api/squad-photos?team=' + encodeURIComponent(club.name) + '&names=' + encodeURIComponent(need.join('|')))
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          photosBusy = false;
+          if (!res || !res.ok) return;
+          Object.keys(res.photos || {}).forEach(function (n) { photos[n] = res.photos[n]; });
+          (res.done || []).forEach(function (n) { if (!(n in photos)) photos[n] = ''; });
+          applyPhotos();
+          if (res.pending > 0) setTimeout(function () { loadPhotos(list); }, 1500); // the rest were not reached in time
+        })
+        .catch(function () { photosBusy = false; });
+    }
     function playerCard(p, hit) {
       var alt = p[2]
         ? p[2].split(',').map(function (a) { return '<span class="kp-chip">' + esc(a.trim()) + '</span>'; }).join('')
         : '<span class="kp-none">Plays one position only</span>';
-      return '<article class="kp-card"><div class="kp-top"><span class="kp-pos ' + grp(p[1]) + '">' + esc(p[1]) + '</span><div><div class="kp-name">' + esc(p[0]) + '</div>' +
+      return '<article class="kp-card"><div class="kp-top"><div class="kp-ph" data-name="' + esc(p[0]) + '"><span class="kp-ini">' + esc(initialsOf(p[0])) + '</span><span class="kp-pos ' + grp(p[1]) + '">' + esc(p[1]) + '</span></div><div><div class="kp-name">' + esc(p[0]) + '</div>' +
         (hit ? '<span class="kp-goal">&#9917; ' + hit.goals + (hit.goals === 1 ? ' goal' : ' goals') + ' &middot; #' + hit.rank + ' ' + esc(compName(hit.comp)) + '</span>' : '') +
         '</div></div><div class="kp-lbl">Footballer identity</div><p class="kp-id">' + esc(p[3]) + '</p>' +
         '<div class="kp-alt"><div class="kp-lbl">Alternative positions</div><div class="kp-chips">' + alt + '</div></div></article>';
@@ -199,8 +238,10 @@
             list.map(function (p) {
               return playerCard(p, hits.filter(function (h) { return same(h.name, p[0]); })[0]);
             }).join('') + '</div>';
+          applyPhotos();
         }
         draw([]);
+        loadPhotos(list);
         clubHits().then(function (r) { if (r.hits.length) draw(r.hits); });
       });
     }
