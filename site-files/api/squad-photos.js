@@ -41,8 +41,9 @@ module.exports = async (req, res) => {
       while (queue.length && Date.now() < deadline) {
         const name = queue.shift();
         try {
-          // The id only has to be stable: it is the Redis cache key (fd-photo:sq:<name>).
-          const url = await getPhoto({ id: "sq:" + slug(name), name, team }, fetch);
+          // The id is the Redis cache key (fd-photo:sq:<club>:<name>). The club is part of it so two
+          // different players with the same name (e.g. Ederson / Éderson) never share a photo.
+          const url = await getPhoto({ id: "sq:" + slug(team || "") + ":" + slug(name), name, team }, fetch);
           if (url) photos[name] = url;
           done.push(name);
         } catch (_) { /* one bad player never breaks the list */ }
