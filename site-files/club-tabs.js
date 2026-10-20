@@ -39,6 +39,24 @@
     '.kp-photo{object-fit:cover;object-position:center top;background:var(--panel-2)}' +
     '.kp-ini{display:grid;place-items:center;background:var(--panel-2);color:var(--muted);font:800 18px Inter}' +
     '.kp-ph .kp-pos{position:absolute;right:-10px;bottom:-4px;min-width:34px;height:24px;padding:0 6px;border-radius:8px;font-size:12px;border:2px solid var(--panel)}' +
+    /* Team tab toolbar: search + select position (same look as the search bar / league picker on clubs.html) */
+    '.kp-tools{display:flex;gap:14px;align-items:center;margin:20px 0 24px;flex-wrap:wrap}' +
+    '.kp-search{flex:1;min-width:220px;height:46px;display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--panel);border:1px solid var(--line);border-radius:10px;color:var(--muted);transition:border-color .2s}' +
+    '.kp-search:focus-within{border-color:var(--purple-bright)}' +
+    '.kp-search svg{flex:none}' +
+    '.kp-search input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--white);font:500 15px Inter,sans-serif}' +
+    '.kp-search input::placeholder{color:var(--muted)}' +
+    '.kp-pos-wrap{position:relative}' +
+    '.kp-pos-btn{height:46px;display:flex;align-items:center;gap:10px;padding:0 20px;background:var(--panel);border:1px solid var(--line);border-radius:10px;color:var(--white);font:800 13.5px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;white-space:nowrap;transition:border-color .2s}' +
+    '.kp-pos-btn:hover,.kp-pos-btn[aria-expanded="true"]{border-color:var(--purple-bright)}' +
+    '.kp-pos-menu{display:none;position:absolute;right:0;top:calc(100% + 8px);min-width:230px;padding:6px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.35);z-index:30}' +
+    '.kp-pos-menu.open{display:block}' +
+    '.kp-pos-opt{width:100%;display:flex;align-items:center;gap:12px;padding:11px 12px;background:none;border:0;border-radius:8px;color:var(--white);font:700 14px Inter,sans-serif;text-align:left;cursor:pointer}' +
+    '.kp-pos-opt:hover{background:var(--panel-2)}' +
+    '.kp-pos-opt.on{background:var(--panel-2)}' +
+    '.kp-pos-opt .kp-tick{margin-left:auto;opacity:0;color:var(--purple-bright)}.kp-pos-opt.on .kp-tick{opacity:1}' +
+    '.kp-dot{flex:none;width:12px;height:12px;border-radius:4px;background:var(--muted)}' +
+    '.kp-dot.gk{background:linear-gradient(135deg,#f59e0b,#d97706)}.kp-dot.df{background:linear-gradient(135deg,#0ea5e9,#2563eb)}.kp-dot.mf{background:linear-gradient(135deg,#10b981,#059669)}.kp-dot.fw{background:linear-gradient(135deg,#ff7a1a,#e11d48)}' +
     '.kp-name{font:800 22px "Big Shoulders Display",sans-serif;text-transform:uppercase;line-height:1}' +
     '.kp-goal{display:inline-flex;gap:6px;align-items:center;margin-top:5px;font:700 11px Inter;color:var(--orange-bright);background:rgba(255,122,26,.12);border:1px solid rgba(255,122,26,.3);border-radius:20px;padding:3px 9px}' +
     '.kp-lbl{font:800 10.5px Inter;letter-spacing:.06em;text-transform:uppercase;color:var(--purple-bright);margin-bottom:6px}' +
@@ -215,11 +233,25 @@
         })
         .catch(function () { photosBusy = false; });
     }
+    /* ---------- Team tab: search + position filter state ---------- */
+    var teamQ = '', teamGrp = '';   // search text, and the chosen position group ('' = all)
+    var POS_GROUPS = [['', 'All positions'], ['gk', 'Goalkeeper'], ['df', 'Defender'], ['mf', 'Midfielder'], ['fw', 'Forward']];
+    document.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('.kp-pos-wrap')) return;
+      document.querySelectorAll('.kp-pos-menu.open').forEach(function (m) {
+        m.classList.remove('open');
+        var b = m.parentNode.querySelector('.kp-pos-btn'); if (b) b.setAttribute('aria-expanded', 'false');
+      });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      document.querySelectorAll('.kp-pos-menu.open').forEach(function (m) { m.classList.remove('open'); });
+    });
     function playerCard(p, hit) {
       var alt = p[2]
         ? p[2].split(',').map(function (a) { return '<span class="kp-chip">' + esc(a.trim()) + '</span>'; }).join('')
         : '<span class="kp-none">Plays one position only</span>';
-      return '<article class="kp-card"><div class="kp-top"><div class="kp-ph" data-name="' + esc(p[0]) + '"><span class="kp-ini">' + esc(initialsOf(p[0])) + '</span><span class="kp-pos ' + grp(p[1]) + '">' + esc(p[1]) + '</span></div><div><div class="kp-name">' + esc(p[0]) + '</div>' +
+      return '<article class="kp-card" data-grp="' + grp(p[1]) + '" data-n="' + esc(norm(p[0])) + '"><div class="kp-top"><div class="kp-ph" data-name="' + esc(p[0]) + '"><span class="kp-ini">' + esc(initialsOf(p[0])) + '</span><span class="kp-pos ' + grp(p[1]) + '">' + esc(p[1]) + '</span></div><div><div class="kp-name">' + esc(p[0]) + '</div>' +
         (hit ? '<span class="kp-goal">&#9917; ' + hit.goals + (hit.goals === 1 ? ' goal' : ' goals') + ' &middot; #' + hit.rank + ' ' + esc(compName(hit.comp)) + '</span>' : '') +
         '</div></div><div class="kp-lbl">Footballer identity</div><p class="kp-id">' + esc(p[3]) + '</p>' +
         '<div class="kp-alt"><div class="kp-lbl">Alternative positions</div><div class="kp-chips">' + alt + '</div></div></article>';
@@ -233,12 +265,71 @@
           panels.team.innerHTML = '<div class="club-placeholder"><div class="display">Coming soon</div><p>Squad data for ' + esc(club.name) + ' is on the way &mdash; check back soon for the full breakdown.</p></div>';
           return;
         }
+        function cardsHtml(hits) {
+          return list.map(function (p) {
+            return playerCard(p, hits.filter(function (h) { return same(h.name, p[0]); })[0]);
+          }).join('');
+        }
+        function applyFilter() {
+          var grid = panels.team.querySelector('.kp-grid');
+          if (!grid) return;
+          var qq = norm(teamQ), shown = 0;
+          grid.querySelectorAll('.kp-card').forEach(function (c) {
+            var ok = (!teamGrp || c.getAttribute('data-grp') === teamGrp) && (!qq || c.getAttribute('data-n').indexOf(qq) !== -1);
+            c.style.display = ok ? '' : 'none';
+            if (ok) shown++;
+          });
+          var none = panels.team.querySelector('.kp-empty');
+          if (none) none.style.display = shown ? 'none' : '';
+        }
+        function bindTools() {
+          var input = panels.team.querySelector('.kp-search input'),
+              btn = panels.team.querySelector('.kp-pos-btn'),
+              menu = panels.team.querySelector('.kp-pos-menu');
+          input.value = teamQ;
+          input.addEventListener('input', function () { teamQ = input.value; applyFilter(); });
+          function paint() {
+            var g = POS_GROUPS.filter(function (x) { return x[0] === teamGrp; })[0];
+            btn.querySelector('.kp-pos-label').textContent = teamGrp ? g[1] : 'Select position';
+            btn.querySelector('.kp-dot').className = 'kp-dot ' + teamGrp;
+            menu.querySelectorAll('.kp-pos-opt').forEach(function (o) { o.classList.toggle('on', o.getAttribute('data-g') === teamGrp); });
+          }
+          btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var open = !menu.classList.contains('open');
+            menu.classList.toggle('open', open);
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+          });
+          menu.addEventListener('click', function (e) {
+            var o = e.target.closest('.kp-pos-opt');
+            if (!o) return;
+            teamGrp = o.getAttribute('data-g');
+            paint();
+            menu.classList.remove('open');
+            btn.setAttribute('aria-expanded', 'false');
+            applyFilter();
+          });
+          paint();
+        }
         function draw(hits) {
-          panels.team.innerHTML = '<div class="kp-head"><h2 class="display">Team</h2><p>The ' + list.length + ' players who matter most this season.</p></div><div class="kp-grid">' +
-            list.map(function (p) {
-              return playerCard(p, hits.filter(function (h) { return same(h.name, p[0]); })[0]);
-            }).join('') + '</div>';
+          var grid = panels.team.querySelector('.kp-grid');
+          if (!grid) { // first draw: header + search/filter bar + grid
+            var opts = POS_GROUPS.map(function (g) {
+              return '<button type="button" class="kp-pos-opt" data-g="' + g[0] + '"><span class="kp-dot ' + g[0] + '"></span>' + g[1] + '<svg class="kp-tick" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></button>';
+            }).join('');
+            panels.team.innerHTML = '<div class="kp-head"><h2 class="display">Team</h2><p>The ' + list.length + ' players who matter most this season.</p></div>' +
+              '<div class="kp-tools">' +
+                '<label class="kp-search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" placeholder="Search a player&hellip;" autocomplete="off" aria-label="Search a player"></label>' +
+                '<div class="kp-pos-wrap"><button type="button" class="kp-pos-btn" aria-haspopup="true" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M7 12h10M10 17h4"/></svg><span class="kp-dot"></span><span class="kp-pos-label">Select position</span></button>' +
+                '<div class="kp-pos-menu">' + opts + '</div></div>' +
+              '</div>' +
+              '<div class="kp-grid"></div><div class="ct-state kp-empty" style="display:none">No player matches your search.</div>';
+            bindTools();
+            grid = panels.team.querySelector('.kp-grid');
+          }
+          grid.innerHTML = cardsHtml(hits);
           applyPhotos();
+          applyFilter();
         }
         draw([]);
         loadPhotos(list);
