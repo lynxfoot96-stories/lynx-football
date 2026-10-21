@@ -7,26 +7,24 @@
  *   - First time a player is requested: fetched live from the Transfermarkt
  *     community API (_lib/transfermarkt.js), then stored in Supabase.
  *   - Every later request for the same player: served straight from
- *     Supabase -- no upstream call at all, so repeat visits never add to
- *     that API's rate limit, as requested.
+ *     Supabase -- no upstream call at all.
  * A distributed lock (same _lib/cache.js used by scores.js/standings.js)
  * makes sure that if several visitors open a brand-new player at the same
  * moment, only ONE of them triggers the upstream fetch.
  *
  * Response shape:
- *   { ok: true, player: {
- *       name, dateOfBirth, age, nationality, position, photoUrl,
- *       currentClub, shirtNumber,
- *       marketValue, marketValueNote,
+ *   { ok: true, player: { name, dateOfBirth, age, nationality, position, photoUrl,
+ *       currentClub, shirtNumber, marketValue, marketValueNote,
  *       transfers: [{date, fromClub, toClub, fee, type}, ...],
- *       lastUpdated,              // ISO date this site last fetched the data
- *       unavailableFields: [...]  // fields the upstream API could not supply
- *   } }
+ *       lastUpdated, unavailableFields: [...] } }
  * or { ok: false, error } on failure (never invents a value for a missing field).
  */
 const { acquireLock, releaseLock } = require('./_lib/cache');
 const { getBySlug, upsertPlayer, slugify, normalizeSearch } = require('./_lib/playersDb');
 const tm = require('./_lib/transfermarkt');
+
+// Whole upstream fetch must finish well inside Vercel's 25s function limit.
+const UPSTREAM_BUDGET_MS = 21000;
 
 function rowToResponse(row) {
   const unavailableFields = [];
@@ -58,16 +56,27 @@ function rowToResponse(row) {
 }
 
 async function fetchFromUpstream(name) {
-  const search = await tm.searchPlayer(name);
+  const deadline = Date.now() + UPSTREAM_BUDGET_MS;
+
+  const search = await tm.searchPlayer(name, { deadline, timeoutMs: 12000 });
   if (!search.ok) return { ok: false, error: search.error };
   if (!search.player || !search.player.id) return { ok: false, notFound: true };
 
   const id = search.player.id;
-  const [profileR, marketR, transfersR] = await Promise.all([
-    tm.getProfile(id),
-    tm.getMarketValue(id),
-    tm.getTransfers(id),
+
+  // The public demo allows 2 requests / 3s, so don't fire all three at once:
+  // profile + market value together, then transfers.
+  const [profileR, marketR] = await Promise.all([
+    tm.getProfile(id, { deadline, timeoutMs: 8000 }),
+    tm.getMarketValue(id, { deadline, timeoutMs: 8000 }),
   ]);
+  const transfersR = await tm.getTransfers(id, { deadline, timeoutMs: 8000 });
+
+  // If nothing useful came back, do NOT save an empty row -- it would be
+  // served forever and the player would never get a second chance.
+  if (!profileR.ok && !marketR.ok && !transfersR.ok) {
+    return { ok: false, error: profileR.error || 'Player data source is not responding. Please try again shortly.' };
+  }
 
   const errors = [];
   const profile = profileR.ok ? profileR.profile : {};
@@ -89,7 +98,7 @@ async function fetchFromUpstream(name) {
       age: profile.age != null ? profile.age : null,
       nationality: profile.nationality || null,
       position: profile.position || null,
-      photo_url: profile.photoUrl || null,
+      photo_url: profile.photoUrl || search.player.photoUrl || null,
       current_club: profile.currentClub || search.player.club || null,
       current_club_tm_id: profile.currentClubTmId || null,
       shirt_number: profile.shirtNumber || null,
@@ -100,6 +109,12 @@ async function fetchFromUpstream(name) {
       fetch_error: errors.length ? errors.join('; ') : null,
     },
   };
+}
+
+function sendUpstreamFailure(res, result, name) {
+  if (result.notFound) return res.status(404).json({ ok: false, error: `No player found matching "${name}".` });
+  res.setHeader('Cache-Control', 'no-store');
+  return res.status(502).json({ ok: false, error: result.error || 'Upstream error' });
 }
 
 module.exports = async function handler(req, res) {
@@ -114,10 +129,6 @@ module.exports = async function handler(req, res) {
     let row = await getBySlug(slug);
 
     if (!row) {
-      // Not cached yet: only the request that wins the lock calls the
-      // upstream API; everyone else arriving in the same moment waits and
-      // reads what the winner just saved, instead of each firing their own
-      // upstream call (same pattern as scores.js / standings.js).
       const lockKey = `player-fetch:${slug}`;
       const token = await acquireLock(lockKey, 25);
       if (token) {
@@ -125,30 +136,22 @@ module.exports = async function handler(req, res) {
           row = await getBySlug(slug); // re-check: someone may have just filled it
           if (!row) {
             const result = await fetchFromUpstream(name);
-            if (!result.ok) {
-              if (result.notFound) return res.status(404).json({ ok: false, error: `No player found matching "${name}".` });
-              return res.status(502).json({ ok: false, error: result.error || 'Upstream error' });
-            }
+            if (!result.ok) return sendUpstreamFailure(res, result, name);
             row = await upsertPlayer(result.row);
           }
         } finally {
           await releaseLock(lockKey, token);
         }
       } else {
-        // Someone else is already fetching this exact player: wait briefly
+        // Someone else is already fetching this player: wait briefly (max ~3s)
         // for their result instead of also calling the upstream API.
-        for (let i = 0; i < 10 && !row; i++) {
+        for (let i = 0; i < 6 && !row; i++) {
           await new Promise((r) => setTimeout(r, 500));
           row = await getBySlug(slug);
         }
         if (!row) {
-          // Lock-holder took too long (or crashed) and nothing landed yet;
-          // fetch directly rather than fail the request.
           const result = await fetchFromUpstream(name);
-          if (!result.ok) {
-            if (result.notFound) return res.status(404).json({ ok: false, error: `No player found matching "${name}".` });
-            return res.status(502).json({ ok: false, error: result.error || 'Upstream error' });
-          }
+          if (!result.ok) return sendUpstreamFailure(res, result, name);
           row = await upsertPlayer(result.row);
         }
       }
