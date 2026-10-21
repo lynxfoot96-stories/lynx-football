@@ -4,8 +4,8 @@
  *
  * Serves a player's profile, current club, shirt number, market value and
  * transfer history. Backed by Supabase (see supabase/players-schema.sql):
- *   - First time a player is requested: fetched live from the Transfermarkt
- *     community API (_lib/transfermarkt.js), then stored in Supabase.
+ *   - First time a player is requested: fetched live from TheSportsDB
+ *     (_lib/sportsdb.js), then stored in Supabase.
  *   - Every later request for the same player: served straight from
  *     Supabase -- no upstream call at all.
  * A distributed lock (same _lib/cache.js used by scores.js/standings.js)
@@ -21,7 +21,7 @@
  */
 const { acquireLock, releaseLock } = require('./_lib/cache');
 const { getBySlug, upsertPlayer, slugify, normalizeSearch } = require('./_lib/playersDb');
-const tm = require('./_lib/transfermarkt');
+const tm = require('./_lib/sportsdb'); // TheSportsDB (player page only)
 
 // Whole upstream fetch must finish well inside Vercel's 25s function limit.
 const UPSTREAM_BUDGET_MS = 21000;
@@ -47,7 +47,7 @@ function rowToResponse(row) {
     currentClub: row.current_club || null,
     shirtNumber: row.shirt_number || null,
     marketValue: row.market_value || null,
-    marketValueNote: row.market_value_note || 'Estimated value from Transfermarkt; not an official or audited figure.',
+    marketValueNote: row.market_value_note || 'Market value is not available from this data source.',
     transfers: Array.isArray(row.transfers) ? row.transfers : [],
     lastUpdated: row.fetched_at || null,
     unavailableFields,
