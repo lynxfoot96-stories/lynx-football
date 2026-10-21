@@ -6,6 +6,10 @@
  * call. Lazy-loads those two files itself if the current page hasn't already
  * loaded them (e.g. index.html, news.html, matches.html).
  *
+ * Photos: each result shows the player's photo, fetched from /api/squad-photos (the
+ * same Wikimedia/curated pipeline + cache as the club Team tab). Until a photo
+ * arrives (or if there is none) the initials circle stays.
+ *
  * Typing "mb" matches "Mbappé", "Mbuyamba", etc.; clicking a result (or
  * pressing Enter) goes straight to player.html?name=...&club=... -- the full
  * player page, not a card.
@@ -33,7 +37,8 @@
     '.fs-search-results{margin-top:8px;max-height:320px;overflow:auto}' +
     '.fs-search-row{display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:8px;cursor:pointer}' +
     '.fs-search-row:hover,.fs-search-row.active{background:var(--panel-2)}' +
-    '.fs-search-ini{flex:none;width:32px;height:32px;border-radius:50%;background:var(--panel-2);display:flex;align-items:center;justify-content:center;font:800 12px Inter;color:var(--muted)}' +
+    '.fs-search-ini{flex:none;position:relative;width:32px;height:32px;border-radius:50%;background:var(--panel-2);display:flex;align-items:center;justify-content:center;font:800 12px Inter;color:var(--muted);overflow:hidden}' +
+    '.fs-search-ini img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}' +
     '.fs-search-name{font-weight:700;font-size:14px;color:var(--white)}' +
     '.fs-search-club{font-size:12px;color:var(--muted)}' +
     '.fs-search-empty{padding:14px 8px;color:var(--muted);font-size:13px;text-align:center}' +
@@ -103,6 +108,51 @@
     return 'player.html?name=' + encodeURIComponent(p.name) + '&club=' + encodeURIComponent(p.clubName);
   }
 
+  /* ---------- photos (same source as the club Team tab) ---------- */
+  var photoCache = {};     // "club|name" -> url, or '' when there is no safe photo
+  var photoAsked = {};     // "club|name" -> true once requested
+  function pkey(p) { return p.clubName + '|' + p.name; }
+
+  function fetchPhotos(list) {
+    var byClub = {};
+    list.forEach(function (p) {
+      if (photoAsked[pkey(p)]) return;
+      photoAsked[pkey(p)] = true;
+      (byClub[p.clubName] = byClub[p.clubName] || []).push(p.name);
+    });
+    Object.keys(byClub).forEach(function (club) {
+      var names = byClub[club];
+      var attempts = 0;
+      (function ask() {
+        attempts++;
+        fetch('/api/squad-photos?team=' + encodeURIComponent(club) + '&names=' + encodeURIComponent(names.join('|')))
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            if (!res || !res.ok) { names.forEach(function (n) { delete photoAsked[club + '|' + n]; }); return; }
+            (res.done || []).forEach(function (n) { photoCache[club + '|' + n] = (res.photos && res.photos[n]) || ''; });
+            paintPhotos();
+            // players the server did not reach in time: ask again once, shortly
+            if (res.pending > 0 && attempts < 2) {
+              names = names.filter(function (n) { return (res.done || []).indexOf(n) === -1; });
+              if (names.length) setTimeout(ask, 1500);
+            }
+          })
+          .catch(function () { names.forEach(function (n) { delete photoAsked[club + '|' + n]; }); });
+      })();
+    });
+  }
+
+  function paintPhotos() {
+    document.querySelectorAll('.fs-search-ini[data-pk]').forEach(function (el) {
+      var url = photoCache[el.getAttribute('data-pk')];
+      if (!url || el.querySelector('img')) return;
+      var img = new Image();
+      img.alt = '';
+      img.onload = function () { if (!el.querySelector('img')) el.appendChild(img); };
+      img.src = url;
+    });
+  }
+
   /* ---------- mount into every .nav-actions on the page ---------- */
   function mount(navActions) {
     if (navActions.querySelector('.fs-search-wrap')) return;
@@ -139,10 +189,11 @@
       if (!list.length) { results.innerHTML = '<div class="fs-search-empty">No player matches &ldquo;' + esc(input.value.trim()) + '&rdquo;.</div>'; return; }
       results.innerHTML = list.map(function (p, i) {
         return '<a class="fs-search-row" href="' + playerHref(p) + '" data-i="' + i + '">' +
-          '<span class="fs-search-ini">' + esc(initialsOf(p.name)) + '</span>' +
+          '<span class="fs-search-ini" data-pk="' + esc(pkey(p)) + '">' + esc(initialsOf(p.name)) + '</span>' +
           '<span><span class="fs-search-name">' + esc(p.name) + '</span><br><span class="fs-search-club">' + esc(p.clubName) + (p.pos ? ' &middot; ' + esc(p.pos) : '') + '</span></span>' +
         '</a>';
       }).join('');
+      paintPhotos();
     }
     function paintActive() {
       results.querySelectorAll('.fs-search-row').forEach(function (r, i) {
@@ -154,8 +205,14 @@
       e.stopPropagation();
       if (panel.classList.contains('open')) close(); else open();
     });
+    var typeTimer = null;
     input.addEventListener('input', function () {
-      buildIndex().then(function (list) { draw(matches(list, input.value)); });
+      // list updates instantly; photo lookups only run for what is still on screen after a short pause
+      buildIndex().then(function (list) {
+        draw(matches(list, input.value));
+        clearTimeout(typeTimer);
+        typeTimer = setTimeout(function () { fetchPhotos(current); }, 250);
+      });
     });
     input.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') { close(); return; }
