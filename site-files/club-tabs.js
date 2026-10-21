@@ -251,10 +251,11 @@
       var alt = p[2]
         ? p[2].split(',').map(function (a) { return '<span class="kp-chip">' + esc(a.trim()) + '</span>'; }).join('')
         : '<span class="kp-none">Plays one position only</span>';
-      return '<article class="kp-card" data-grp="' + grp(p[1]) + '" data-n="' + esc(norm(p[0])) + '"><div class="kp-top"><div class="kp-ph" data-name="' + esc(p[0]) + '"><span class="kp-ini">' + esc(initialsOf(p[0])) + '</span><span class="kp-pos ' + grp(p[1]) + '">' + esc(p[1]) + '</span></div><div><div class="kp-name">' + esc(p[0]) + '</div>' +
+      var href = 'player.html?name=' + encodeURIComponent(p[0]) + '&club=' + encodeURIComponent(club.name);
+      return '<a class="kp-card" href="' + href + '" data-grp="' + grp(p[1]) + '" data-n="' + esc(norm(p[0])) + '"><div class="kp-top"><div class="kp-ph" data-name="' + esc(p[0]) + '"><span class="kp-ini">' + esc(initialsOf(p[0])) + '</span><span class="kp-pos ' + grp(p[1]) + '">' + esc(p[1]) + '</span></div><div><div class="kp-name">' + esc(p[0]) + '</div>' +
         (hit ? '<span class="kp-goal">&#9917; ' + hit.goals + (hit.goals === 1 ? ' goal' : ' goals') + ' &middot; #' + hit.rank + ' ' + esc(compName(hit.comp)) + '</span>' : '') +
         '</div></div><div class="kp-lbl">Footballer identity</div><p class="kp-id">' + esc(p[3]) + '</p>' +
-        '<div class="kp-alt"><div class="kp-lbl">Alternative positions</div><div class="kp-chips">' + alt + '</div></div></article>';
+        '<div class="kp-alt"><div class="kp-lbl">Alternative positions</div><div class="kp-chips">' + alt + '</div></div></a>';
     }
     function loadTeam() {
       if (!panels.team) return;
@@ -345,7 +346,7 @@
         var r = out[0], html = '';
         club.comps.forEach(function (comp) {
           var cards = r.hits.filter(function (h) { return h.comp === comp; }).map(function (h) {
-            return '<div class="ct-kp-card">' +
+            return '<a class="ct-kp-card" href="player.html?name=' + encodeURIComponent(h.name) + '&club=' + encodeURIComponent(club.name) + '">' +
               '<img class="ct-kp-photo" src="' + esc(h.photo || '') + '" alt="' + esc(h.name) + '" loading="lazy" onerror="this.style.visibility=\'hidden\'">' +
               '<div class="ct-kp-info">' +
                 '<div class="ct-kp-role">' + esc(compName(comp)) + ' Top Scorer</div>' +
@@ -353,7 +354,7 @@
                 '<div class="ct-kp-sub">#' + esc(h.rank) + ' in ' + esc(compName(comp)) + (h.apps != null ? ' &middot; ' + esc(h.apps) + ' apps' : '') + '</div>' +
               '</div>' +
               '<div class="ct-kp-stat"><div class="ct-kp-num">' + esc(h.goals) + '</div><div class="ct-kp-unit">goals</div></div>' +
-            '</div>';
+            '</a>';
           }).join('');
           var logo = META.leagueLogo(comp);
           if (cards) html += '<div class="ct-kp-section"><h3>' + (logo ? '<img class="ct-kp-logo" src="' + esc(logo) + '" alt="" onerror="this.style.display=\'none\'">' : '') +

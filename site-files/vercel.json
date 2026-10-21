@@ -7,6 +7,7 @@
   ],
   "functions": {
     "api/automated-news.js": { "maxDuration": 60 },
-    "api/automated-news-openrouter.js": { "maxDuration": 60 }
+    "api/automated-news-openrouter.js": { "maxDuration": 60 },
+    "api/player.js": { "maxDuration": 25 }
   }
 }

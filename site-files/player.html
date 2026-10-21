@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+(function(){
+  var KEY='fs96-theme';
+  var RX=/(?:^|;)\s*fs96-theme=(light|dark)/;
+  function read(){
+    var m=RX.exec(window.name||'');
+    if(m) return m[1];
+    try{ var v=localStorage.getItem(KEY); if(v==='light'||v==='dark') return v; }catch(e){}
+    return null;
+  }
+  function save(v){
+    try{ localStorage.setItem(KEY,v); }catch(e){}
+    window.name=(window.name||'').replace(/(?:^|;)\s*fs96-theme=(?:light|dark)/,'')+';fs96-theme='+v;
+  }
+  function apply(v){
+    var root=document.documentElement;
+    if(v==='light'){ root.setAttribute('data-theme','light'); }
+    else { root.removeAttribute('data-theme'); }
+  }
+  var saved=read();
+  if(saved){ apply(saved); save(saved); }
+  document.addEventListener('DOMContentLoaded', function(){
+    var btn=document.getElementById('themeToggle');
+    if(!btn) return;
+    btn.addEventListener('click', function(){
+      var goingLight=document.documentElement.getAttribute('data-theme')!=='light';
+      var v=goingLight?'light':'dark';
+      apply(v); save(v);
+    });
+  });
+})();
+</script>
+
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Player &mdash; Football Stories</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800;900&family=Inter:wght@400;500;600;700&display=swap');
+
+:root{
+  --black: #08070A;
+  --panel: #121116;
+  --panel-2: #17151C;
+  --line: rgba(255,255,255,0.08);
+  --white: #F4F3F6;
+  --muted: #9A96A3;
+  --purple: #8A3FFC;
+  --purple-bright: #A868FF;
+  --orange: #FF7A1A;
+  --orange-bright: #FF9540;
+}
+*{ margin:0; padding:0; box-sizing:border-box; }
+html{ scroll-behavior:smooth; }
+body{ background:var(--black); color:var(--white); font-family:'Inter', sans-serif; overflow-x:hidden; }
+.display{ font-family:'Big Shoulders Display', sans-serif; font-weight:800; letter-spacing:0.01em; line-height:0.92; }
+a{ color:inherit; text-decoration:none; }
+img{ max-width:100%; display:block; }
+.wrap{ max-width:1180px; margin:0 auto; padding:0 32px; }
+@media (max-width:640px){ .wrap{ padding:0 20px; } }
+
+html[data-theme="light"]{
+  --black:#F7F6FB; --panel:#FFFFFF; --panel-2:#F0EEF6; --line:rgba(17,17,22,0.08); --white:#121116; --muted:#5B5767;
+}
+
+/* ---------- HEADER ---------- */
+header{ position:fixed; top:0; left:0; right:0; z-index:100; background:rgba(8,7,10,0.72); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid var(--line); }
+html[data-theme="light"] header{ background:rgba(247,246,251,0.82); }
+.navbar{ display:flex; align-items:center; justify-content:space-between; height:76px; }
+.logo{ display:flex; align-items:center; gap:10px; font-family:'Big Shoulders Display', sans-serif; font-weight:800; font-size:22px; letter-spacing:0.02em; }
+.logo-mark{ width:14px; height:14px; border-radius:3px; background:linear-gradient(135deg, var(--purple), var(--orange)); flex-shrink:0; }
+nav.links{ display:flex; gap:36px; font-size:15px; font-weight:500; color:var(--muted); }
+nav.links a{ transition:color .2s ease; }
+nav.links a:hover{ color:var(--white); }
+.nav-actions{ display:flex; align-items:center; gap:12px; }
+.nav-home{ display:flex; align-items:center; gap:8px; padding:10px 16px; border-radius:8px; border:1px solid var(--line); color:var(--muted); font-size:14px; font-weight:600; transition:border-color .2s,color .2s; }
+.nav-home:hover{ border-color:var(--purple-bright); color:var(--white); }
+.nav-cta{ background:var(--white); color:var(--black); font-weight:700; font-size:14px; padding:11px 22px; border-radius:6px; transition:background .2s ease, transform .2s ease; }
+.nav-cta:hover{ background:var(--orange-bright); transform:translateY(-1px); }
+.theme-toggle{ background:none; border:1px solid var(--line); border-radius:8px; width:40px; height:40px; display:flex; align-items:center; justify-content:center; color:var(--white); cursor:pointer; }
+.theme-toggle .ti-moon{ display:block; } .theme-toggle .ti-sun{ display:none; }
+html[data-theme="light"] .theme-toggle .ti-moon{ display:none; } html[data-theme="light"] .theme-toggle .ti-sun{ display:block; }
+.menu-btn{ display:none; }
+@media (max-width:860px){ nav.links{ display:none; } }
+
+/* ---------- PAGE ---------- */
+main{ padding-top:76px; min-height:100vh; }
+.back-link{ display:inline-flex; align-items:center; gap:8px; color:var(--muted); font-size:14px; font-weight:600; margin:28px 0 0; transition:color .2s; }
+.back-link:hover{ color:var(--purple-bright); }
+
+.pl-state{ padding:120px 16px; text-align:center; color:var(--muted); font-size:15px; }
+.pl-state .display{ font-size:28px; color:var(--white); margin-bottom:10px; text-transform:uppercase; }
+
+.pl-hero{ display:flex; gap:28px; align-items:flex-end; padding:36px 0 32px; border-bottom:1px solid var(--line); margin-bottom:32px; flex-wrap:wrap; }
+.pl-photo-wrap{ flex:none; width:128px; height:128px; border-radius:50%; border:3px solid var(--purple); overflow:hidden; background:var(--panel-2); display:flex; align-items:center; justify-content:center; }
+.pl-photo-wrap img{ width:100%; height:100%; object-fit:cover; }
+.pl-photo-wrap .pl-ini{ font:800 36px 'Big Shoulders Display'; color:var(--muted); }
+.pl-head-text{ flex:1; min-width:220px; }
+.pl-pos-badge{ display:inline-block; font:800 12px Inter; letter-spacing:.06em; text-transform:uppercase; color:#fff; background:linear-gradient(135deg,#7c3aed,#6d28d9); border-radius:8px; padding:4px 12px; margin-bottom:10px; }
+.pl-name{ font-size:clamp(32px,6vw,54px); text-transform:uppercase; }
+.pl-sub{ color:var(--muted); font-size:15px; margin-top:6px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.pl-sub b{ color:var(--white); }
+.pl-shirt{ flex:none; text-align:center; }
+.pl-shirt .num{ font:900 48px 'Big Shoulders Display'; color:var(--purple-bright); line-height:1; }
+.pl-shirt .lbl{ font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+
+.pl-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:40px; }
+@media (max-width:860px){ .pl-grid{ grid-template-columns:repeat(2,1fr); } }
+.pl-card{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px 20px; }
+.pl-card .lbl{ font:800 10.5px Inter; letter-spacing:.06em; text-transform:uppercase; color:var(--purple-bright); margin-bottom:8px; }
+.pl-card .val{ font-size:19px; font-weight:700; color:var(--white); }
+.pl-card .val.muted{ color:var(--muted); font-weight:500; font-size:14px; }
+.pl-card .note{ margin-top:6px; font-size:11.5px; color:var(--muted); line-height:1.5; }
+
+.pl-section{ margin-bottom:48px; }
+.pl-section h2{ font-size:24px; text-transform:uppercase; margin-bottom:18px; }
+.pl-transfers{ background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+.pl-tr{ display:grid; grid-template-columns:110px 1fr 24px 1fr 120px; gap:12px; align-items:center; padding:16px 20px; border-top:1px solid var(--line); font-size:14px; }
+.pl-tr:first-child{ border-top:none; }
+.pl-tr .date{ color:var(--muted); font-size:13px; }
+.pl-tr .club{ font-weight:600; }
+.pl-tr .arrow{ color:var(--muted); text-align:center; }
+.pl-tr .fee{ text-align:right; color:var(--orange-bright); font-weight:700; }
+@media (max-width:700px){ .pl-tr{ grid-template-columns:1fr; text-align:left; gap:4px; padding:14px 18px; } .pl-tr .fee{ text-align:left; } }
+
+.pl-footnote{ color:var(--muted); font-size:12.5px; line-height:1.6; margin-bottom:60px; }
+.pl-unavailable{ color:var(--muted); font-style:italic; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap navbar">
+    <a href="index.html" class="logo"><span class="logo-mark"></span>FOOTBALL STORIES</a>
+    <nav class="links">
+      <a href="videos.html">Videos</a>
+      <a href="news.html">News</a>
+      <a href="clubs.html">Clubs</a>
+      <a href="matches.html">Matches</a>
+    </nav>
+    <div class="nav-actions">
+      <a href="clubs.html" class="nav-home">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.3l4 2.9-1.5 4.7h-5L8 10.2z"/><path d="M12 7.3V2.6M16 10.2l4.4-1.5M14.5 14.9l2.8 3.8M9.5 14.9l-2.8 3.8M8 10.2L3.6 8.7"/></svg>
+        <span>Clubs</span>
+      </a>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle light and dark mode" title="Toggle light/dark mode"><svg class="ti ti-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><svg class="ti ti-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <a href="javascript:history.length>1?history.back():location.href='clubs.html'" class="back-link">&larr; Back</a>
+    <div id="playerRoot"><div class="pl-state">Loading player&hellip;</div></div>
+  </div>
+</main>
+
+<script>
+(function(){
+  'use strict';
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function initialsOf(name){
+    var w = String(name||'').trim().split(/\s+/);
+    return (w.length>1 ? w[0][0]+w[w.length-1][0] : (w[0]||'?').slice(0,2)).toUpperCase();
+  }
+  function fmtDate(iso){
+    if(!iso) return null;
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso);
+    return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+  }
+
+  var root = document.getElementById('playerRoot');
+  var params = new URLSearchParams(location.search);
+  var name = (params.get('name') || '').trim();
+  var club = (params.get('club') || '').trim();
+
+  if (!name) {
+    root.innerHTML = '<div class="pl-state"><div class="display">No player selected</div><p>Go back and pick a player from a club squad or the search bar.</p></div>';
+    return;
+  }
+  document.title = name + ' — Football Stories';
+
+  function fieldVal(val, unavailableFields, key, formatted) {
+    var missing = unavailableFields && unavailableFields.indexOf(key) !== -1;
+    if (missing || val === null || val === undefined || val === '') return '<span class="pl-unavailable">Not available</span>';
+    return esc(formatted !== undefined ? formatted : val);
+  }
+
+  function render(p) {
+    var unavailable = p.unavailableFields || [];
+    var ageDob = [];
+    if (p.age) ageDob.push(p.age + ' yrs');
+    if (p.dateOfBirth) ageDob.push(fmtDate(p.dateOfBirth));
+    var ageDobStr = ageDob.length ? ageDob.join(' &middot; ') : null;
+
+    var transfersHtml = (p.transfers && p.transfers.length)
+      ? p.transfers.map(function(t){
+          return '<div class="pl-tr">' +
+            '<div class="date">' + esc(fmtDate(t.date) || '&mdash;') + '</div>' +
+            '<div class="club">' + esc(t.fromClub || '&mdash;') + '</div>' +
+            '<div class="arrow">&rarr;</div>' +
+            '<div class="club">' + esc(t.toClub || '&mdash;') + '</div>' +
+            '<div class="fee">' + esc(t.fee || (t.type || '&mdash;')) + '</div>' +
+          '</div>';
+        }).join('')
+      : '<div class="pl-tr"><span class="pl-unavailable">No transfer history available.</span></div>';
+
+    root.innerHTML =
+      '<div class="pl-hero">' +
+        '<div class="pl-photo-wrap">' +
+          (p.photoUrl ? '<img src="' + esc(p.photoUrl) + '" alt="" onerror="this.style.display=\'none\'">' : '<span class="pl-ini">' + esc(initialsOf(p.name)) + '</span>') +
+        '</div>' +
+        '<div class="pl-head-text">' +
+          (p.position ? '<span class="pl-pos-badge">' + esc(p.position) + '</span>' : '') +
+          '<h1 class="pl-name display">' + esc(p.name) + '</h1>' +
+          '<div class="pl-sub">' +
+            (p.currentClub ? '<b>' + esc(p.currentClub) + '</b>' : '<span class="pl-unavailable">Current club not available</span>') +
+            (p.nationality ? ' &middot; ' + esc(p.nationality) : '') +
+            (ageDobStr ? ' &middot; ' + ageDobStr : '') +
+          '</div>' +
+        '</div>' +
+        (p.shirtNumber ? '<div class="pl-shirt"><div class="num">#' + esc(p.shirtNumber) + '</div><div class="lbl">Shirt No.</div></div>' : '') +
+      '</div>' +
+
+      '<div class="pl-grid">' +
+        '<div class="pl-card"><div class="lbl">Current Club</div><div class="val' + (p.currentClub?'':' muted') + '">' + fieldVal(p.currentClub, unavailable, 'currentClub') + '</div></div>' +
+        '<div class="pl-card"><div class="lbl">Shirt Number</div><div class="val' + (p.shirtNumber?'':' muted') + '">' + fieldVal(p.shirtNumber, unavailable, 'shirtNumber', p.shirtNumber ? ('#' + p.shirtNumber) : null) + '</div></div>' +
+        '<div class="pl-card"><div class="lbl">Nationality</div><div class="val' + (p.nationality?'':' muted') + '">' + fieldVal(p.nationality, unavailable, 'nationality') + '</div></div>' +
+        '<div class="pl-card"><div class="lbl">Market Value</div><div class="val' + (p.marketValue?'':' muted') + '">' + fieldVal(p.marketValue, unavailable, 'marketValue') + '</div><div class="note">' + esc(p.marketValueNote || '') + '</div></div>' +
+      '</div>' +
+
+      '<div class="pl-section">' +
+        '<h2 class="display">Transfer History</h2>' +
+        '<div class="pl-transfers">' + transfersHtml + '</div>' +
+      '</div>' +
+
+      '<div class="pl-footnote">Data sourced from Transfermarkt via a community API, cross-checked where possible, and refreshed periodically.' +
+      (p.lastUpdated ? ' Last updated ' + esc(fmtDate(p.lastUpdated)) + '.' : '') +
+      ' Fields marked &ldquo;Not available&rdquo; could not be retrieved from the current source.</div>';
+  }
+
+  function renderError(msg) {
+    root.innerHTML = '<div class="pl-state"><div class="display">Player data unavailable</div><p>' + esc(msg) + '</p></div>';
+  }
+
+  var url = '/api/player?name=' + encodeURIComponent(name) + (club ? '&club=' + encodeURIComponent(club) : '');
+  fetch(url).then(function(r){ return r.json(); }).then(function(res){
+    if (!res || !res.ok || !res.player) { renderError((res && res.error) || 'This player could not be found.'); return; }
+    render(res.player);
+  }).catch(function(){
+    renderError('Something went wrong loading this player. Please try again shortly.');
+  });
+})();
+</script>
+
+<script src="player-search.js"></script>
+</body>
+</html>
