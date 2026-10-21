@@ -1,29 +1,27 @@
 'use strict';
 /**
- * Thin client for the Transfermarkt community API's public demo:
- *   https://transfermarkt-api.fly.dev
- * (project: https://github.com/felipeall/transfermarkt-api)
+ * Thin client for the Transfermarkt community API
+ *   (project: https://github.com/felipeall/transfermarkt-api)
  *
- * This is a public, rate-limited "testing only" deployment (2 requests /
- * 3 seconds per client IP, per its own README) -- it is NOT self-hosted by
- * this site. Only called from api/player.js, on-demand, the first time a
- * visitor opens a given player (see _lib/playersDb.js for the cache that
- * makes every later visit free). Never called from the browser directly.
+ * By default it talks to the public demo at https://transfermarkt-api.fly.dev,
+ * which is rate-limited (2 requests / 3 seconds) and can be asleep or blocked.
+ * To switch to your own hosted copy later, just set the environment variable
+ * TM_API_BASE in Vercel (e.g. https://my-tm-api.onrender.com) -- no code change.
  *
- * The upstream JSON schema is undocumented and can change without notice,
- * so every field read here is read defensively (several possible key names
- * tried, missing data left as null rather than guessed) -- see README notes
- * in the project for the field-name caveats. Confirm exact field names
- * against a live response after first deploy and adjust FIELD GUESSES below
- * if something consistently comes back empty.
+ * Every request works against a shared DEADLINE so the whole player fetch
+ * always finishes before Vercel's function limit (25s) kills it.
+ * Failures are returned as { ok: false, error } and never thrown.
  */
 
-const BASE_URL = 'https://transfermarkt-api.fly.dev';
-const REQUEST_TIMEOUT_MS = 9000;
+const BASE_URL = (process.env.TM_API_BASE || 'https://transfermarkt-api.fly.dev').replace(/\/+$/, '');
+const DEFAULT_TIMEOUT_MS = 10000;
+const SLOW_MSG = 'The player data source is slow right now. Please try again in a minute.';
 
-async function tmGet(path) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function once(path, timeoutMs) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(`${BASE_URL}${path}`, {
       headers: { Accept: 'application/json' },
@@ -36,18 +34,35 @@ async function tmGet(path) {
     if (!json) return { ok: false, status: res.status };
     return { ok: true, data: json };
   } catch (e) {
-    return { ok: false, error: e.message };
+    return { ok: false, error: e.name === 'AbortError' ? SLOW_MSG : e.message };
   } finally {
     clearTimeout(timer);
   }
 }
 
-/** GET /players/search/{name}?page_number=1 -> first matching player's id + name + club, or null. */
-async function searchPlayer(name) {
-  const r = await tmGet(`/players/search/${encodeURIComponent(name)}?page_number=1`);
+/**
+ * opts.deadline  = timestamp (ms) by which everything must be finished
+ * opts.timeoutMs = max time for this single call
+ * Retries once (after 1.5s) on 429/503 if there is still time left.
+ */
+async function tmGet(path, opts = {}) {
+  const deadline = opts.deadline || Date.now() + 20000;
+  const perCall = opts.timeoutMs || DEFAULT_TIMEOUT_MS;
+  let last = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const remaining = deadline - Date.now();
+    if (remaining < 1500) return last || { ok: false, error: SLOW_MSG };
+    last = await once(path, Math.min(perCall, remaining));
+    if (last.retry && attempt === 0) { await sleep(1500); continue; }
+    return last;
+  }
+  return last;
+}
+
+/** GET /players/search/{name}?page_number=1 -> first matching player, or null. */
+async function searchPlayer(name, opts) {
+  const r = await tmGet(`/players/search/${encodeURIComponent(name)}?page_number=1`, opts);
   if (!r.ok) return { ok: false, error: r.error || `search failed (${r.status || 'network'})` };
-  // FIELD GUESS: the search response has historically been { results: [...] } with each
-  // result carrying an "id" and a "name" -- try a couple of likely shapes defensively.
   const list = r.data.results || r.data.players || (Array.isArray(r.data) ? r.data : []);
   if (!list.length) return { ok: true, player: null };
   const top = list[0];
@@ -57,15 +72,16 @@ async function searchPlayer(name) {
       id: String(top.id || top.playerId || top.player_id || ''),
       name: top.name || top.playerName || name,
       club: (top.club && (top.club.name || top.club)) || top.currentClub || null,
+      photoUrl: top.image || top.imageUrl || null,
     },
   };
 }
 
-/** GET /players/{id}/profile -> full name, DOB/age, nationality, position, current club, photo. */
-async function getProfile(id) {
-  const r = await tmGet(`/players/${encodeURIComponent(id)}/profile`);
+/** GET /players/{id}/profile */
+async function getProfile(id, opts) {
+  const r = await tmGet(`/players/${encodeURIComponent(id)}/profile`, opts);
   if (!r.ok) return { ok: false, error: r.error || `profile failed (${r.status || 'network'})` };
-  const d = r.data;
+  const d = r.data || {};
   const club = d.club || d.currentClub || {};
   return {
     ok: true,
@@ -84,24 +100,22 @@ async function getProfile(id) {
   };
 }
 
-/** GET /players/{id}/market_value -> current estimated market value, formatted + raw. */
-async function getMarketValue(id) {
-  const r = await tmGet(`/players/${encodeURIComponent(id)}/market_value`);
+/** GET /players/{id}/market_value */
+async function getMarketValue(id, opts) {
+  const r = await tmGet(`/players/${encodeURIComponent(id)}/market_value`, opts);
   if (!r.ok) return { ok: false, error: r.error || `market_value failed (${r.status || 'network'})` };
-  const d = r.data;
-  // FIELD GUESS: recent history is often under marketValueHistory[]; the current value
-  // sometimes also appears at the top level. Prefer an explicit "current" field, else the
-  // most recent history entry.
+  const d = r.data || {};
   let current = d.marketValue || d.value || null;
   if (!current && Array.isArray(d.marketValueHistory) && d.marketValueHistory.length) {
-    current = d.marketValueHistory[d.marketValueHistory.length - 1].value || d.marketValueHistory[d.marketValueHistory.length - 1].marketValue;
+    const last = d.marketValueHistory[d.marketValueHistory.length - 1];
+    current = last.value || last.marketValue;
   }
   return { ok: true, marketValue: current || null, updatedAt: d.updatedAt || null };
 }
 
-/** GET /players/{id}/transfers -> chronological transfer history (club, date, fee, type). */
-async function getTransfers(id) {
-  const r = await tmGet(`/players/${encodeURIComponent(id)}/transfers`);
+/** GET /players/{id}/transfers */
+async function getTransfers(id, opts) {
+  const r = await tmGet(`/players/${encodeURIComponent(id)}/transfers`, opts);
   if (!r.ok) return { ok: false, error: r.error || `transfers failed (${r.status || 'network'})` };
   const list = r.data.transfers || (Array.isArray(r.data) ? r.data : []);
   const transfers = list.map((t) => ({
