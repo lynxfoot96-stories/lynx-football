@@ -102,6 +102,7 @@ async function searchPlayer(name, opts) {
       id: String(top.idPlayer || ''),
       name: top.strPlayer || name,
       club: cleanTeam(top.strTeam, top.strStatus),
+      clubId: top.strTeam && !String(top.strTeam).startsWith('_') && top.idTeam ? String(top.idTeam) : null,
       photoUrl: photoOf(top),
     },
   };
@@ -131,6 +132,15 @@ async function getProfile(id, opts) {
   };
 }
 
+/** lookupteam.php?id=<teamId> -> the club's badge (logo) URL, or null. */
+async function getTeamBadge(teamId, opts) {
+  if (!teamId) return { ok: true, badge: null };
+  const r = await sdbGet(`/lookupteam.php?id=${encodeURIComponent(teamId)}`, opts);
+  if (!r.ok) return { ok: false, error: r.error || `team failed (${r.status || 'network'})` };
+  const t = Array.isArray(r.data.teams) ? r.data.teams[0] : null;
+  return { ok: true, badge: (t && t.strBadge) || null };
+}
+
 /** TheSportsDB has no market values. Returns "no data" without any network call. */
 async function getMarketValue() {
   return { ok: true, marketValue: null, updatedAt: null };
@@ -148,20 +158,24 @@ async function getTransfers(id, opts) {
     .sort((a, b) => (parseInt(a.strJoined, 10) || 0) - (parseInt(b.strJoined, 10) || 0));
 
   const transfers = [];
-  let prev = null;
+  let prev = null, prevBadge = null;
   for (const t of list) {
     transfers.push({
       date: t.strJoined || null,
       fromClub: prev,
       toClub: t.strFormerTeam,
+      fromBadge: prevBadge,
+      toBadge: t.strBadge || null,
+      departed: t.strDeparted || null,
       fee: null,
       type: t.strMoveType || null,
     });
     prev = t.strFormerTeam;
+    prevBadge = t.strBadge || null;
   }
   // Newest first looks natural on a transfer list.
   transfers.reverse();
   return { ok: true, transfers, updatedAt: null };
 }
 
-module.exports = { searchPlayer, getProfile, getMarketValue, getTransfers };
+module.exports = { searchPlayer, getProfile, getMarketValue, getTransfers, getTeamBadge };
