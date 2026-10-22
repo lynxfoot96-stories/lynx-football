@@ -10,6 +10,10 @@
  * same Wikimedia/curated pipeline + cache as the club Team tab). Until a photo
  * arrives (or if there is none) the initials circle stays.
  *
+ * Any footballer: after a short pause, if the typed text is 3+ letters, it also asks
+ * /api/player?search=... (TheSportsDB) and adds that player below the club-squad results,
+ * so players who are not in any club section (e.g. "Neymar") can be found too.
+ *
  * Typing "mb" matches "Mbappé", "Mbuyamba", etc.; clicking a result (or
  * pressing Enter) goes straight to player.html?name=...&club=... -- the full
  * player page, not a card.
@@ -183,17 +187,45 @@
       panel.classList.remove('open');
       btn.setAttribute('aria-expanded', 'false');
     }
-    function draw(list) {
-      current = list; activeIdx = -1;
-      if (!input.value.trim()) { results.innerHTML = ''; return; }
-      if (!list.length) { results.innerHTML = '<div class="fs-search-empty">No player matches &ldquo;' + esc(input.value.trim()) + '&rdquo;.</div>'; return; }
-      results.innerHTML = list.map(function (p, i) {
-        return '<a class="fs-search-row" href="' + playerHref(p) + '" data-i="' + i + '">' +
-          '<span class="fs-search-ini" data-pk="' + esc(pkey(p)) + '">' + esc(initialsOf(p.name)) + '</span>' +
-          '<span><span class="fs-search-name">' + esc(p.name) + '</span><br><span class="fs-search-club">' + esc(p.clubName) + (p.pos ? ' &middot; ' + esc(p.pos) : '') + '</span></span>' +
-        '</a>';
-      }).join('');
+    var localList = [], remoteItem = null, remoteState = 'idle', remoteSeq = 0, remoteTimer = null;
+
+    function rowHtml(p, i) {
+      var circle = p.remote
+        ? '<span class="fs-search-ini">' + esc(initialsOf(p.name)) + (p.photoUrl ? '<img src="' + esc(p.photoUrl) + '" alt="" onerror="this.remove()">' : '') + '</span>'
+        : '<span class="fs-search-ini" data-pk="' + esc(pkey(p)) + '">' + esc(initialsOf(p.name)) + '</span>';
+      var sub = [p.clubName, p.pos].filter(Boolean).map(esc).join(' &middot; ');
+      return '<a class="fs-search-row" href="' + playerHref(p) + '" data-i="' + i + '">' + circle +
+        '<span><span class="fs-search-name">' + esc(p.name) + '</span><br><span class="fs-search-club">' + sub + '</span></span></a>';
+    }
+    // Draws club-squad matches first, then the extra TheSportsDB player (if any).
+    function render() {
+      var q = input.value.trim();
+      current = localList.concat(remoteItem ? [remoteItem] : []);
+      if (!q) { results.innerHTML = ''; return; }
+      if (!current.length) {
+        results.innerHTML = remoteState === 'loading'
+          ? '<div class="fs-search-empty">Searching more players&hellip;</div>'
+          : '<div class="fs-search-empty">No player matches &ldquo;' + esc(q) + '&rdquo;.</div>';
+        return;
+      }
+      results.innerHTML = current.map(rowHtml).join('');
       paintPhotos();
+      paintActive();
+    }
+    function lookupRemote(q, seq) {
+      fetch('/api/player?search=' + encodeURIComponent(q))
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (seq !== remoteSeq) return; // the user kept typing: ignore this answer
+          remoteState = 'done';
+          var p = res && res.ok && res.player;
+          if (p && p.name) {
+            var dup = localList.some(function (l) { return norm(l.name) === norm(p.name); });
+            if (!dup) remoteItem = { name: p.name, clubName: p.club || '', pos: null, remote: true, photoUrl: p.photoUrl || null };
+          }
+          render();
+        })
+        .catch(function () { if (seq !== remoteSeq) return; remoteState = 'done'; render(); });
     }
     function paintActive() {
       results.querySelectorAll('.fs-search-row').forEach(function (r, i) {
@@ -207,12 +239,20 @@
     });
     var typeTimer = null;
     input.addEventListener('input', function () {
-      // list updates instantly; photo lookups only run for what is still on screen after a short pause
+      var q = input.value.trim();
+      remoteItem = null; remoteSeq++; clearTimeout(remoteTimer);
+      remoteState = q.length >= 3 ? 'loading' : 'idle';
+      // club-squad matches appear instantly; photo + TheSportsDB lookups wait for a short pause in typing
       buildIndex().then(function (list) {
-        draw(matches(list, input.value));
+        localList = matches(list, input.value); activeIdx = -1;
+        render();
         clearTimeout(typeTimer);
-        typeTimer = setTimeout(function () { fetchPhotos(current); }, 250);
+        typeTimer = setTimeout(function () { fetchPhotos(localList); }, 250);
       });
+      if (q.length >= 3) {
+        var seq = remoteSeq;
+        remoteTimer = setTimeout(function () { lookupRemote(q, seq); }, 500);
+      }
     });
     input.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') { close(); return; }
