@@ -27,7 +27,7 @@
  *       lastUpdated, unavailableFields: [...] } }
  * or { ok: false, error } on failure (never invents a value for a missing field).
  */
-const { acquireLock, releaseLock } = require('./_lib/cache');
+const { acquireLock, releaseLock, cacheGet, cacheSet } = require('./_lib/cache');
 const { getBySlug, upsertPlayer, slugify, normalizeSearch } = require('./_lib/playersDb');
 const tm = require('./_lib/sportsdb'); // TheSportsDB (player page only)
 
@@ -82,6 +82,7 @@ function rowToResponse(row) {
     position: row.position || null,
     photoUrl: row.photo_url || null,
     currentClub: row.current_club || null,
+    currentClubBadge: row.current_club_badge || null,
     shirtNumber: row.shirt_number || null,
     marketValue: row.market_value || null,
     marketValueNote: row.market_value_note || 'Market value is not available from this data source.',
@@ -103,9 +104,10 @@ async function fetchFromUpstream(name, slug) {
 
   // The public demo allows 2 requests / 3s, so don't fire all three at once:
   // profile + market value together, then transfers.
-  const [profileR, marketR] = await Promise.all([
+  const [profileR, marketR, badgeR] = await Promise.all([
     tm.getProfile(id, { deadline, timeoutMs: 8000 }),
     tm.getMarketValue(id, { deadline, timeoutMs: 8000 }),
+    tm.getTeamBadge(search.player.clubId, { deadline, timeoutMs: 8000 }),
   ]);
   const transfersR = await tm.getTransfers(id, { deadline, timeoutMs: 8000 });
 
@@ -122,6 +124,21 @@ async function fetchFromUpstream(name, slug) {
   if (!marketR.ok) errors.push(`market_value: ${marketR.error}`);
   const transfers = transfersR.ok ? transfersR.transfers : [];
   if (!transfersR.ok) errors.push(`transfers: ${transfersR.error}`);
+  const currentClub = profile.currentClub || search.player.club || null;
+  const currentClubBadge = badgeR && badgeR.ok ? badgeR.badge : null;
+
+  // TheSportsDB lists FORMER clubs only, so the move to the current club is
+  // missing. Add it when the newest former club ended in a known year.
+  if (transfers.length && currentClub && currentClub !== 'Free agent' && currentClub !== 'Retired') {
+    const newest = transfers[0];
+    if (newest.toClub && newest.toClub.toLowerCase() !== currentClub.toLowerCase() && /^\d{4}$/.test(String(newest.departed || ''))) {
+      transfers.unshift({
+        date: newest.departed, fromClub: newest.toClub, toClub: currentClub,
+        fromBadge: newest.toBadge || null, toBadge: currentClubBadge,
+        departed: null, fee: null, type: null,
+      });
+    }
+  }
 
   const resolvedName = profile.name || search.player.name || name;
   return {
@@ -136,7 +153,8 @@ async function fetchFromUpstream(name, slug) {
       nationality: profile.nationality || null,
       position: profile.position || null,
       photo_url: profile.photoUrl || search.player.photoUrl || null,
-      current_club: profile.currentClub || search.player.club || null,
+      current_club: currentClub,
+      current_club_badge: currentClubBadge,
       current_club_tm_id: profile.currentClubTmId || null,
       shirt_number: profile.shirtNumber || null,
       market_value: marketValue || null,
@@ -149,14 +167,60 @@ async function fetchFromUpstream(name, slug) {
   };
 }
 
+/** Upsert, falling back to a row without the badge column if that column is not in the table yet. */
+async function saveRow(row) {
+  try {
+    return await upsertPlayer(row);
+  } catch (e) {
+    if (!/current_club_badge|PGRST204|42703/i.test(String(e.message))) throw e;
+    const copy = Object.assign({}, row); delete copy.current_club_badge;
+    return upsertPlayer(copy);
+  }
+}
+
 function sendUpstreamFailure(res, result, name) {
   if (result.notFound) return res.status(404).json({ ok: false, error: `No player found matching "${name}".` });
   res.setHeader('Cache-Control', 'no-store');
   return res.status(502).json({ ok: false, error: result.error || 'Upstream error' });
 }
 
+/**
+ * GET /api/player?search=<text>  -> { ok:true, player:{name, club, photoUrl} | null }
+ * Used by the header search box to offer ANY footballer TheSportsDB knows, not
+ * only the players in the club squads. (Lives in this file so the site does not
+ * need an extra serverless function.) TheSportsDB's free plan returns just the
+ * single best match, so this is "find this player", not a list. Cached.
+ */
+async function suggest(req, res) {
+  const q = String((req.query || {}).search || '').trim().slice(0, 60);
+  if (q.length < 3) return res.status(200).json({ ok: true, player: null });
+  const key = 'psearch:' + normalizeSearch(q);
+  try {
+    let hit = null;
+    try { hit = await cacheGet(key); } catch (_) { /* cache down: just look it up */ }
+    if (hit !== null && hit !== undefined) {
+      res.setHeader('Cache-Control', 'public, s-maxage=3600');
+      return res.status(200).json({ ok: true, player: hit.p || null });
+    }
+    const r = await tm.searchPlayer(q, { deadline: Date.now() + 7000, timeoutMs: 7000 });
+    if (!r.ok) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(200).json({ ok: false, error: r.error || 'Search unavailable' });
+    }
+    const p = r.player ? { name: r.player.name, club: r.player.club || null, photoUrl: r.player.photoUrl || null } : null;
+    try { await cacheSet(key, { p }, p ? 7 * 24 * 3600 : 24 * 3600); } catch (_) { /* not fatal */ }
+    res.setHeader('Cache-Control', 'public, s-maxage=3600');
+    return res.status(200).json({ ok: true, player: p });
+  } catch (err) {
+    console.error('player search error:', err.message);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json({ ok: false, error: 'Search unavailable' });
+  }
+}
+
 async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ ok: false, error: 'Method not allowed' });
+  if ((req.query || {}).search !== undefined) return suggest(req, res);
 
   const name = String((req.query || {}).name || '').trim().slice(0, 120);
   if (!name) return res.status(400).json({ ok: false, error: 'name is required' });
@@ -181,7 +245,7 @@ async function handler(req, res) {
           if (again && isFresh(again)) { row = again; ok = true; }
           else {
             const result = await fetchFromUpstream(name, slug);
-            if (result.ok) { row = await upsertPlayer(result.row); ok = true; }
+            if (result.ok) { row = await saveRow(result.row); ok = true; }
             else failure = result;
           }
         } catch (e) {
@@ -200,7 +264,7 @@ async function handler(req, res) {
         }
         if (!row) {
           const result = await fetchFromUpstream(name, slug);
-          if (result.ok) row = await upsertPlayer(result.row);
+          if (result.ok) row = await saveRow(result.row);
           else failure = result;
         }
       }
