@@ -106,8 +106,8 @@ main{ min-height:100vh; }
 .pl-sub{ color:var(--muted); font-size:15px; margin-top:6px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
 .pl-sub b{ color:var(--white); }
 .pl-shirt{ flex:none; text-align:center; }
-.pl-shirt .num{ font:900 48px 'Big Shoulders Display'; color:var(--purple-bright); line-height:1; }
-.pl-shirt .lbl{ font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+.pl-shirt svg{ display:block; width:118px; height:auto; filter:drop-shadow(0 6px 14px rgba(124,58,237,.35)); }
+.pl-sub .pl-logo{ width:24px; height:24px; }
 
 .pl-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:40px; }
 @media (max-width:860px){ .pl-grid{ grid-template-columns:repeat(2,1fr); } }
@@ -200,6 +200,20 @@ main{ min-height:100vh; }
       'onerror="if(!this.dataset.f){this.dataset.f=1;this.src=\'' + u + '\';}else{this.style.visibility=\'hidden\';}">';
   }
 
+  // A shirt with the player's number on it (replaces the big "#10" text).
+  function jerseySvg(num){
+    var n = String(num).replace(/[^0-9A-Za-z]/g,'').slice(0,3);
+    if (!n) return '';
+    var fs = n.length >= 3 ? 34 : (n.length === 2 ? 46 : 54);
+    return '<svg viewBox="0 0 120 120" role="img" aria-label="Shirt number ' + esc(n) + '">' +
+      '<defs><linearGradient id="jerseyG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9B5CFF"/><stop offset="1" stop-color="#6D28D9"/></linearGradient></defs>' +
+      '<path d="M40 8 L22 16 L4 40 L20 52 L30 44 L30 112 L90 112 L90 44 L100 52 L116 40 L98 16 L80 8 Q60 26 40 8 Z" fill="url(#jerseyG)" stroke="#4C1D95" stroke-width="2.5" stroke-linejoin="round"/>' +
+      '<path d="M40 8 Q60 26 80 8" fill="none" stroke="#F4F3F6" stroke-opacity=".85" stroke-width="3.5" stroke-linecap="round"/>' +
+      '<path d="M7 38 L22 48 M113 38 L98 48" stroke="#F4F3F6" stroke-opacity=".6" stroke-width="3" stroke-linecap="round"/>' +
+      '<text x="60" y="' + (n.length >= 3 ? 82 : 87) + '" text-anchor="middle" font-family="\'Big Shoulders Display\', Impact, sans-serif" font-weight="900" font-size="' + fs + '" fill="#FFFFFF">' + esc(n) + '</text>' +
+      '</svg>';
+  }
+
   var root = document.getElementById('playerRoot');
   var params = new URLSearchParams(location.search);
   var name = (params.get('name') || '').trim();
@@ -219,6 +233,15 @@ main{ min-height:100vh; }
 
   function render(p) {
     var unavailable = p.unavailableFields || [];
+    // Current club logo: saved value, or (if missing) the logo of that club in the transfer list.
+    var clubBadge = p.currentClubBadge || null;
+    if (!clubBadge && p.currentClub && p.transfers) {
+      var cc = String(p.currentClub).toLowerCase();
+      for (var i = 0; i < p.transfers.length; i++) {
+        var t0 = p.transfers[i];
+        if (t0.toClub && String(t0.toClub).toLowerCase() === cc && t0.toBadge) { clubBadge = t0.toBadge; break; }
+      }
+    }
     var ageDob = [];
     if (p.age) ageDob.push(p.age + ' yrs');
     if (p.dateOfBirth) ageDob.push(fmtDate(p.dateOfBirth));
@@ -249,16 +272,16 @@ main{ min-height:100vh; }
           (p.position ? '<span class="pl-pos-badge">' + esc(p.position) + '</span>' : '') +
           '<h1 class="pl-name display">' + esc(p.name) + '</h1>' +
           '<div class="pl-sub">' +
-            (p.currentClub ? '<b>' + esc(p.currentClub) + '</b>' : '<span class="pl-unavailable">Current club not available</span>') +
+            (p.currentClub ? logoHtml(clubBadge) + '<b>' + esc(p.currentClub) + '</b>' : '<span class="pl-unavailable">Current club not available</span>') +
             (p.nationality ? ' &middot; ' + esc(p.nationality) : '') +
             (ageDobStr ? ' &middot; ' + ageDobStr : '') +
           '</div>' +
         '</div>' +
-        (p.shirtNumber ? '<div class="pl-shirt"><div class="num">#' + esc(p.shirtNumber) + '</div><div class="lbl">Shirt No.</div></div>' : '') +
+        (p.shirtNumber ? '<div class="pl-shirt">' + jerseySvg(p.shirtNumber) + '</div>' : '') +
       '</div>' +
 
       '<div class="pl-grid">' +
-        '<div class="pl-card"><div class="lbl">Current Club</div><div class="val' + (p.currentClub?'':' muted') + '"><span>' + fieldVal(p.currentClub, unavailable, 'currentClub') + '</span>' + (p.currentClub ? logoHtml(p.currentClubBadge) : '') + '</div></div>' +
+        '<div class="pl-card"><div class="lbl">Current Club</div><div class="val' + (p.currentClub?'':' muted') + '"><span>' + fieldVal(p.currentClub, unavailable, 'currentClub') + '</span>' + (p.currentClub ? logoHtml(clubBadge) : '') + '</div></div>' +
         '<div class="pl-card"><div class="lbl">Shirt Number</div><div class="val' + (p.shirtNumber?'':' muted') + '">' + fieldVal(p.shirtNumber, unavailable, 'shirtNumber', p.shirtNumber ? ('#' + p.shirtNumber) : null) + '</div></div>' +
         '<div class="pl-card"><div class="lbl">Nationality</div><div class="val' + (p.nationality?'':' muted') + '"><span>' + fieldVal(p.nationality, unavailable, 'nationality') + '</span>' + (p.nationality ? flagHtml(p.nationality) : '') + '</div></div>' +
         '<div class="pl-card"><div class="lbl">Market Value</div><div class="val' + (p.marketValue?'':' muted') + '">' + fieldVal(p.marketValue, unavailable, 'marketValue') + '</div><div class="note">' + (p.marketValue ? esc(p.marketValueNote || '') : 'Not provided by the current data source.') + '</div></div>' +
