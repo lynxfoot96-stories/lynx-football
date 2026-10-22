@@ -87,8 +87,8 @@ html[data-theme="light"] .nav-home:hover{ color:var(--white); }
 .theme-toggle{ background:none; border:1px solid var(--line); border-radius:8px; width:40px; height:40px; display:flex; align-items:center; justify-content:center; color:var(--white); cursor:pointer; }
 .theme-toggle .ti-moon{ display:block; } .theme-toggle .ti-sun{ display:none; }
 html[data-theme="light"] .theme-toggle .ti-moon{ display:none; } html[data-theme="light"] .theme-toggle .ti-sun{ display:block; }
-@media (max-width:860px){ nav.links{ display:none; } }
-@media (max-width:480px){ .nav-home span{ display:none; } .nav-home{ padding:10px 12px; } .nav-cta{ padding:11px 14px; } }
+@media (max-width:860px){ nav.links{ display:none; } .navbar{ grid-template-columns:1fr auto; } }
+@media (max-width:560px){ .logo{ font-size:15px; gap:8px; white-space:nowrap; } .logo-img{ width:28px; height:28px; } .navbar{ gap:12px; } .nav-actions{ gap:8px; } .nav-home span{ display:none; } .nav-home{ padding:10px 12px; } .nav-cta{ display:none; } }
 
 /* ---------- PAGE ---------- */
 main{ min-height:100vh; }
@@ -114,6 +114,12 @@ main{ min-height:100vh; }
 .pl-card{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px 20px; }
 .pl-card .lbl{ font:800 10.5px Inter; letter-spacing:.06em; text-transform:uppercase; color:var(--purple-bright); margin-bottom:8px; }
 .pl-card .val{ font-size:19px; font-weight:700; color:var(--white); }
+.pl-card .val{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.pl-logo{ width:30px; height:30px; object-fit:contain; flex:none; }
+.pl-flag{ width:30px; height:auto; border-radius:3px; box-shadow:0 0 0 1px rgba(128,128,128,.35); flex:none; }
+.pl-tr .club{ display:flex; align-items:center; gap:10px; min-width:0; }
+.pl-tr .club .pl-logo{ width:24px; height:24px; }
+.pl-tr .club .pl-logo-gap{ width:24px; height:24px; flex:none; }
 .pl-card .val.muted{ color:var(--muted); font-weight:500; font-size:14px; }
 .pl-card .note{ margin-top:6px; font-size:11.5px; color:var(--muted); line-height:1.5; }
 
@@ -175,6 +181,25 @@ main{ min-height:100vh; }
     return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
   }
 
+  // ---- club logos + country flags ----
+  var COUNTRY = {"afghanistan":"af","albania":"al","algeria":"dz","andorra":"ad","angola":"ao","antigua and barbuda":"ag","argentina":"ar","armenia":"am","australia":"au","austria":"at","azerbaijan":"az","bahamas":"bs","bahrain":"bh","bangladesh":"bd","barbados":"bb","belarus":"by","belgium":"be","belize":"bz","benin":"bj","bermuda":"bm","bolivia":"bo","bosnia and herzegovina":"ba","bosnia-herzegovina":"ba","bosnia":"ba","botswana":"bw","brazil":"br","bulgaria":"bg","burkina faso":"bf","burundi":"bi","cameroon":"cm","canada":"ca","cape verde":"cv","cabo verde":"cv","central african republic":"cf","chad":"td","chile":"cl","china":"cn","china pr":"cn","colombia":"co","comoros":"km","congo":"cg","congo dr":"cd","dr congo":"cd","democratic republic of the congo":"cd","costa rica":"cr","cote d'ivoire":"ci","ivory coast":"ci","croatia":"hr","cuba":"cu","curacao":"cw","cyprus":"cy","czech republic":"cz","czechia":"cz","denmark":"dk","dominican republic":"do","ecuador":"ec","egypt":"eg","el salvador":"sv","england":"gb-eng","equatorial guinea":"gq","eritrea":"er","estonia":"ee","eswatini":"sz","ethiopia":"et","faroe islands":"fo","fiji":"fj","finland":"fi","france":"fr","gabon":"ga","gambia":"gm","georgia":"ge","germany":"de","ghana":"gh","gibraltar":"gi","greece":"gr","grenada":"gd","guadeloupe":"gp","guatemala":"gt","guinea":"gn","guinea-bissau":"gw","guyana":"gy","haiti":"ht","honduras":"hn","hong kong":"hk","hungary":"hu","iceland":"is","india":"in","indonesia":"id","iran":"ir","iraq":"iq","ireland":"ie","republic of ireland":"ie","israel":"il","italy":"it","jamaica":"jm","japan":"jp","jordan":"jo","kazakhstan":"kz","kenya":"ke","kosovo":"xk","kuwait":"kw","kyrgyzstan":"kg","latvia":"lv","lebanon":"lb","lesotho":"ls","liberia":"lr","libya":"ly","liechtenstein":"li","lithuania":"lt","luxembourg":"lu","madagascar":"mg","malawi":"mw","malaysia":"my","mali":"ml","malta":"mt","martinique":"mq","mauritania":"mr","mauritius":"mu","mexico":"mx","moldova":"md","montenegro":"me","morocco":"ma","mozambique":"mz","namibia":"na","netherlands":"nl","holland":"nl","new caledonia":"nc","new zealand":"nz","nicaragua":"ni","niger":"ne","nigeria":"ng","north korea":"kp","korea dpr":"kp","north macedonia":"mk","macedonia":"mk","northern ireland":"gb-nir","norway":"no","oman":"om","pakistan":"pk","palestine":"ps","panama":"pa","papua new guinea":"pg","paraguay":"py","peru":"pe","philippines":"ph","poland":"pl","portugal":"pt","puerto rico":"pr","qatar":"qa","romania":"ro","russia":"ru","rwanda":"rw","saint kitts and nevis":"kn","saint lucia":"lc","san marino":"sm","saudi arabia":"sa","scotland":"gb-sct","senegal":"sn","serbia":"rs","sierra leone":"sl","singapore":"sg","slovakia":"sk","slovenia":"si","somalia":"so","south africa":"za","south korea":"kr","korea republic":"kr","korea":"kr","south sudan":"ss","spain":"es","sri lanka":"lk","sudan":"sd","suriname":"sr","sweden":"se","switzerland":"ch","syria":"sy","tajikistan":"tj","tanzania":"tz","thailand":"th","togo":"tg","trinidad and tobago":"tt","tunisia":"tn","turkey":"tr","turkiye":"tr","turkmenistan":"tm","uganda":"ug","ukraine":"ua","united arab emirates":"ae","uae":"ae","united kingdom":"gb","uk":"gb","united states":"us","usa":"us","uruguay":"uy","uzbekistan":"uz","venezuela":"ve","vietnam":"vn","wales":"gb-wls","yemen":"ye","zambia":"zm","zimbabwe":"zw"};
+  function flagCode(country){
+    var k = String(country||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+    return COUNTRY[k] || null;
+  }
+  function flagHtml(country){
+    var c = flagCode(country);
+    if (!c) return '';
+    return '<img class="pl-flag" src="https://flagcdn.com/w40/' + c + '.png" srcset="https://flagcdn.com/w80/' + c + '.png 2x" alt="" loading="lazy" onerror="this.style.display=\'none\'">';
+  }
+  // Badges come from TheSportsDB. Try the small version first, fall back to the original, then hide.
+  function logoHtml(url, keepSpace){
+    if (!url) return keepSpace ? '<span class="pl-logo-gap"></span>' : '';
+    var u = esc(url);
+    return '<img class="pl-logo" src="' + u + '/small" alt="" loading="lazy" ' +
+      'onerror="if(!this.dataset.f){this.dataset.f=1;this.src=\'' + u + '\';}else{this.style.visibility=\'hidden\';}">';
+  }
+
   var root = document.getElementById('playerRoot');
   var params = new URLSearchParams(location.search);
   var name = (params.get('name') || '').trim();
@@ -207,9 +232,9 @@ main{ min-height:100vh; }
       ? rows.map(function(t){
           return '<div class="pl-tr">' +
             '<div class="date">' + esc(dateOf(t.date)) + '</div>' +
-            '<div class="club">' + esc(t.fromClub || '\u2014') + '</div>' +
+            '<div class="club">' + (t.fromClub ? logoHtml(t.fromBadge, true) : '') + '<span>' + esc(t.fromClub || '\u2014') + '</span></div>' +
             '<div class="arrow">&rarr;</div>' +
-            '<div class="club">' + esc(t.toClub || '\u2014') + '</div>' +
+            '<div class="club">' + logoHtml(t.toBadge, true) + '<span>' + esc(t.toClub || '\u2014') + '</span></div>' +
             '<div class="fee">' + esc(t.fee || t.type || '\u2014') + '</div>' +
           '</div>';
         }).join('')
@@ -233,9 +258,9 @@ main{ min-height:100vh; }
       '</div>' +
 
       '<div class="pl-grid">' +
-        '<div class="pl-card"><div class="lbl">Current Club</div><div class="val' + (p.currentClub?'':' muted') + '">' + fieldVal(p.currentClub, unavailable, 'currentClub') + '</div></div>' +
+        '<div class="pl-card"><div class="lbl">Current Club</div><div class="val' + (p.currentClub?'':' muted') + '"><span>' + fieldVal(p.currentClub, unavailable, 'currentClub') + '</span>' + (p.currentClub ? logoHtml(p.currentClubBadge) : '') + '</div></div>' +
         '<div class="pl-card"><div class="lbl">Shirt Number</div><div class="val' + (p.shirtNumber?'':' muted') + '">' + fieldVal(p.shirtNumber, unavailable, 'shirtNumber', p.shirtNumber ? ('#' + p.shirtNumber) : null) + '</div></div>' +
-        '<div class="pl-card"><div class="lbl">Nationality</div><div class="val' + (p.nationality?'':' muted') + '">' + fieldVal(p.nationality, unavailable, 'nationality') + '</div></div>' +
+        '<div class="pl-card"><div class="lbl">Nationality</div><div class="val' + (p.nationality?'':' muted') + '"><span>' + fieldVal(p.nationality, unavailable, 'nationality') + '</span>' + (p.nationality ? flagHtml(p.nationality) : '') + '</div></div>' +
         '<div class="pl-card"><div class="lbl">Market Value</div><div class="val' + (p.marketValue?'':' muted') + '">' + fieldVal(p.marketValue, unavailable, 'marketValue') + '</div><div class="note">' + (p.marketValue ? esc(p.marketValueNote || '') : 'Not provided by the current data source.') + '</div></div>' +
       '</div>' +
 
