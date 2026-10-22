@@ -29,7 +29,8 @@
  */
 const { acquireLock, releaseLock, cacheGet, cacheSet } = require('./_lib/cache');
 const { getBySlug, upsertPlayer, slugify, normalizeSearch } = require('./_lib/playersDb');
-const tm = require('./_lib/sportsdb'); // TheSportsDB (player page only)
+const tm = require('./_lib/sportsdb');
+const clubsApi = require('./_lib/clubs'); // TheSportsDB (player page only)
 
 // Whole upstream fetch must finish well inside Vercel's 25s function limit.
 const UPSTREAM_BUDGET_MS = 21000;
@@ -221,6 +222,7 @@ async function suggest(req, res) {
 async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ ok: false, error: 'Method not allowed' });
   if ((req.query || {}).search !== undefined) return suggest(req, res);
+  if ((req.query || {}).clubs !== undefined || (req.query || {}).club !== undefined) return clubsApi.handle(req, res);
 
   const name = String((req.query || {}).name || '').trim().slice(0, 120);
   if (!name) return res.status(400).json({ ok: false, error: 'name is required' });
