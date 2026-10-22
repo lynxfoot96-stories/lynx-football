@@ -178,4 +178,39 @@ async function getTransfers(id, opts) {
   return { ok: true, transfers, updatedAt: null };
 }
 
-module.exports = { searchPlayer, getProfile, getMarketValue, getTransfers, getTeamBadge };
+/** searchteams.php?t=<name> (free key: very limited; may return nothing). */
+async function searchTeams(name, opts) {
+  const r = await sdbGet(`/searchteams.php?t=${encodeURIComponent(name)}`, opts);
+  if (!r.ok) return { ok: false, error: r.error || 'team search failed' };
+  return { ok: true, teams: (Array.isArray(r.data.teams) ? r.data.teams : []).filter((t) => !t.strSport || t.strSport === 'Soccer') };
+}
+
+/** lookupteam.php?id= -> club info for the Overview tab (all optional). */
+async function getTeam(id, opts) {
+  const r = await sdbGet(`/lookupteam.php?id=${encodeURIComponent(id)}`, opts);
+  if (!r.ok) return { ok: false, error: r.error || 'team lookup failed' };
+  const t = Array.isArray(r.data.teams) ? r.data.teams[0] : null;
+  if (!t) return { ok: false, error: 'team not found' };
+  const url = (u) => (u ? (/^https?:\/\//i.test(u) ? u : 'https://' + u) : null);
+  return {
+    ok: true,
+    team: {
+      id: String(t.idTeam || id),
+      name: t.strTeam || null,
+      badge: t.strBadge || null,
+      banner: t.strBanner || t.strFanart1 || null,
+      kit: t.strEquipment || null,
+      stadium: t.strStadium || null,
+      location: t.strLocation || null,
+      formedYear: t.intFormedYear ? String(t.intFormedYear) : null,
+      colours: [t.strColour1, t.strColour2, t.strColour3].filter((c) => /^#?[0-9a-f]{3,6}$/i.test(c || '')).map((c) => (c[0] === '#' ? c : '#' + c)),
+      website: url(t.strWebsite),
+      facebook: url(t.strFacebook),
+      twitter: url(t.strTwitter),
+      instagram: url(t.strInstagram),
+      description: t.strDescriptionEN || null,
+    },
+  };
+}
+
+module.exports = { searchPlayer, getProfile, getMarketValue, getTransfers, getTeamBadge, searchTeams, getTeam };
