@@ -53,7 +53,23 @@
     '.fs-search-name{font-weight:700;font-size:14px;color:var(--white)}' +
     '.fs-search-club{font-size:12px;color:var(--muted)}' +
     '.fs-search-empty{padding:14px 8px;color:var(--muted);font-size:13px;text-align:center}' +
-    '@media(max-width:480px){.fs-search-panel{position:fixed;left:16px;right:16px;top:70px;width:auto}}';
+    '@media(max-width:480px){.fs-search-panel{position:fixed;left:16px;right:16px;top:70px;width:auto}}' +
+    /* ---- FotMob-style header: logo | search bar | ... nav | Home / Subscribe / theme ---- */
+    'header .navbar.has-search{display:grid !important;grid-template-columns:auto minmax(180px,380px) 1fr auto !important;align-items:center;gap:20px}' +
+    'header .navbar.has-search > nav.links{justify-self:end;margin-right:8px}' +
+    'header .navbar.has-search > .nav-actions{justify-self:end}' +
+    '.fs-search-slot{min-width:0;width:100%}' +
+    '.fs-search-wrap.fs-bar{display:block;width:100%}' +
+    '.fs-bar .fs-search-btn{width:100%;height:42px;padding:0 12px;gap:10px;justify-content:flex-start;background:var(--panel);border-radius:10px;color:var(--muted);font:500 14px Inter,sans-serif;text-align:left}' +
+    '.fs-bar .fs-search-btn svg{flex:none;color:var(--muted)}' +
+    '.fs-bar .fs-bar-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+    '.fs-bar .fs-bar-kbd{flex:none;font:700 11px Inter,sans-serif;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:3px 7px}' +
+    '.fs-bar .fs-search-panel{left:0;right:auto;width:max(100%,400px)}' +
+    '@media(max-width:860px){header .navbar.has-search{grid-template-columns:auto minmax(0,1fr) auto !important}}' +
+    '@media(max-width:640px){header .navbar.has-search{grid-template-columns:auto 1fr auto !important;gap:12px}' +
+      '.fs-search-slot{justify-self:end;width:auto}.fs-bar .fs-search-btn{width:40px;height:40px;padding:0;justify-content:center}' +
+      '.fs-bar .fs-bar-text,.fs-bar .fs-bar-kbd{display:none}}' +
+    '@media(max-width:560px){.fs-bar .fs-search-panel{position:fixed;left:16px;right:16px;top:70px;width:auto}}';
   var styleTag = document.createElement('style');
   styleTag.textContent = css;
   document.head.appendChild(styleTag);
@@ -237,16 +253,33 @@
   function mount(navActions) {
     if (navActions.querySelector('.fs-search-wrap')) return;
 
+    // Bar mode: put the search right after the logo (FotMob style). If the header has no
+    // .navbar/.logo (e.g. a very different page), fall back to the old icon button in .nav-actions.
+    var navbar = navActions.closest('.navbar');
+    var logoEl = navbar && navbar.querySelector(':scope > .logo');
+    var barMode = !!(navbar && logoEl);
+    var isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
+
     var wrap = document.createElement('div');
-    wrap.className = 'fs-search-wrap';
+    wrap.className = 'fs-search-wrap' + (barMode ? ' fs-bar' : '');
     wrap.innerHTML =
-      '<button type="button" class="fs-search-btn" aria-haspopup="true" aria-expanded="false" aria-label="Search players, clubs and leagues">' + SEARCH_ICON + '</button>' +
+      '<button type="button" class="fs-search-btn" aria-haspopup="true" aria-expanded="false" aria-label="Search players, clubs and leagues">' + SEARCH_ICON +
+        (barMode ? '<span class="fs-bar-text">Search players, clubs, leagues&hellip;</span><span class="fs-bar-kbd">' + (isMac ? '\u2318K' : 'Ctrl K') + '</span>' : '') +
+      '</button>' +
       '<div class="fs-search-panel">' +
         '<input type="search" class="fs-search-input" placeholder="Search players, clubs, leagues&hellip;" autocomplete="off" aria-label="Search players, clubs and leagues">' +
         '<div class="fs-search-chips">' + FILTERS.map(function (f, i) { return '<button type="button" class="fs-chip' + (i === 0 ? ' on' : '') + '" data-f="' + f[0] + '">' + f[1] + '</button>'; }).join('') + '</div>' +
         '<div class="fs-search-results"></div>' +
       '</div>';
-    navActions.insertBefore(wrap, navActions.firstChild);
+    if (barMode) {
+      var slot = document.createElement('div');
+      slot.className = 'fs-search-slot';
+      slot.appendChild(wrap);
+      logoEl.insertAdjacentElement('afterend', slot);
+      navbar.classList.add('has-search');
+    } else {
+      navActions.insertBefore(wrap, navActions.firstChild);
+    }
 
     var btn = wrap.querySelector('.fs-search-btn');
     var panel = wrap.querySelector('.fs-search-panel');
@@ -395,6 +428,15 @@
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
     document.querySelectorAll('.fs-search-panel.open').forEach(function (p) { p.classList.remove('open'); });
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (!((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K'))) return;
+    var b = document.querySelector('.fs-search-btn');
+    if (!b) return;
+    e.preventDefault();
+    if (b.getAttribute('aria-expanded') !== 'true') b.click();
+    else { var i = document.querySelector('.fs-search-input'); if (i) i.focus(); }
   });
 
   function boot() {
