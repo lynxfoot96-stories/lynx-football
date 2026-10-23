@@ -213,6 +213,19 @@ async function suggest(req, res) {
         return res.status(200).json({ ok: true, player: p0 });
       }
     } catch (_) { /* database down: fall through to the live search */ }
+    // Photo look-ups for squad cards (?photo=1) share TheSportsDB's 30-requests/minute limit with the
+    // player pages, so they get at most 8 per minute; player pages keep the rest.
+    if ((req.query || {}).photo !== undefined) {
+      const minute = Math.floor(Date.now() / 60000);
+      let ok = false;
+      for (let i = 0; i < 8 && !ok; i++) {
+        try { ok = !!(await acquireLock(`psearch-budget:${minute}:${i}`, 70)); } catch (_) { ok = true; break; }
+      }
+      if (!ok) {
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).json({ ok: false, busy: true, error: 'Busy' });
+      }
+    }
     const r = await tm.searchPlayer(q, { deadline: Date.now() + 7000, timeoutMs: 7000 });
     if (!r.ok) {
       res.setHeader('Cache-Control', 'no-store');
