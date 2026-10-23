@@ -60,16 +60,23 @@
     'header .navbar.has-search > .nav-actions{justify-self:end}' +
     '.fs-search-slot{min-width:0;width:100%}' +
     '.fs-search-wrap.fs-bar{display:block;width:100%}' +
-    '.fs-bar .fs-search-btn{width:100%;height:42px;padding:0 12px;gap:10px;justify-content:flex-start;background:var(--panel);border-radius:10px;color:var(--muted);font:500 14px Inter,sans-serif;text-align:left}' +
-    '.fs-bar .fs-search-btn svg{flex:none;color:var(--muted)}' +
-    '.fs-bar .fs-bar-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+    '.fs-bar-field{display:flex;align-items:center;gap:10px;height:42px;padding:0 12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;color:var(--muted);transition:border-color .2s}' +
+    '.fs-bar-field:hover,.fs-bar-field:focus-within{border-color:var(--purple-bright)}' +
+    '.fs-bar-field svg{flex:none;pointer-events:none}' +
+    '.fs-bar .fs-bar-input{flex:1;min-width:0;width:auto;height:100%;padding:0;background:transparent;border:0;border-radius:0;color:var(--white);font:500 14px Inter,sans-serif;outline:0}' +
+    '.fs-bar .fs-bar-input::placeholder{color:var(--muted)}' +
     '.fs-bar .fs-bar-kbd{flex:none;font:700 11px Inter,sans-serif;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:3px 7px}' +
-    '.fs-bar .fs-search-panel{left:0;right:auto;width:max(100%,400px)}' +
+    '.fs-bar .fs-bar-field:focus-within .fs-bar-kbd{display:none}' +
+    '.fs-bar .fs-search-panel{left:0;right:auto;width:max(100%,420px)}' +
     '@media(max-width:860px){header .navbar.has-search{grid-template-columns:auto minmax(0,1fr) auto !important}}' +
     '@media(max-width:640px){header .navbar.has-search{grid-template-columns:auto 1fr auto !important;gap:12px}' +
-      '.fs-search-slot{justify-self:end;width:auto}.fs-bar .fs-search-btn{width:40px;height:40px;padding:0;justify-content:center}' +
-      '.fs-bar .fs-bar-text,.fs-bar .fs-bar-kbd{display:none}}' +
-    '@media(max-width:560px){.fs-bar .fs-search-panel{position:fixed;left:16px;right:16px;top:70px;width:auto}}';
+      '.fs-search-slot{justify-self:end;width:auto}' +
+      '.fs-bar-field{position:relative;width:40px;height:40px;padding:0;justify-content:center}' +
+      '.fs-bar .fs-bar-input{position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:16px}' +
+      '.fs-bar .fs-bar-kbd{display:none}' +
+      '.fs-bar .fs-bar-field:focus-within{position:fixed;left:12px;right:12px;top:15px;width:auto;height:46px;padding:0 12px;justify-content:flex-start;z-index:210;box-shadow:0 8px 24px rgba(0,0,0,.3)}' +
+      '.fs-bar .fs-bar-field:focus-within .fs-bar-input{position:static;opacity:1}' +
+      '.fs-bar .fs-search-panel{position:fixed;left:12px;right:12px;top:70px;width:auto}}';
   var styleTag = document.createElement('style');
   styleTag.textContent = css;
   document.head.appendChild(styleTag);
@@ -262,15 +269,18 @@
 
     var wrap = document.createElement('div');
     wrap.className = 'fs-search-wrap' + (barMode ? ' fs-bar' : '');
-    wrap.innerHTML =
-      '<button type="button" class="fs-search-btn" aria-haspopup="true" aria-expanded="false" aria-label="Search players, clubs and leagues">' + SEARCH_ICON +
-        (barMode ? '<span class="fs-bar-text">Search players, clubs, leagues&hellip;</span><span class="fs-bar-kbd">' + (isMac ? '\u2318K' : 'Ctrl K') + '</span>' : '') +
-      '</button>' +
-      '<div class="fs-search-panel">' +
-        '<input type="search" class="fs-search-input" placeholder="Search players, clubs, leagues&hellip;" autocomplete="off" aria-label="Search players, clubs and leagues">' +
-        '<div class="fs-search-chips">' + FILTERS.map(function (f, i) { return '<button type="button" class="fs-chip' + (i === 0 ? ' on' : '') + '" data-f="' + f[0] + '">' + f[1] + '</button>'; }).join('') + '</div>' +
-        '<div class="fs-search-results"></div>' +
-      '</div>';
+    var CHIPS = '<div class="fs-search-chips">' + FILTERS.map(function (f, i) { return '<button type="button" class="fs-chip' + (i === 0 ? ' on' : '') + '" data-f="' + f[0] + '">' + f[1] + '</button>'; }).join('') + '</div>' +
+      '<div class="fs-search-results"></div>';
+    wrap.innerHTML = barMode
+      ? '<div class="fs-bar-field">' + SEARCH_ICON +
+          '<input type="search" class="fs-search-input fs-bar-input" placeholder="Search players, clubs, leagues&hellip;" autocomplete="off" aria-haspopup="true" aria-expanded="false" aria-label="Search players, clubs and leagues">' +
+          '<span class="fs-bar-kbd">' + (isMac ? '\u2318K' : 'Ctrl K') + '</span></div>' +
+        '<div class="fs-search-panel">' + CHIPS + '</div>'
+      : '<button type="button" class="fs-search-btn" aria-haspopup="true" aria-expanded="false" aria-label="Search players, clubs and leagues">' + SEARCH_ICON + '</button>' +
+        '<div class="fs-search-panel">' +
+          '<input type="search" class="fs-search-input" placeholder="Search players, clubs, leagues&hellip;" autocomplete="off" aria-label="Search players, clubs and leagues">' +
+          CHIPS +
+        '</div>';
     if (barMode) {
       var slot = document.createElement('div');
       slot.className = 'fs-search-slot';
@@ -281,7 +291,7 @@
       navActions.insertBefore(wrap, navActions.firstChild);
     }
 
-    var btn = wrap.querySelector('.fs-search-btn');
+    var btn = wrap.querySelector('.fs-search-btn') || wrap.querySelector('.fs-bar-input');
     var panel = wrap.querySelector('.fs-search-panel');
     var input = wrap.querySelector('.fs-search-input');
     var results = wrap.querySelector('.fs-search-results');
@@ -374,10 +384,16 @@
       });
     }
 
-    btn.addEventListener('click', function (e) {
-      e.stopPropagation();
-      if (panel.classList.contains('open')) close(); else open();
-    });
+    if (barMode) {
+      input.addEventListener('focus', function () { if (!panel.classList.contains('open')) open(); });
+      input.addEventListener('click', function (e) { e.stopPropagation(); if (!panel.classList.contains('open')) open(); });
+      wrap.__fsOpen = function () { input.focus(); if (!panel.classList.contains('open')) open(); };
+    } else {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (panel.classList.contains('open')) close(); else open();
+      });
+    }
     wrap.querySelector('.fs-search-chips').addEventListener('click', function (e) {
       var c = e.target.closest('.fs-chip');
       if (!c) return;
@@ -406,7 +422,7 @@
       }
     });
     input.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') { close(); return; }
+      if (e.key === 'Escape') { close(); if (barMode) input.blur(); return; }
       if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, current.length - 1); paintActive(); scrollActive(); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); paintActive(); scrollActive(); }
       else if (e.key === 'Enter') {
@@ -421,7 +437,7 @@
     if (e.target.closest && e.target.closest('.fs-search-wrap')) return;
     document.querySelectorAll('.fs-search-panel.open').forEach(function (p) {
       p.classList.remove('open');
-      var b = p.parentNode.querySelector('.fs-search-btn');
+      var b = p.parentNode.querySelector('.fs-search-btn') || p.parentNode.querySelector('.fs-bar-input');
       if (b) b.setAttribute('aria-expanded', 'false');
     });
   });
@@ -432,11 +448,12 @@
 
   document.addEventListener('keydown', function (e) {
     if (!((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K'))) return;
-    var b = document.querySelector('.fs-search-btn');
-    if (!b) return;
+    var w = document.querySelector('.fs-search-wrap');
+    if (!w) return;
     e.preventDefault();
-    if (b.getAttribute('aria-expanded') !== 'true') b.click();
-    else { var i = document.querySelector('.fs-search-input'); if (i) i.focus(); }
+    if (w.__fsOpen) { w.__fsOpen(); return; }
+    var b = w.querySelector('.fs-search-btn');
+    if (b && b.getAttribute('aria-expanded') !== 'true') b.click();
   });
 
   function boot() {
