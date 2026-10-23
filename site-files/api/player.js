@@ -222,7 +222,9 @@ async function suggest(req, res) {
 async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ ok: false, error: 'Method not allowed' });
   if ((req.query || {}).search !== undefined) return suggest(req, res);
-  if ((req.query || {}).clubs !== undefined || (req.query || {}).club !== undefined) return clubsApi.handle(req, res);
+  const qq = req.query || {};
+  // player pages call ?name=...&club=<club NAME>; the club page calls ?club=<numeric id> (no name)
+  if (qq.clubs !== undefined || (qq.club !== undefined && qq.name === undefined)) return clubsApi.handle(req, res);
 
   const name = String((req.query || {}).name || '').trim().slice(0, 120);
   if (!name) return res.status(400).json({ ok: false, error: 'name is required' });
