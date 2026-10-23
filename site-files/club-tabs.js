@@ -234,6 +234,7 @@
       if (fbBusy || !fbQueue.length) return;
       fbBusy = true;
       var box = fbQueue.shift(), n = box.getAttribute('data-name');
+      if (box.querySelector('.kp-photo') || photos[n]) { fbBusy = false; return fbNext(); }
       fetch('/api/player?photo=1&search=' + encodeURIComponent(n)).then(function (r) { return r.json(); }).then(function (res) {
         if (res && res.busy) { fbSeen[n] = 0; fbPause = Date.now() + 60000; fbQueue.unshift(box); return; }
         var pl = res && res.ok && res.player;
@@ -255,8 +256,8 @@
     }
     function loadPhotos(list) {
       var need = list.map(function (p) { return p[0]; }).filter(function (n) { return !(n in photos); });
-      if (!need.length) { fallbackPhotos(); return; }
-      if (photosBusy || photoTries >= 4) return;
+      if (!need.length || photoTries >= 4) { fallbackPhotos(); return; }
+      if (photosBusy) return;
       photosBusy = true; photoTries++;
       fetch('/api/squad-photos?team=' + encodeURIComponent(club.name) + '&names=' + encodeURIComponent(need.join('|')))
         .then(function (r) { return r.json(); })
@@ -267,7 +268,7 @@
           (res.done || []).forEach(function (n) { if (!(n in photos)) photos[n] = ''; });
           applyPhotos();
           if (res.pending > 0) setTimeout(function () { loadPhotos(list); }, 1500); // the rest were not reached in time
-          else fallbackPhotos();
+          setTimeout(fallbackPhotos, 2500);   // whoever still has no photo gets the player-page one
         })
         .catch(function () { photosBusy = false; fallbackPhotos(); });
     }
