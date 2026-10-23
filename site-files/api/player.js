@@ -203,6 +203,16 @@ async function suggest(req, res) {
       res.setHeader('Cache-Control', 'public, s-maxage=3600');
       return res.status(200).json({ ok: true, player: hit.p || null });
     }
+    // A player already opened on the site is saved in Supabase: use that (no TheSportsDB call).
+    try {
+      const sl = slugify(q);
+      const saved = sl ? await getBySlug(sl) : null;
+      if (saved && saved.photo_url) {
+        const p0 = { name: saved.name, club: saved.current_club || null, photoUrl: saved.photo_url };
+        res.setHeader('Cache-Control', 'public, s-maxage=3600');
+        return res.status(200).json({ ok: true, player: p0 });
+      }
+    } catch (_) { /* database down: fall through to the live search */ }
     const r = await tm.searchPlayer(q, { deadline: Date.now() + 7000, timeoutMs: 7000 });
     if (!r.ok) {
       res.setHeader('Cache-Control', 'no-store');
