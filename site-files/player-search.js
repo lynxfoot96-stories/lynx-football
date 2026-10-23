@@ -55,10 +55,10 @@
     '.fs-search-empty{padding:14px 8px;color:var(--muted);font-size:13px;text-align:center}' +
     '@media(max-width:480px){.fs-search-panel{position:fixed;left:16px;right:16px;top:70px;width:auto}}' +
     /* ---- FotMob-style header: logo | search bar | ... nav | Home / Subscribe / theme ---- */
-    'header .navbar.has-search{display:flex !important;flex-wrap:nowrap !important;align-items:center;justify-content:flex-start !important;gap:20px}' +
-    'header .navbar.has-search > *{flex:none;grid-column:auto !important;grid-row:auto !important}' +
-    'header .navbar.has-search > .fs-search-slot{flex:1 1 380px;max-width:380px;min-width:0;margin-right:auto}' +
-    'header .navbar.has-search > .nav-actions{display:flex;align-items:center;flex-wrap:nowrap}' +
+    '.navbar.has-search{display:flex !important;flex-wrap:nowrap !important;align-items:center;justify-content:flex-start !important;gap:20px}' +
+    '.navbar.has-search > *{flex:none;grid-column:auto !important;grid-row:auto !important}' +
+    '.navbar.has-search > .fs-search-slot{flex:1 1 380px;max-width:380px;min-width:0;margin-right:auto}' +
+    '.navbar.has-search > .nav-actions{display:flex;align-items:center;flex-wrap:nowrap}' +
     '.fs-search-slot{min-width:0;width:100%}' +
     '.fs-search-wrap.fs-bar{display:block;width:100%}' +
     '.fs-bar-field{display:flex;align-items:center;gap:10px;height:42px;padding:0 12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;color:var(--muted);transition:border-color .2s}' +
@@ -69,8 +69,8 @@
     '.fs-bar .fs-bar-kbd{flex:none;font:700 11px Inter,sans-serif;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:3px 7px}' +
     '.fs-bar .fs-bar-field:focus-within .fs-bar-kbd{display:none}' +
     '.fs-bar .fs-search-panel{left:0;right:auto;width:max(100%,420px)}' +
-    '@media(max-width:640px){header .navbar.has-search{gap:12px}' +
-      'header .navbar.has-search > .fs-search-slot{flex:none;max-width:none;width:auto;margin-left:auto;margin-right:0}' +
+    '@media(max-width:640px){.navbar.has-search{gap:12px}' +
+      '.navbar.has-search > .fs-search-slot{flex:none;max-width:none;width:auto;margin-left:auto;margin-right:0}' +
       '.fs-bar-field{position:relative;width:40px;height:40px;padding:0;justify-content:center}' +
       '.fs-bar .fs-bar-input{position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:16px}' +
       '.fs-bar .fs-bar-kbd{display:none}' +
@@ -287,6 +287,17 @@
       slot.appendChild(wrap);
       logoEl.insertAdjacentElement('afterend', slot);
       navbar.classList.add('has-search');
+      // Inline !important so no page-level header CSS (grid templates, wrapping, etc.) can override it.
+      [['display', 'flex'], ['flex-wrap', 'nowrap'], ['align-items', 'center'], ['justify-content', 'flex-start'], ['grid-template-columns', 'none']].forEach(function (d) {
+        navbar.style.setProperty(d[0], d[1], 'important');
+      });
+      Array.prototype.forEach.call(navbar.children, function (ch) {
+        if (ch === slot) return;
+        ch.style.setProperty('grid-column', 'auto', 'important');
+        ch.style.setProperty('grid-row', 'auto', 'important');
+        ch.style.setProperty('justify-self', 'auto', 'important');
+        ch.style.setProperty('flex', 'none', 'important');
+      });
     } else {
       navActions.insertBefore(wrap, navActions.firstChild);
     }
