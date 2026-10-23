@@ -224,7 +224,7 @@
     }
     /* Players with no photo from the squad-photo service get the same picture as their player page
        (TheSportsDB, through /api/player?search=). Only cards on screen are asked for, one at a time. */
-    var fbQueue = [], fbBusy = false, fbSeen = {}, fbObs = null;
+    var fbPause = 0, fbQueue = [], fbBusy = false, fbSeen = {}, fbObs = null;
     function fbSame(a, b) {
       a = norm(a).split(' '); b = norm(b).split(' ');
       var la = a[a.length - 1], lb = b[b.length - 1];
@@ -234,10 +234,11 @@
       if (fbBusy || !fbQueue.length) return;
       fbBusy = true;
       var box = fbQueue.shift(), n = box.getAttribute('data-name');
-      fetch('/api/player?search=' + encodeURIComponent(n)).then(function (r) { return r.json(); }).then(function (res) {
+      fetch('/api/player?photo=1&search=' + encodeURIComponent(n)).then(function (r) { return r.json(); }).then(function (res) {
+        if (res && res.busy) { fbSeen[n] = 0; fbPause = Date.now() + 60000; fbQueue.unshift(box); return; }
         var pl = res && res.ok && res.player;
         if (pl && pl.photoUrl && fbSame(pl.name, n)) { photos[n] = pl.photoUrl; applyPhotos(); }
-      }).catch(function () {}).then(function () { fbBusy = false; setTimeout(fbNext, 1500); });
+      }).catch(function () {}).then(function () { fbBusy = false; setTimeout(fbNext, Math.max(2500, fbPause - Date.now())); });
     }
     function fallbackPhotos() {
       if (!panels.team || !('IntersectionObserver' in window)) return;
