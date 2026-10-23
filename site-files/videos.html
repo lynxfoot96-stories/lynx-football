@@ -333,8 +333,9 @@ html[data-theme="light"] .nx-img.noimg::after{color:var(--purple-bright)}
 /* =====================  HERO ART (football + trajectory)  ===================== */
 .news-hero{--hb-hi:#F4F2FA;--hb-mid:#CFCADB;--hb-lo:#6F6881;--hp:#0A0910;--hseam:rgba(10,9,16,.55);
   --pc:rgba(168,104,255,.55);--oc:rgba(255,149,64,.9);--pitch:rgba(255,255,255,.10)}
-html[data-theme="light"] .news-hero{--hb-hi:#4A4560;--hb-mid:#25222F;--hb-lo:#0E0D14;--hp:#050408;--hseam:rgba(255,255,255,.22);
-  --pc:rgba(100,32,214,.45);--oc:rgba(232,90,0,.85);--pitch:rgba(17,17,22,.09)}
+html[data-theme="light"] .news-hero{--pc:rgba(100,32,214,.45);--oc:rgba(232,90,0,.85);--pitch:rgba(17,17,22,.09)}
+/* light mode: same normal football as dark mode (white ball, black patches); only a soft shadow so it stands out on the light background */
+html[data-theme="light"] .hero-svg .ball-float{filter:drop-shadow(0 16px 22px rgba(40,28,80,.22))}
 
 /* one atmosphere across the whole hero: purple on the left, orange on the right, both meeting around the ball */
 .news-hero::before{background:
