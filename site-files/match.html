@@ -140,6 +140,10 @@ html[data-theme="light"] .nav-home:hover{ color:var(--white); }
 .match-head-team{ flex:1; max-width:180px; display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center; }
 .match-head-team img{ width:52px; height:52px; object-fit:contain; }
 .match-head-team .name{ font-size:15.5px; text-transform:uppercase; }
+.match-head-team.club-link{ color:inherit; text-decoration:none; cursor:pointer; }
+.match-head-team.club-link img{ transition:transform .2s ease; }
+.match-head-team.club-link:hover img{ transform:scale(1.08); }
+.match-head-team.club-link:hover .name{ color:var(--purple-bright); text-decoration:underline; text-underline-offset:4px; }
 .match-head-score{ display:flex; flex-direction:column; align-items:center; gap:6px; min-width:100px; flex-shrink:0; }
 .match-head-score .score{ font-family:'Big Shoulders Display', sans-serif; font-weight:900; font-size:36px; }
 .match-head-score .status{ font-size:11.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.03em; }
@@ -421,6 +425,7 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
   <div id="summaryExtra"></div>
 </div>
 
+<script src="club-meta.js"></script>
 <script>
 function qsParam(name){ return new URLSearchParams(location.search).get(name); }
 const MATCH_ID = qsParam('id');
@@ -429,6 +434,23 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, function(c){
     return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
   });
+}
+
+/* match header: team logo + name (a link to the club page when we can resolve it) */
+function teamBlock(t){
+  var inner = (t.logo ? '<img src="' + t.logo + '" alt="" />' : '') + '<div class="name display">' + escapeHtml(t.name) + '</div>';
+  var h = clubHref(t);
+  return h ? '<a class="match-head-team club-link" href="' + h + '" title="' + escapeHtml(t.name) + ' club page">' + inner + '</a>'
+           : '<div class="match-head-team">' + inner + '</div>';
+}
+/* ---- club links: logo / name -> club page (own page if we have one, else club.html?id=) ---- */
+function clubHref(team){
+  if (!team) return null;
+  var M = window.FSClubMeta;
+  if (M && M.CLUBS){
+    for (var s in M.CLUBS){ if (M.isClubTeam(M.CLUBS[s], team)) return s + '.html'; }
+  }
+  return team.id ? 'club.html?id=' + encodeURIComponent(team.id) : null;
 }
 
 async function fetchMatch(type){
@@ -525,14 +547,12 @@ function renderMatchChrome(activePage, summary, keyEvents){
       '<div class="match-head-top">' + (summary.league.logo ? '<img src="' + summary.league.logo + '" alt="" />' : '') +
         escapeHtml(summary.league.name) + '</div>' +
       '<div class="match-head-teams">' +
-        '<div class="match-head-team">' + (summary.home.logo ? '<img src="' + summary.home.logo + '" alt="" />' : '') +
-          '<div class="name display">' + escapeHtml(summary.home.name) + '</div></div>' +
+        teamBlock(summary.home) +
         '<div class="match-head-score">' +
           '<div class="score">' + homeScore + ' &ndash; ' + awayScore + '</div>' +
           '<div class="status' + (live ? ' live' : '') + '">' + (live ? '<span class="dot"></span>' : '') + escapeHtml(statusText(summary.status)) + '</div>' +
         '</div>' +
-        '<div class="match-head-team">' + (summary.away.logo ? '<img src="' + summary.away.logo + '" alt="" />' : '') +
-          '<div class="name display">' + escapeHtml(summary.away.name) + '</div></div>' +
+        teamBlock(summary.away) +
       '</div>' +
       (subLine ? '<div class="match-head-sub">' + escapeHtml(subLine.trim()) + '</div>' : '') +
       eventsHtml +
