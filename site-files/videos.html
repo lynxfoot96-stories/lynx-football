@@ -587,6 +587,7 @@ html[data-theme="light"] .video-card{box-shadow:0 1px 2px rgba(17,17,22,.03),0 1
 </div>
 <div class="vt-strip" id="vtStrip"><div class="vt-strip-inner"><div class="vt-track" id="vtTrack" role="group" aria-label="Filter videos by theme"></div></div></div>
 <div class="vgrid" id="vgrid"></div>
+<nav class="pager" id="vPager" aria-label="Video pages"></nav>
 </div></section></main>
 <footer class="page-foot"><div class="wrap">&copy; 2026 Football Stories</div></footer>
 <script src="videos-data.js"></script>
@@ -789,13 +790,20 @@ html[data-theme="light"] .video-card{box-shadow:0 1px 2px rgba(17,17,22,.03),0 1
   }
   function plural(n){ return n + ' video' + (n === 1 ? '' : 's'); }
 
-  function apply(topic){
-    var shown = 0;
+  var PER_PAGE = 9, curTopic = 'all', curPage = 1;
+  var pagerEl = document.getElementById('vPager');
+
+  function apply(topic, page){
+    curTopic = topic;
+    var matched = cards.filter(function(c){ return topic === 'all' || c.getAttribute('data-cat') === topic; });
+    var pages = Math.max(1, Math.ceil(matched.length / PER_PAGE));
+    curPage = Math.min(Math.max(parseInt(page, 10) || 1, 1), pages);
+    var visible = matched.slice((curPage - 1) * PER_PAGE, curPage * PER_PAGE);
     cards.forEach(function(c){
-      var show = topic === 'all' || c.getAttribute('data-cat') === topic;
+      var show = visible.indexOf(c) !== -1;
       c.classList.remove('vc-in');
       c.classList.toggle('vc-hide', !show);
-      if (show){ shown++; void c.offsetWidth; c.classList.add('vc-in'); }
+      if (show){ void c.offsetWidth; c.classList.add('vc-in'); }
     });
     chips.forEach(function(ch){
       var on = ch.getAttribute('data-topic') === topic;
@@ -808,15 +816,58 @@ html[data-theme="light"] .video-card{box-shadow:0 1px 2px rgba(17,17,22,.03),0 1
     current.appendChild(b);
     var dot = document.createElement('span'); dot.className = 'vt-dot'; dot.innerHTML = '&middot;';
     current.appendChild(dot);
-    current.appendChild(document.createTextNode(plural(shown) + ', newest first'));
+    current.appendChild(document.createTextNode(plural(matched.length) + ', newest first' + (pages > 1 ? ' \u00b7 Page ' + curPage + ' of ' + pages : '')));
     window.FSV.hydrate(grid);
+    renderPager(pages);
     try{
       var u = new URL(window.location.href);
       u.hash = '';
       if (topic === 'all') u.searchParams.delete('theme'); else u.searchParams.set('theme', topic);
+      if (curPage > 1) u.searchParams.set('page', curPage); else u.searchParams.delete('page');
       history.replaceState(null, '', u.pathname + u.search);
     }catch(e){}
   }
+
+  function pageHref(p){
+    var q = [];
+    if (curTopic !== 'all') q.push('theme=' + encodeURIComponent(curTopic));
+    if (p > 1) q.push('page=' + p);
+    return 'videos.html' + (q.length ? '?' + q.join('&') : '');
+  }
+  function renderPager(pages){
+    if (pages <= 1){ pagerEl.innerHTML = ''; return; }
+    var cur = curPage, items = [], i;
+    var arrow = function(d){ return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + d + '"/></svg>'; };
+    var link = function(p, inner, aria){
+      return '<a class="pg" href="' + pageHref(p) + '" data-page="' + p + '"' + (aria ? ' aria-label="' + aria + '"' : '') + '>' + inner + '</a>';
+    };
+    items.push(cur > 1
+      ? link(cur - 1, arrow('M15 18l-6-6 6-6') + '<span class="pg-label">Previous</span>', 'Previous page')
+      : '<span class="pg is-disabled" aria-hidden="true">' + arrow('M15 18l-6-6 6-6') + '<span class="pg-label">Previous</span></span>');
+    var shown = [];
+    for (i = 1; i <= pages; i++){
+      if (i === 1 || i === pages || Math.abs(i - cur) <= 1) shown.push(i);
+    }
+    var prev = 0;
+    shown.forEach(function(p){
+      if (p - prev > 1) items.push('<span class="pg-gap" aria-hidden="true">&hellip;</span>');
+      items.push(p === cur
+        ? '<span class="pg" aria-current="page" aria-label="Page ' + p + ', current page">' + p + '</span>'
+        : link(p, p, 'Page ' + p));
+      prev = p;
+    });
+    items.push(cur < pages
+      ? link(cur + 1, '<span class="pg-label">Next</span>' + arrow('M9 18l6-6-6-6'), 'Next page')
+      : '<span class="pg is-disabled" aria-hidden="true"><span class="pg-label">Next</span>' + arrow('M9 18l6-6-6-6') + '</span>');
+    pagerEl.innerHTML = items.join('');
+  }
+  pagerEl.addEventListener('click', function(e){
+    var a = e.target.closest('a.pg'); if (!a) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;   // let "open in new tab" work
+    e.preventDefault();
+    apply(curTopic, parseInt(a.getAttribute('data-page'), 10));
+    bar.scrollIntoView({behavior:'smooth', block:'start'});
+  });
 
   toggle.addEventListener('click', function(){ setOpen(!strip.classList.contains('open')); });
 
@@ -838,7 +889,7 @@ html[data-theme="light"] .video-card{box-shadow:0 1px 2px rgba(17,17,22,.03),0 1
     topics = chips.map(function(c){ return c.getAttribute('data-topic'); });
     chips.forEach(function(ch){
       ch.addEventListener('click', function(){
-        apply(ch.getAttribute('data-topic'));
+        apply(ch.getAttribute('data-topic'), 1);
         setOpen(false);
         bar.scrollIntoView({behavior:'smooth', block:'start'});
       });
@@ -849,11 +900,14 @@ html[data-theme="light"] .video-card{box-shadow:0 1px 2px rgba(17,17,22,.03),0 1
       wanted = new URLSearchParams(window.location.search).get('theme');
       if (!wanted){ var m = /theme=([^&]+)/.exec(window.location.hash); if (m) wanted = decodeURIComponent(m[1]); }
     }catch(e){}
+    var wantedPage = 1;
+    try{ wantedPage = parseInt(new URLSearchParams(window.location.search).get('page'), 10) || 1; }catch(e){}
     if (wanted && topics.indexOf(wanted) > 0){
-      apply(wanted);
+      apply(wanted, wantedPage);
       setTimeout(function(){ bar.scrollIntoView({behavior:'smooth', block:'start'}); }, 80);
     } else {
-      apply('all');
+      apply('all', wantedPage);
+      if (wantedPage > 1) setTimeout(function(){ bar.scrollIntoView({behavior:'smooth', block:'start'}); }, 80);
     }
   });
 
