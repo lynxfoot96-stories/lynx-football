@@ -34,11 +34,18 @@
     '.fs-search-wrap{position:relative;display:flex;align-items:center}' +
     '.fs-search-btn{background:none;border:1px solid var(--line);border-radius:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;color:var(--white);cursor:pointer;transition:border-color .2s}' +
     '.fs-search-btn:hover,.fs-search-btn[aria-expanded="true"]{border-color:var(--purple-bright)}' +
-    '.fs-search-panel{display:none;position:absolute;right:0;top:calc(100% + 10px);width:320px;max-width:calc(100vw - 32px);background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.35);padding:10px;z-index:200}' +
+    '.fs-search-panel{display:none;position:absolute;right:0;top:calc(100% + 10px);width:400px;max-width:calc(100vw - 32px);background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.35);padding:10px;z-index:200}' +
     '.fs-search-panel.open{display:block}' +
     '.fs-search-input{width:100%;height:42px;padding:0 14px;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;color:var(--white);font:500 14.5px Inter,sans-serif;outline:0}' +
     '.fs-search-input:focus{border-color:var(--purple-bright)}' +
-    '.fs-search-results{margin-top:8px;max-height:320px;overflow:auto}' +
+    '.fs-search-results{margin-top:8px;max-height:380px;overflow:auto}' +
+    '.fs-search-chips{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}' +
+    '.fs-chip{height:30px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:none;color:var(--white);font:700 12.5px Inter,sans-serif;cursor:pointer;transition:border-color .2s,background .2s}' +
+    '.fs-chip:hover{border-color:var(--purple-bright)}' +
+    '.fs-chip.on{background:linear-gradient(135deg,#7c3aed,#6d28d9);border-color:transparent;color:#fff}' +
+    '.fs-search-sec{padding:12px 8px 4px;font:800 10.5px Inter,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--purple-bright)}' +
+    '.fs-search-logo{flex:none;position:relative;width:32px;height:32px;border-radius:8px;background:var(--panel-2);display:flex;align-items:center;justify-content:center;font:800 10.5px Inter;color:var(--orange-bright);overflow:hidden}' +
+    '.fs-search-logo img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:3px;background:var(--panel-2)}' +
     '.fs-search-row{display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:8px;cursor:pointer}' +
     '.fs-search-row:hover,.fs-search-row.active{background:var(--panel-2)}' +
     '.fs-search-ini{flex:none;position:relative;width:32px;height:32px;border-radius:50%;background:var(--panel-2);display:flex;align-items:center;justify-content:center;font:800 12px Inter;color:var(--muted);overflow:hidden}' +
@@ -157,16 +164,86 @@
     });
   }
 
+  /* ---------- leagues + clubs (the same lists as clubs.html) ---------- */
+  var LEAGUES = [
+    { slug: 'premier-league', name: 'Premier League', country: 'England', id: 39 },
+    { slug: 'la-liga', name: 'La Liga', country: 'Spain', id: 140 },
+    { slug: 'serie-a', name: 'Serie A', country: 'Italy', id: 135 },
+    { slug: 'bundesliga', name: 'Bundesliga', country: 'Germany', id: 78 },
+    { slug: 'ligue-1', name: 'Ligue 1', country: 'France', id: 61 },
+    { slug: 'primeira-liga', name: 'Primeira Liga', country: 'Portugal', id: 94 },
+    { slug: 'brasileirao', name: 'Brasileirão Série A', country: 'Brazil', id: 71 }
+  ].map(function (l) { l.n = norm(l.name) + ' ' + norm(l.country) + ' ' + l.slug.replace(/-/g, ' '); return l; });
+  var LEAGUE_NAME = { 2: 'European competitions' };
+  LEAGUES.forEach(function (l) { LEAGUE_NAME[l.id] = l.name; });
+
+  var dirPromise = null, clubList = null;
+  function clubDirectory() {
+    if (dirPromise) return dirPromise;
+    try {
+      var c = JSON.parse(sessionStorage.getItem('fs-club-dir-v1') || 'null');
+      if (c && c.d && c.d.length && Date.now() - c.t < 864e5) dirPromise = Promise.resolve(c.d);
+    } catch (e) {}
+    if (!dirPromise) dirPromise = fetch('/api/player?clubs=1').then(function (r) { return r.json(); }).then(function (j) {
+      var d = j && j.ok ? j.clubs : [];
+      if (d.length) try { sessionStorage.setItem('fs-club-dir-v1', JSON.stringify({ t: Date.now(), d: d })); } catch (e) {}
+      return d;
+    }).catch(function () { return []; });
+    return dirPromise;
+  }
+  function buildClubs(dir) {
+    var META = window.FSClubMeta, bySlug = {}, out = [];
+    if (META) Object.keys(META.CLUBS).forEach(function (s) { bySlug[META.CLUBS[s].id] = s; });
+    dir.forEach(function (c) {
+      var slug = bySlug[c.i], own = slug && META.CLUBS[slug];
+      var names = [norm(c.n), norm(c.s)];
+      if (own) { names.push(norm(own.name)); (own.alt || []).forEach(function (a) { names.push(norm(a)); }); }
+      out.push({ type: 'club', name: own ? own.name : c.s, n: names, tla: norm(c.t), crest: c.c || null, league: c.l, top: !!own,
+        href: own ? slug + '.html' : 'club.html?id=' + c.i });
+    });
+    if (!out.length && META) Object.keys(META.CLUBS).forEach(function (s) {   // directory unavailable: at least the 20 known clubs
+      var o = META.CLUBS[s];
+      out.push({ type: 'club', name: o.name, n: [norm(o.name)].concat((o.alt || []).map(norm)), tla: '', crest: META.crest(o.id), league: o.league, top: true, href: s + '.html' });
+    });
+    return out;
+  }
+  function clubMatches(q, limit) {
+    var nq = norm(q), list = clubList || [];
+    if (!nq) return list.filter(function (c) { return c.top; }).slice(0, limit);
+    var scored = [];
+    list.forEach(function (c) {
+      var best = 9;
+      c.n.forEach(function (n) {
+        if (!n) return;
+        if (n.indexOf(nq) === 0) best = Math.min(best, 0);
+        else if (n.split(' ').some(function (w) { return w.indexOf(nq) === 0; })) best = Math.min(best, 1);
+        else if (n.indexOf(nq) !== -1) best = Math.min(best, 2);
+      });
+      if (c.tla && c.tla === nq) best = Math.min(best, 0);
+      if (best < 9) scored.push({ c: c, k: best * 2 + (c.top ? 0 : 1) });
+    });
+    scored.sort(function (a, b) { return a.k - b.k || a.c.name.localeCompare(b.c.name); });
+    return scored.slice(0, limit).map(function (x) { return x.c; });
+  }
+  function leagueMatches(q) {
+    var nq = norm(q);
+    return LEAGUES.filter(function (l) { return !nq || l.n.indexOf(nq) !== -1; }).map(function (l) {
+      return { type: 'league', name: l.name, sub: l.country, id: l.id, href: 'clubs.html?league=' + l.slug };
+    });
+  }
+
   /* ---------- mount into every .nav-actions on the page ---------- */
+  var FILTERS = [['all', 'All'], ['clubs', 'Clubs'], ['leagues', 'Leagues'], ['players', 'Players']];
   function mount(navActions) {
     if (navActions.querySelector('.fs-search-wrap')) return;
 
     var wrap = document.createElement('div');
     wrap.className = 'fs-search-wrap';
     wrap.innerHTML =
-      '<button type="button" class="fs-search-btn" aria-haspopup="true" aria-expanded="false" aria-label="Search players">' + SEARCH_ICON + '</button>' +
+      '<button type="button" class="fs-search-btn" aria-haspopup="true" aria-expanded="false" aria-label="Search players, clubs and leagues">' + SEARCH_ICON + '</button>' +
       '<div class="fs-search-panel">' +
-        '<input type="search" class="fs-search-input" placeholder="Search a player&hellip;" autocomplete="off" aria-label="Search a player">' +
+        '<input type="search" class="fs-search-input" placeholder="Search players, clubs, leagues&hellip;" autocomplete="off" aria-label="Search players, clubs and leagues">' +
+        '<div class="fs-search-chips">' + FILTERS.map(function (f, i) { return '<button type="button" class="fs-chip' + (i === 0 ? ' on' : '') + '" data-f="' + f[0] + '">' + f[1] + '</button>'; }).join('') + '</div>' +
         '<div class="fs-search-results"></div>' +
       '</div>';
     navActions.insertBefore(wrap, navActions.firstChild);
@@ -175,13 +252,16 @@
     var panel = wrap.querySelector('.fs-search-panel');
     var input = wrap.querySelector('.fs-search-input');
     var results = wrap.querySelector('.fs-search-results');
-    var activeIdx = -1, current = [];
+    var filter = 'all', activeIdx = -1, current = [];
 
     function open() {
       panel.classList.add('open');
       btn.setAttribute('aria-expanded', 'true');
       setTimeout(function () { input.focus(); }, 0);
-      buildIndex(); // warm the index as soon as the box opens, before the user even types
+      buildIndex();                       // warm the player index
+      clubDirectory().then(function (d) { clubList = buildClubs(d); render(); });
+      var META = window.FSClubMeta;       // league logos (cached 7 days, shared with clubs.html / index.html)
+      if (META && META.load && !META.leagueLogo(39)) META.load(LEAGUES.map(function (l) { return l.id; })).then(render);
     }
     function close() {
       panel.classList.remove('open');
@@ -189,26 +269,54 @@
     }
     var localList = [], remoteItem = null, remoteState = 'idle', remoteSeq = 0, remoteTimer = null;
 
+    function hrefOf(it) { return it.type === 'player' ? playerHref(it) : it.href; }
     function rowHtml(p, i) {
-      var circle = p.remote
-        ? '<span class="fs-search-ini">' + esc(initialsOf(p.name)) + (p.photoUrl ? '<img src="' + esc(p.photoUrl) + '" alt="" onerror="this.remove()">' : '') + '</span>'
-        : '<span class="fs-search-ini" data-pk="' + esc(pkey(p)) + '">' + esc(initialsOf(p.name)) + '</span>';
-      var sub = [p.clubName, p.pos].filter(Boolean).map(esc).join(' &middot; ');
-      return '<a class="fs-search-row" href="' + playerHref(p) + '" data-i="' + i + '">' + circle +
+      var circle, sub;
+      if (p.type === 'league') {
+        var lg = window.FSClubMeta && window.FSClubMeta.leagueLogo(p.id);
+        circle = '<span class="fs-search-logo">' + esc(p.name.slice(0, 2).toUpperCase()) + (lg ? '<img src="' + esc(lg) + '" alt="" onerror="this.remove()">' : '') + '</span>';
+        sub = esc(p.sub) + ' &middot; League';
+      } else if (p.type === 'club') {
+        circle = '<span class="fs-search-logo">' + esc(p.name.slice(0, 3).toUpperCase()) + (p.crest ? '<img src="' + esc(p.crest) + '" alt="" onerror="this.remove()">' : '') + '</span>';
+        sub = esc(LEAGUE_NAME[p.league] || 'Club');
+      } else {
+        circle = p.remote
+          ? '<span class="fs-search-ini">' + esc(initialsOf(p.name)) + (p.photoUrl ? '<img src="' + esc(p.photoUrl) + '" alt="" onerror="this.remove()">' : '') + '</span>'
+          : '<span class="fs-search-ini" data-pk="' + esc(pkey(p)) + '">' + esc(initialsOf(p.name)) + '</span>';
+        sub = [p.clubName, p.pos].filter(Boolean).map(esc).join(' &middot; ');
+      }
+      return '<a class="fs-search-row" href="' + esc(hrefOf(p)) + '" data-i="' + i + '">' + circle +
         '<span><span class="fs-search-name">' + esc(p.name) + '</span><br><span class="fs-search-club">' + sub + '</span></span></a>';
     }
-    // Draws club-squad matches first, then the extra TheSportsDB player (if any).
+    // Sections in display order: Leagues, Clubs, Players. With one filter selected that type gets more rows.
+    function gather(q) {
+      var f = filter, all = f === 'all', out = [];
+      var lg = (all || f === 'leagues') ? leagueMatches(q).slice(0, all ? 3 : 10) : [];
+      var cl = (all || f === 'clubs') ? clubMatches(q, all ? 4 : 12) : [];
+      var pl = (all || f === 'players') ? localList.concat(remoteItem ? [remoteItem] : []) : [];
+      if (lg.length) out.push(['Leagues', lg]);
+      if (cl.length) out.push(['Clubs', cl]);
+      if (pl.length) out.push(['Players', pl]);
+      return out;
+    }
     function render() {
       var q = input.value.trim();
-      current = localList.concat(remoteItem ? [remoteItem] : []);
-      if (!q) { results.innerHTML = ''; return; }
+      var wantsEmptyList = !q && (filter === 'leagues' || filter === 'clubs');
+      if (!q && !wantsEmptyList) { results.innerHTML = ''; current = []; return; }
+      var secs = gather(q);
+      current = [];
+      secs.forEach(function (s) { current = current.concat(s[1]); });
       if (!current.length) {
-        results.innerHTML = remoteState === 'loading'
-          ? '<div class="fs-search-empty">Searching more players&hellip;</div>'
-          : '<div class="fs-search-empty">No player matches &ldquo;' + esc(q) + '&rdquo;.</div>';
+        var searching = (remoteState === 'loading' && (filter === 'all' || filter === 'players')) || (!clubList && filter !== 'players' && filter !== 'leagues');
+        results.innerHTML = searching
+          ? '<div class="fs-search-empty">Searching&hellip;</div>'
+          : '<div class="fs-search-empty">No result for &ldquo;' + esc(q) + '&rdquo;.</div>';
         return;
       }
-      results.innerHTML = current.map(rowHtml).join('');
+      var i = 0;
+      results.innerHTML = secs.map(function (s) {
+        return '<div class="fs-search-sec">' + s[0] + '</div>' + s[1].map(function (it) { return rowHtml(it, i++); }).join('');
+      }).join('');
       paintPhotos();
       paintActive();
     }
@@ -221,7 +329,7 @@
           var p = res && res.ok && res.player;
           if (p && p.name) {
             var dup = localList.some(function (l) { return norm(l.name) === norm(p.name); });
-            if (!dup) remoteItem = { name: p.name, clubName: p.club || '', pos: null, remote: true, photoUrl: p.photoUrl || null };
+            if (!dup) remoteItem = { type: 'player', name: p.name, clubName: p.club || '', pos: null, remote: true, photoUrl: p.photoUrl || null };
           }
           render();
         })
@@ -237,6 +345,16 @@
       e.stopPropagation();
       if (panel.classList.contains('open')) close(); else open();
     });
+    wrap.querySelector('.fs-search-chips').addEventListener('click', function (e) {
+      var c = e.target.closest('.fs-chip');
+      if (!c) return;
+      filter = c.getAttribute('data-f');
+      wrap.querySelectorAll('.fs-chip').forEach(function (x) { x.classList.toggle('on', x === c); });
+      activeIdx = -1;
+      if ((filter === 'all' || filter === 'players') && input.value.trim().length >= 3 && remoteState === 'idle') { remoteState = 'loading'; lookupRemote(input.value.trim(), remoteSeq); }
+      render();
+      input.focus();
+    });
     var typeTimer = null;
     input.addEventListener('input', function () {
       var q = input.value.trim();
@@ -244,7 +362,7 @@
       remoteState = q.length >= 3 ? 'loading' : 'idle';
       // club-squad matches appear instantly; photo + TheSportsDB lookups wait for a short pause in typing
       buildIndex().then(function (list) {
-        localList = matches(list, input.value); activeIdx = -1;
+        localList = matches(list, input.value).map(function (p) { p.type = 'player'; return p; }); activeIdx = -1;
         render();
         clearTimeout(typeTimer);
         typeTimer = setTimeout(function () { fetchPhotos(localList); }, 250);
@@ -256,13 +374,14 @@
     });
     input.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') { close(); return; }
-      if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, current.length - 1); paintActive(); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); paintActive(); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, current.length - 1); paintActive(); scrollActive(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); paintActive(); scrollActive(); }
       else if (e.key === 'Enter') {
         var target = activeIdx >= 0 ? current[activeIdx] : current[0];
-        if (target) { e.preventDefault(); location.href = playerHref(target); }
+        if (target) { e.preventDefault(); location.href = hrefOf(target); }
       }
     });
+    function scrollActive() { var a = results.querySelector('.fs-search-row.active'); if (a && a.scrollIntoView) a.scrollIntoView({ block: 'nearest' }); }
   }
 
   document.addEventListener('click', function (e) {
