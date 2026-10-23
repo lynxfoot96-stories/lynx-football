@@ -1640,7 +1640,7 @@ html[data-theme="light"] .lh-logo{border-color:rgba(17,17,22,.10);box-shadow:0 0
 .cl-mcard:hover{transform:translateY(-3px);border-color:var(--purple-bright)}
 .cl-mcard .cl-crest{width:46px;height:46px}
 .cl-mcard h3{font-size:19px;text-transform:uppercase;line-height:1.05}
-.cl-mstate{color:var(--muted);font-size:14px;padding:10px 0}
+.cl-xphoto{display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#3a2370,#1a1226 70%)}.cl-xphoto img{position:static;width:54%;height:auto;max-height:60%;object-fit:contain;filter:drop-shadow(0 8px 18px rgba(0,0,0,.45))}.cl-xphoto span{font:800 44px "Big Shoulders Display";color:var(--muted)}.cl-card:hover .cl-xphoto img{transform:scale(1.06)}
 </style>
 <section class="cl-hero"><div class="wrap">
  <div><div class="cl-eyebrow"><i></i>Top 20 European clubs</div>
@@ -1656,7 +1656,6 @@ html[data-theme="light"] .lh-logo{border-color:rgba(17,17,22,.10);box-shadow:0 0
   <div class="cl-sel"><button id="selBtn" aria-haspopup="true" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 6h16M4 12h10M4 18h6"/></svg><span id="selLbl">Select League</span></button><div class="cl-menu" id="menu"></div></div>
  </div>
  <div class="cl-grid" id="grid"></div>
- <section class="cl-more" id="more" hidden></section>
  <nav class="cl-pager" id="pager" aria-label="Pagination"></nav>
 </div>
 <script src="club-meta.js"></script>
@@ -1686,31 +1685,20 @@ function loadDir(){
 }
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const LEAGUE_BY_ID={39:"premier-league",140:"la-liga",135:"serie-a",78:"bundesliga",61:"ligue-1",94:"primeira-liga",71:"brasileirao"};
-let moreSeq=0;
-function renderMore(){
- const el=$("#more"),q=norm(st.q.trim());
- if(q.length<2){el.hidden=true;el.innerHTML="";return}
- const seq=++moreSeq;
- el.hidden=false;
- if(!DIR)el.innerHTML='<div class="cl-mstate">Searching more clubs\u2026</div>';
- loadDir().then(d=>{
-  if(seq!==moreSeq)return;
-  const have=new Set(Object.values(FSClubMeta.CLUBS).map(c=>c.id));
-  const hits=d.filter(c=>!have.has(c.i)&&(!st.lg||LEAGUE_BY_ID[c.l]===st.lg)&&(norm(c.n).includes(q)||norm(c.s).includes(q)||norm(c.t)===q)).slice(0,18);
-  if(!hits.length){el.hidden=true;el.innerHTML="";return}
-  el.innerHTML='<h2 class="display">More clubs</h2><p>Club pages with news, videos, squad, standings and key players.</p><div class="cl-mgrid">'+hits.map(c=>`<a class="cl-mcard" href="club.html?id=${c.i}" aria-label="${esc(c.n)}"><span class="cl-crest">${esc(c.t||c.s.slice(0,3))}${c.c?`<img src="${esc(c.c)}" alt="" loading="lazy" onerror="this.remove()">`:""}</span><div><h3 class="display">${esc(c.s)}</h3><div class="cl-meta">${esc(LEAGUE_BY_ID[c.l]?L[LEAGUE_BY_ID[c.l]][1]:"European clubs")}</div></div></a>`).join("")+"</div>";
- });
-}
+function extraCard(c){const lg=LEAGUE_BY_ID[c.l],ab=esc(c.t||c.s.slice(0,3));return `<a class="cl-card" href="club.html?id=${c.i}" aria-label="${esc(c.n)}"><div class="cl-photo cl-xphoto">${c.c?`<img src="${esc(c.c)}" alt="" loading="lazy" onerror="this.remove()">`:`<span>${ab}</span>`}</div><div class="cl-info"><span class="cl-crest">${ab}${c.c?`<img src="${esc(c.c)}" alt="" loading="lazy" onerror="this.remove()">`:""}</span><div><h3 class="display">${esc(c.s)}</h3><div class="cl-meta">${esc(lg?L[lg][1]:"European clubs")}</div></div></div></a>`}
 function render(){
- const f=CLUBS.map((c,i)=>[...c,i+1]).filter(c=>(!st.lg||c[2]===st.lg)&&norm(c[1]).includes(norm(st.q.trim())));
+ const qn=norm(st.q.trim()),have=new Set(Object.values(FSClubMeta.CLUBS).map(c=>c.id));
+ const top=CLUBS.map((c,i)=>[...c,i+1]).filter(c=>(!st.lg||c[2]===st.lg)&&norm(c[1]).includes(qn));
+ /* every other club of the supported leagues: shown after the top 20 when you search or pick a league */
+ const extra=(DIR&&(qn.length>=2||st.lg))?DIR.filter(c=>!have.has(c.i)&&(!st.lg||LEAGUE_BY_ID[c.l]===st.lg)&&(!qn||norm(c.n).includes(qn)||norm(c.s).includes(qn)||norm(c.t)===qn)).sort((a,b)=>a.s.localeCompare(b.s)):[];
+ const f=[...top.map(c=>({t:1,c})),...extra.map(c=>({t:2,c}))];
  const pages=Math.max(1,Math.ceil(f.length/PER));st.p=Math.min(Math.max(1,st.p),pages);
  $("#selLbl").textContent=st.lg?L[st.lg][1]:"Select League";
  document.querySelectorAll("#menu button").forEach(b=>b.classList.toggle("on",b.dataset.l===st.lg));
- $("#grid").innerHTML=f.length?f.slice((st.p-1)*PER,st.p*PER).map((c,i)=>`<a class="cl-card" href="${c[0]}.html" aria-label="${c[1]}"><div class="cl-photo"><span class="cl-rank">#${c[4]}</span><img src="club-img/${c[0]}-800.webp" srcset="club-img/${c[0]}-400.webp 400w,club-img/${c[0]}-800.webp 800w" sizes="(max-width:560px) 92vw,(max-width:900px) 46vw,380px" width="400" height="500" alt="${c[1]}" loading="${i<3?"eager":"lazy"}" decoding="async" onerror="this.remove()"></div><div class="cl-info"><span class="cl-crest">${c[3]}${(u=>u?`<img src="${u}" alt="" loading="lazy" onerror="this.remove()">`:"")(FSClubMeta.crest((FSClubMeta.CLUBS[c[0]]||{}).id))}</span><div><h3 class="display">${c[1]}</h3><div class="cl-meta">${L[c[2]][1]}</div></div></div></a>`).join(""):`<div class="cl-empty">No club found. Try another name or league.</div>`;
+ $("#grid").innerHTML=f.length?f.slice((st.p-1)*PER,st.p*PER).map((it,i)=>it.t===2?extraCard(it.c):((c,i)=>`<a class="cl-card" href="${c[0]}.html" aria-label="${c[1]}"><div class="cl-photo"><span class="cl-rank">#${c[4]}</span><img src="club-img/${c[0]}-800.webp" srcset="club-img/${c[0]}-400.webp 400w,club-img/${c[0]}-800.webp 800w" sizes="(max-width:560px) 92vw,(max-width:900px) 46vw,380px" width="400" height="500" alt="${c[1]}" loading="${i<3?"eager":"lazy"}" decoding="async" onerror="this.remove()"></div><div class="cl-info"><span class="cl-crest">${c[3]}${(u=>u?`<img src="${u}" alt="" loading="lazy" onerror="this.remove()">`:"")(FSClubMeta.crest((FSClubMeta.CLUBS[c[0]]||{}).id))}</span><div><h3 class="display">${c[1]}</h3><div class="cl-meta">${L[c[2]][1]}</div></div></div></a>`)(it.c,i)).join(""):`<div class="cl-empty">${(qn.length>=2||st.lg)&&!DIR?"Searching more clubs\u2026":"No club found. Try another name or league."}</div>`;
  const nums=[];for(let i=1;i<=pages;i++)if(i===1||i===pages||Math.abs(i-st.p)<=1)nums.push(i);else if(nums[nums.length-1]!=="\u2026")nums.push("\u2026");
  $("#pager").innerHTML=pages<2?"":`<button data-p="${st.p-1}" ${st.p===1?"disabled":""}>&lsaquo; Previous</button>`+nums.map(n=>n==="\u2026"?"<span>\u2026</span>":`<button data-p="${n}" class="${n===st.p?"on":""}" ${n===st.p?'aria-current="page"':""}>${n}</button>`).join("")+`<button data-p="${st.p+1}" ${st.p===pages?"disabled":""}>Next &rsaquo;</button>`;
  const q=new URLSearchParams();if(st.q)q.set("q",st.q);if(st.lg)q.set("league",st.lg);if(st.p>1)q.set("page",st.p);history.replaceState(null,"",q.toString()?"?"+q:location.pathname);
- renderMore();
 }
 $("#q").addEventListener("input",e=>{st.q=e.target.value;st.p=1;render()});
 $("#pager").addEventListener("click",e=>{const b=e.target.closest("button[data-p]");if(b&&!b.disabled){st.p=+b.dataset.p;render();window.scrollTo({top:$(".cl-tools").offsetTop-100,behavior:"smooth"})}});
@@ -1719,6 +1707,7 @@ btn.onclick=e=>{e.stopPropagation();tog(!menu.classList.contains("open"))};
 menu.onclick=e=>{const b=e.target.closest("button");if(b){st.lg=b.dataset.l;st.p=1;tog(false);render()}};
 document.addEventListener("click",()=>tog(false));document.addEventListener("keydown",e=>e.key==="Escape"&&tog(false));
 render();
+loadDir().then(()=>render());
 FSClubMeta.onUpdate(()=>{buildMenu();buildChips();render()});
 FSClubMeta.load([39,140,135,78,61,94,71]);
 </script>
