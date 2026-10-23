@@ -20,6 +20,7 @@
 const API_KEY = process.env.TSDB_API_KEY || '123';
 const BASE_URL = `https://www.thesportsdb.com/api/v1/json/${API_KEY}`;
 const DEFAULT_TIMEOUT_MS = 10000;
+const BUSY_MSG = 'The player data source is busy right now (too many requests). Please try again in a minute.';
 const SLOW_MSG = 'The player data source is slow right now. Please try again in a minute.';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -45,16 +46,19 @@ async function once(path, timeoutMs) {
   }
 }
 
-/** opts.deadline = ms timestamp to finish by; opts.timeoutMs = max for this call. Retries once on 429/503. */
+/** opts.deadline = ms timestamp to finish by; opts.timeoutMs = max for this call.
+ *  On 429/503 (rate limit) it waits and retries up to 3 times while the deadline allows. */
 async function sdbGet(path, opts = {}) {
   const deadline = opts.deadline || Date.now() + 20000;
   const perCall = opts.timeoutMs || DEFAULT_TIMEOUT_MS;
+  const waits = [2500, 5000];
   let last = null;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     const remaining = deadline - Date.now();
     if (remaining < 1500) return last || { ok: false, error: SLOW_MSG };
     last = await once(path, Math.min(perCall, remaining));
-    if (last.retry && attempt === 0) { await sleep(1500); continue; }
+    if (last.retry && attempt < 2 && deadline - Date.now() > waits[attempt] + 2000) { await sleep(waits[attempt]); continue; }
+    if (last.retry) return { ok: false, status: last.status, error: BUSY_MSG };
     return last;
   }
   return last;
