@@ -130,6 +130,8 @@ main{ min-height:100vh; }
 .pl-tr:first-child{ border-top:none; }
 .pl-tr .date{ color:var(--muted); font-size:13px; }
 .pl-tr .club{ font-weight:600; }
+a.pl-clublink{ color:inherit; text-decoration:none; }
+a.pl-clublink:hover{ color:var(--purple-bright); text-decoration:underline; }
 .pl-tr .arrow{ color:var(--muted); text-align:center; }
 .pl-tr .fee{ text-align:right; color:var(--orange-bright); font-weight:700; }
 @media (max-width:700px){ .pl-tr{ grid-template-columns:1fr; text-align:left; gap:4px; padding:14px 18px; } .pl-tr .fee{ text-align:left; } }
@@ -166,6 +168,7 @@ main{ min-height:100vh; }
   </div>
 </main>
 
+<script src="club-meta.js"></script>
 <script>
 (function(){
   'use strict';
@@ -297,6 +300,44 @@ main{ min-height:100vh; }
       ' Fields marked &ldquo;Not available&rdquo; could not be retrieved from the current source.</div>';
   }
 
+
+  /* ---- clubs become links: our own club page if there is one, otherwise the generic club page ---- */
+  var CL_STRIP = /\b(fc|afc|cf|sc|ac|as|ssc|ud|cd|sv|vfb|vfl|fsv|rcd|rc|calcio|club|de|fk|bk|sk|ss)\b/g;
+  function clNorm(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
+  function clStrip(s){ return clNorm(s).replace(CL_STRIP,' ').replace(/\s+/g,' ').trim(); }
+  function clDirectory(){
+    try { var c = JSON.parse(sessionStorage.getItem('fs-club-dir-v1') || 'null'); if (c && c.d && c.d.length && Date.now() - c.t < 864e5) return Promise.resolve(c.d); } catch(e){}
+    return fetch('/api/player?clubs=1').then(function(r){ return r.json(); }).then(function(j){
+      var d = j && j.ok ? j.clubs : [];
+      if (d.length) try { sessionStorage.setItem('fs-club-dir-v1', JSON.stringify({t: Date.now(), d: d})); } catch(e){}
+      return d;
+    }).catch(function(){ return []; });
+  }
+  function linkClubs(){
+    var els = root.querySelectorAll('.pl-tr .club span, .pl-sub b, .pl-card:first-child .val span');
+    if (!els.length) return;
+    clDirectory().then(function(dir){
+      var byName = {};
+      dir.forEach(function(c){ [c.n, c.s].forEach(function(n){ if (n) { byName[clNorm(n)] = c; byName['~' + clStrip(n)] = c; } }); });
+      var META = window.FSClubMeta;
+      function hrefFor(nm){
+        if (!nm || /^(free agent|retired|—)$/i.test(nm)) return null;
+        var own = META && META.findClub ? META.findClub(nm) : null;
+        if (own) return own.slug + '.html';
+        var c = byName[clNorm(nm)] || (clStrip(nm).length >= 4 ? byName['~' + clStrip(nm)] : null);
+        if (!c) return null;
+        if (META) for (var s in META.CLUBS) if (META.CLUBS[s].id === c.i) return s + '.html';
+        return 'club.html?id=' + c.i;
+      }
+      Array.prototype.forEach.call(els, function(el){
+        if (el.querySelector('a')) return;
+        var nm = el.textContent.trim(), h = hrefFor(nm);
+        if (!h) return;
+        el.innerHTML = '<a class="pl-clublink" href="' + esc(h) + '">' + esc(nm) + '</a>';
+      });
+    });
+  }
+
   function renderError(msg) {
     root.innerHTML = '<div class="pl-state"><div class="display">Player data unavailable</div><p>' + esc(msg) + '</p></div>';
   }
@@ -305,6 +346,7 @@ main{ min-height:100vh; }
   fetch(url).then(function(r){ return r.json(); }).then(function(res){
     if (!res || !res.ok || !res.player) { renderError((res && res.error) || 'This player could not be found.'); return; }
     render(res.player);
+    try { linkClubs(); } catch (e) {}
   }).catch(function(){
     renderError('Something went wrong loading this player. Please try again shortly.');
   });

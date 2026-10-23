@@ -96,7 +96,7 @@
     '.ct-st-table td.pts{font-weight:800}' +
     '.ct-st-table tr.me td{background:rgba(138,63,252,.22);font-weight:700}' +
     '.ct-st-table tr.me td:first-child{box-shadow:inset 4px 0 0 var(--orange-bright)}' +
-    '.ct-st-table tr.me .ct-st-name{color:var(--orange-bright)}' +
+    '.ct-st-table tr.me .ct-st-name{color:var(--orange-bright)}a.ct-st-name{color:inherit;text-decoration:none}.ct-st-table a.ct-st-name:hover{text-decoration:underline}' +
     '@media (max-width:600px){.ct-st-title{min-width:0}.ct-st-title b{font-size:20px}}';
   var st = document.createElement('style');
   st.textContent = css;
@@ -222,21 +222,53 @@
         img.src = u; // if it fails to load, the initials circle simply stays
       });
     }
+    /* Players with no photo from the squad-photo service get the same picture as their player page
+       (TheSportsDB, through /api/player?search=). Only cards on screen are asked for, one at a time. */
+    var fbQueue = [], fbBusy = false, fbSeen = {}, fbObs = null;
+    function fbSame(a, b) {
+      a = norm(a).split(' '); b = norm(b).split(' ');
+      var la = a[a.length - 1], lb = b[b.length - 1];
+      return la === lb || (a.length > 1 && b.length > 1 && a[0] === b[0] && (la.indexOf(lb) !== -1 || lb.indexOf(la) !== -1));
+    }
+    function fbNext() {
+      if (fbBusy || !fbQueue.length) return;
+      fbBusy = true;
+      var box = fbQueue.shift(), n = box.getAttribute('data-name');
+      fetch('/api/player?search=' + encodeURIComponent(n)).then(function (r) { return r.json(); }).then(function (res) {
+        var pl = res && res.ok && res.player;
+        if (pl && pl.photoUrl && fbSame(pl.name, n)) { photos[n] = pl.photoUrl; applyPhotos(); }
+      }).catch(function () {}).then(function () { fbBusy = false; setTimeout(fbNext, 1500); });
+    }
+    function fallbackPhotos() {
+      if (!panels.team || !('IntersectionObserver' in window)) return;
+      if (!fbObs) fbObs = new IntersectionObserver(function (es) {
+        es.forEach(function (e) {
+          if (!e.isIntersecting) return;
+          var box = e.target; fbObs.unobserve(box);
+          var n = box.getAttribute('data-name');
+          if (box.querySelector('.kp-photo') || fbSeen[n]) return;
+          fbSeen[n] = 1; fbQueue.push(box); fbNext();
+        });
+      }, { rootMargin: '250px' });
+      panels.team.querySelectorAll('.kp-ph').forEach(function (box) { if (!box.querySelector('.kp-photo')) fbObs.observe(box); });
+    }
     function loadPhotos(list) {
       var need = list.map(function (p) { return p[0]; }).filter(function (n) { return !(n in photos); });
-      if (photosBusy || !need.length || photoTries >= 4) return;
+      if (!need.length) { fallbackPhotos(); return; }
+      if (photosBusy || photoTries >= 4) return;
       photosBusy = true; photoTries++;
       fetch('/api/squad-photos?team=' + encodeURIComponent(club.name) + '&names=' + encodeURIComponent(need.join('|')))
         .then(function (r) { return r.json(); })
         .then(function (res) {
           photosBusy = false;
-          if (!res || !res.ok) return;
+          if (!res || !res.ok) { fallbackPhotos(); return; }
           Object.keys(res.photos || {}).forEach(function (n) { photos[n] = res.photos[n]; });
           (res.done || []).forEach(function (n) { if (!(n in photos)) photos[n] = ''; });
           applyPhotos();
           if (res.pending > 0) setTimeout(function () { loadPhotos(list); }, 1500); // the rest were not reached in time
+          else fallbackPhotos();
         })
-        .catch(function () { photosBusy = false; });
+        .catch(function () { photosBusy = false; fallbackPhotos(); });
     }
     /* ---------- Team tab: search + position filter state ---------- */
     var teamQ = '', teamGrp = '';   // search text, and the chosen position group ('' = all)
@@ -335,6 +367,7 @@
           }
           grid.innerHTML = cardsHtml(hits);
           applyPhotos();
+          if (photoTries > 0 && !photosBusy) fallbackPhotos();
           applyFilter();
         }
         draw([]);
@@ -373,6 +406,10 @@
     }
 
     /* ---------- CLASSIFICATION ---------- */
+    function teamHref(team) {   // our own club page if it exists, otherwise the generic club page
+      for (var s in META.CLUBS) if (META.CLUBS[s].id === team.id) return s + '.html';
+      return 'club.html?id=' + team.id;
+    }
     function loadStandings() {
       var clPanel = panels.cl;
       if (!clPanel) return;
@@ -407,7 +444,7 @@
             return '<tr class="' + (isClub(r.team) ? 'me' : '') + '">' +
               '<td>' + esc(r.rank) + '</td>' +
               '<td class="l"><div class="ct-st-team">' + (r.team.logo ? '<img src="' + esc(r.team.logo) + '" alt="" loading="lazy">' : '') +
-                '<span class="ct-st-name">' + esc(r.team.name) + '</span></div></td>' +
+                '<a class="ct-st-name" href="' + esc(teamHref(r.team)) + '">' + esc(r.team.name) + '</a></div></td>' +
               '<td>' + esc(r.played) + '</td><td>' + esc(r.won) + '</td><td>' + esc(r.draw) + '</td><td>' + esc(r.lost) + '</td>' +
               '<td>' + esc(r.goalsFor) + ':' + esc(r.goalsAgainst) + '</td><td>' + esc(gd) + '</td>' +
               '<td class="pts">' + esc(r.points) + '</td></tr>';
