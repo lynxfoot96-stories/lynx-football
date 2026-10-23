@@ -138,9 +138,14 @@
 
   function boot() {
     var META = window.FSClubMeta;
+    /* generic club page (club.html): wait for club-generic.js to load the club, then start */
+    if (window.FS_CLUB_PROMISE && !window.FS_DYNAMIC_CLUB) {
+      window.FS_CLUB_PROMISE.then(function () { if (window.FS_DYNAMIC_CLUB) boot(); });
+      return;
+    }
     var file = (location.pathname.split('/').pop() || '').replace(/\.html?$/, '');
     var feed = document.getElementById('clubNewsFeed');
-    var club = META.findClub(file) || META.findClub(feed && feed.getAttribute('data-club'));
+    var club = window.FS_DYNAMIC_CLUB || META.findClub(file) || META.findClub(feed && feed.getAttribute('data-club'));
     if (!club) return;
 
     var panels = {
@@ -154,7 +159,7 @@
     /* ---------- club crest instead of the "B04"-style letters ---------- */
     function applyCrest() {
       var badge = document.querySelector('.club-strip-badge');
-      var url = META.crest(club.id);
+      var url = club.crest || META.crest(club.id);
       if (!badge || !url || badge.querySelector('img')) return;
       var img = new Image();
       img.alt = '';
@@ -162,7 +167,7 @@
       img.src = url; // if it fails to load the letters simply stay
     }
     applyCrest();
-    META.load([club.league]).then(applyCrest);
+    if (club.league) META.load([club.league]).then(applyCrest);
 
     /* ---------- top scorers (shared by Team badges and Key Players; one request per competition) ---------- */
     function scorers(comp) {
@@ -186,7 +191,7 @@
 
     /* ---------- TEAM ---------- */
     var norm = function (s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim(); };
-    var grp = function (p) { return p === 'GK' ? 'gk' : /B$|^CB$/.test(p) ? 'df' : /M$|^DM$|^AM$/.test(p) ? 'mf' : 'fw'; };
+    var grp = function (p) { return p === 'GK' ? 'gk' : /B$|^CB$|^DF$/.test(p) ? 'df' : /M$|^DM$|^AM$/.test(p) ? 'mf' : 'fw'; };
     function same(a, b) {
       a = norm(a); b = norm(b);
       if (a === b) return true;
@@ -248,14 +253,14 @@
       document.querySelectorAll('.kp-pos-menu.open').forEach(function (m) { m.classList.remove('open'); });
     });
     function playerCard(p, hit) {
-      var alt = p[2]
+      var alt = club.dynamic ? '' : p[2]
         ? p[2].split(',').map(function (a) { return '<span class="kp-chip">' + esc(a.trim()) + '</span>'; }).join('')
         : '<span class="kp-none">Plays one position only</span>';
       var href = 'player.html?name=' + encodeURIComponent(p[0]) + '&club=' + encodeURIComponent(club.name);
       return '<a class="kp-card" href="' + href + '" data-grp="' + grp(p[1]) + '" data-n="' + esc(norm(p[0])) + '"><div class="kp-top"><div class="kp-ph" data-name="' + esc(p[0]) + '"><span class="kp-ini">' + esc(initialsOf(p[0])) + '</span><span class="kp-pos ' + grp(p[1]) + '">' + esc(p[1]) + '</span></div><div><div class="kp-name">' + esc(p[0]) + '</div>' +
         (hit ? '<span class="kp-goal">&#9917; ' + hit.goals + (hit.goals === 1 ? ' goal' : ' goals') + ' &middot; #' + hit.rank + ' ' + esc(compName(hit.comp)) + '</span>' : '') +
-        '</div></div><div class="kp-lbl">Footballer identity</div><p class="kp-id">' + esc(p[3]) + '</p>' +
-        '<div class="kp-alt"><div class="kp-lbl">Alternative positions</div><div class="kp-chips">' + alt + '</div></div></a>';
+        '</div></div><div class="kp-lbl">' + (club.dynamic ? 'Player info' : 'Footballer identity') + '</div><p class="kp-id">' + esc(p[3]) + '</p>' +
+        (club.dynamic ? '' : '<div class="kp-alt"><div class="kp-lbl">Alternative positions</div><div class="kp-chips">' + alt + '</div></div>') + '</a>';
     }
     function loadTeam() {
       if (!panels.team) return;
@@ -263,7 +268,7 @@
       ensureRoster().then(function () {
         var list = roster();
         if (!list.length) {
-          panels.team.innerHTML = '<div class="club-placeholder"><div class="display">Coming soon</div><p>Squad data for ' + esc(club.name) + ' is on the way &mdash; check back soon for the full breakdown.</p></div>';
+          panels.team.innerHTML = '<div class="club-placeholder"><div class="display">' + (club.dynamic ? 'Squad not available' : 'Coming soon') + '</div><p>Squad data for ' + esc(club.name) + (club.dynamic ? ' is not available right now.' : ' is on the way &mdash; check back soon for the full breakdown.') + '</p></div>';
           return;
         }
         function cardsHtml(hits) {
@@ -318,7 +323,7 @@
             var opts = POS_GROUPS.map(function (g) {
               return '<button type="button" class="kp-pos-opt" data-g="' + g[0] + '"><span class="kp-dot ' + g[0] + '"></span>' + g[1] + '<svg class="kp-tick" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></button>';
             }).join('');
-            panels.team.innerHTML = '<div class="kp-head"><h2 class="display">Team</h2><p>The ' + list.length + ' players who matter most this season.</p></div>' +
+            panels.team.innerHTML = '<div class="kp-head"><h2 class="display">Team</h2><p>' + (club.dynamic ? 'The current squad: ' + list.length + ' players.' : 'The ' + list.length + ' players who matter most this season.') + '</p></div>' +
               '<div class="kp-tools">' +
                 '<label class="kp-search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" placeholder="Search a player&hellip;" autocomplete="off" aria-label="Search a player"></label>' +
                 '<div class="kp-pos-wrap"><button type="button" class="kp-pos-btn" aria-haspopup="true" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M7 12h10M10 17h4"/></svg><span class="kp-dot"></span><span class="kp-pos-label">Select position</span></button>' +
