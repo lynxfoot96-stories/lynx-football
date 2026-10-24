@@ -138,6 +138,23 @@ a.pl-clublink:hover{ color:var(--purple-bright); text-decoration:underline; }
 
 .pl-footnote{ color:var(--muted); font-size:12.5px; line-height:1.6; margin-bottom:60px; }
 .pl-unavailable{ color:var(--muted); font-style:italic; }
+
+.pl-pos-card{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:22px 24px; margin-bottom:40px; display:flex; gap:28px; flex-wrap:wrap; align-items:center; }
+.pl-pos-info{ flex:1; min-width:200px; }
+.pl-pos-info h2{ font-size:22px; text-transform:uppercase; margin-bottom:14px; }
+.pl-pos-legend{ display:flex; flex-direction:column; gap:10px; }
+.pl-pos-legend .row{ display:flex; align-items:center; gap:10px; font-size:14px; }
+.pl-pos-legend .dot{ width:14px; height:14px; border-radius:50%; flex:none; }
+.pl-pos-legend .dot.primary{ background:var(--purple-bright); box-shadow:0 0 0 3px rgba(138,63,252,.25); }
+.pl-pos-legend .dot.alt{ background:#8f8b99; }
+.pl-pos-legend .lbl{ color:var(--white); font-weight:600; }
+.pl-pos-legend .sub{ color:var(--muted); font-size:12px; }
+.pl-pos-legend .unavailable{ color:var(--muted); font-size:13px; font-style:italic; }
+.pl-pitch-wrap{ flex:none; width:190px; }
+.pl-pitch-wrap svg{ width:100%; height:auto; display:block; }
+.pos-dot{ stroke:#fff; stroke-opacity:.55; stroke-width:1.5; }
+.pos-dot.primary{ fill:var(--purple-bright); }
+.pos-dot.alt{ fill:#8f8b99; opacity:.85; }
 </style>
 </head>
 <body>
@@ -169,6 +186,7 @@ a.pl-clublink:hover{ color:var(--purple-bright); text-decoration:underline; }
 </main>
 
 <script src="club-meta.js"></script>
+<script src="club-players-data.js"></script>
 <script>
 (function(){
   'use strict';
@@ -182,6 +200,110 @@ a.pl-clublink:hover{ color:var(--purple-bright); text-decoration:underline; }
     var d = new Date(iso);
     if (isNaN(d.getTime())) return String(iso);
     return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+  }
+
+  // ---- pitch position diagram -------------------------------------------
+  // percent of pitch width/height; top = attacking end (matches primary badge like "Centre-Forward")
+  var POS_COORDS = {
+    ST:[50,8], SS:[50,20], LW:[14,20], RW:[86,20],
+    AM:[50,34], LM:[14,48], CM:[50,48], RM:[86,48],
+    DM:[50,62], LWB:[12,58], RWB:[88,58],
+    LB:[14,74], CB:[38,78], RB:[86,74], GK:[50,92]
+  };
+  var POS_LABELS = {
+    GK:'Goalkeeper', CB:'Centre-Back', LB:'Left-Back', RB:'Right-Back',
+    LWB:'Left Wing-Back', RWB:'Right Wing-Back', DM:'Defensive Midfield',
+    CM:'Central Midfield', AM:'Attacking Midfield', LM:'Left Midfield',
+    RM:'Right Midfield', LW:'Left Winger', RW:'Right Winger',
+    SS:'Second Striker', ST:'Striker'
+  };
+  // Best-effort match of TheSportsDB's free-text position (e.g. "Centre-Forward")
+  // onto one of the codes above. Order matters: more specific patterns first.
+  function normalizePosCode(text){
+    var t = String(text||'').toLowerCase();
+    if (!t) return null;
+    if (/goalkeeper|\bkeeper\b|\bgk\b/.test(t)) return 'GK';
+    if (/left.?wing.?back|\blwb\b/.test(t)) return 'LWB';
+    if (/right.?wing.?back|\brwb\b/.test(t)) return 'RWB';
+    if (/left.?back|\blb\b/.test(t)) return 'LB';
+    if (/right.?back|\brb\b/.test(t)) return 'RB';
+    if (/centre.?back|center.?back|central defender|\bcb\b/.test(t)) return 'CB';
+    if (/defensive midfield|\bdm\b/.test(t)) return 'DM';
+    if (/attacking midfield|\bam\b/.test(t)) return 'AM';
+    if (/left midfield|\blm\b/.test(t)) return 'LM';
+    if (/right midfield|\brm\b/.test(t)) return 'RM';
+    if (/central midfield|centre midfield|center midfield|\bcm\b|midfielder|midfield/.test(t)) return 'CM';
+    if (/left wing|\blw\b/.test(t)) return 'LW';
+    if (/right wing|\brw\b/.test(t)) return 'RW';
+    if (/second striker|\bss\b/.test(t)) return 'SS';
+    if (/centre.?forward|center.?forward|striker|\bst\b|forward/.test(t)) return 'ST';
+    if (/defender/.test(t)) return 'CB';
+    if (/attacker/.test(t)) return 'ST';
+    return null;
+  }
+  function normName(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z\s]/g,' ').replace(/\s+/g,' ').trim(); }
+  var _squadIndex = null;
+  function squadIndex(){
+    if (_squadIndex) return _squadIndex;
+    _squadIndex = {};
+    var data = window.FS_PLAYERS || {};
+    Object.keys(data).forEach(function(slug){
+      (data[slug] || []).forEach(function(row){
+        if (row[0]) _squadIndex[normName(row[0])] = { primary: row[1] || '', alt: row[2] || '' };
+      });
+    });
+    return _squadIndex;
+  }
+  function squadMatch(name){ return squadIndex()[normName(name)] || null; }
+  function parseCodes(str){
+    return String(str || '').split(',').map(function(s){ return s.trim().toUpperCase(); }).filter(function(c){ return POS_COORDS[c]; });
+  }
+  function pitchSvg(dotsHtml){
+    return '<svg viewBox="0 0 200 300" role="img" aria-label="Pitch position diagram">' +
+      '<rect x="2" y="2" width="196" height="296" rx="6" fill="#123a1f" stroke="rgba(255,255,255,.25)" stroke-width="2"/>' +
+      '<line x1="2" y1="150" x2="198" y2="150" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>' +
+      '<circle cx="100" cy="150" r="28" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>' +
+      '<rect x="40" y="2" width="120" height="46" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>' +
+      '<rect x="68" y="2" width="64" height="18" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>' +
+      '<rect x="40" y="252" width="120" height="46" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>' +
+      '<rect x="68" y="280" width="64" height="18" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>' +
+      dotsHtml + '</svg>';
+  }
+  function positionSectionHtml(p){
+    var primaryCode = normalizePosCode(p.position);
+    var altCodes = [];
+    var match = squadMatch(p.name);
+    if (match) {
+      if (!primaryCode) { var mp = parseCodes(match.primary)[0]; if (mp) primaryCode = mp; }
+      altCodes = parseCodes(match.alt).filter(function(c){ return c !== primaryCode; });
+    }
+    if (!primaryCode && !altCodes.length) return '';
+
+    var dots = '';
+    altCodes.forEach(function(c){
+      var xy = POS_COORDS[c]; if (!xy) return;
+      dots += '<circle class="pos-dot alt" cx="' + (xy[0]*2) + '" cy="' + (xy[1]*3) + '" r="9"><title>' + esc(POS_LABELS[c]) + '</title></circle>';
+    });
+    if (primaryCode && POS_COORDS[primaryCode]) {
+      var pxy = POS_COORDS[primaryCode];
+      dots += '<circle class="pos-dot primary" cx="' + (pxy[0]*2) + '" cy="' + (pxy[1]*3) + '" r="11"><title>' + esc(POS_LABELS[primaryCode]) + '</title></circle>';
+    }
+
+    var legend = '<div class="pl-pos-legend">';
+    if (primaryCode) {
+      legend += '<div class="row"><span class="dot primary"></span><span><span class="lbl">' +
+        esc(p.position || POS_LABELS[primaryCode]) + '</span><br><span class="sub">Primary position</span></span></div>';
+    }
+    if (altCodes.length) {
+      legend += '<div class="row"><span class="dot alt"></span><span><span class="lbl">' +
+        esc(altCodes.map(function(c){ return POS_LABELS[c]; }).join(', ')) + '</span><br><span class="sub">Also plays here</span></span></div>';
+    } else {
+      legend += '<div class="row"><span class="dot alt" style="opacity:.3"></span><span class="unavailable">No alternative positions on record</span></div>';
+    }
+    legend += '</div>';
+
+    return '<div class="pl-pos-card"><div class="pl-pos-info"><h2 class="display">On The Pitch</h2>' + legend + '</div>' +
+      '<div class="pl-pitch-wrap">' + pitchSvg(dots) + '</div></div>';
   }
 
   // ---- club logos + country flags ----
@@ -289,6 +411,8 @@ a.pl-clublink:hover{ color:var(--purple-bright); text-decoration:underline; }
         '<div class="pl-card"><div class="lbl">Nationality</div><div class="val' + (p.nationality?'':' muted') + '"><span>' + fieldVal(p.nationality, unavailable, 'nationality') + '</span>' + (p.nationality ? flagHtml(p.nationality) : '') + '</div></div>' +
         '<div class="pl-card"><div class="lbl">Market Value</div><div class="val' + (p.marketValue?'':' muted') + '">' + fieldVal(p.marketValue, unavailable, 'marketValue') + '</div><div class="note">' + (p.marketValue ? esc(p.marketValueNote || '') : 'Not provided by the current data source.') + '</div></div>' +
       '</div>' +
+
+      positionSectionHtml(p) +
 
       '<div class="pl-section">' +
         '<h2 class="display">Transfer History</h2>' +
