@@ -351,7 +351,9 @@
     border-radius:22px;
     overflow:hidden;
     background:var(--panel);
+    transition:border-color .25s ease, transform .25s ease;
   }
+  .featured:hover{ border-color:rgba(138,63,252,0.5); transform:translateY(-4px); }
   @media (max-width:860px){ .featured{ grid-template-columns:1fr; } }
 
   .featured-media{
