@@ -1585,17 +1585,23 @@ html[data-theme="light"] .lh-logo{border-color:rgba(17,17,22,.10);box-shadow:0 0
 .cl-eyebrow i{width:7px;height:7px;border-radius:50%;background:var(--orange);box-shadow:0 0 12px var(--orange);animation:clPulse 1.8s infinite}
 .cl-hero h1{font-size:clamp(52px,8vw,110px);text-transform:uppercase}
 .cl-hero p{color:var(--muted);max-width:480px;margin-top:18px;font-size:17px;line-height:1.6}
-.cl-orbit{position:relative;width:min(380px,80vw);aspect-ratio:1;margin:0 auto}
+.cl-hero{--hb-hi:#F4F2FA;--hb-mid:#CFCADB;--hb-lo:#6F6881;--hp:#0A0910;--hseam:rgba(10,9,16,.55)}
+.cl-orbit{position:relative;width:min(470px,88vw);aspect-ratio:1;margin:0 auto}
 .cl-ring{position:absolute;inset:0;border:1px dashed var(--line);border-radius:50%;animation:clSpin 28s linear infinite}
-.cl-ring.r2{inset:14%;animation-duration:20s;animation-direction:reverse}
-.cl-chip{position:absolute;width:46px;height:46px;margin:-23px;border-radius:50%;background:var(--panel);border:1px solid var(--line);display:grid;place-items:center;overflow:hidden;font:800 12px 'Inter';color:var(--orange-bright);animation:clSpin 28s linear infinite reverse}
+.cl-ring.r2{inset:18%;animation-duration:20s;animation-direction:reverse}
+.cl-chip{position:absolute;width:76px;height:76px;margin:-38px;box-shadow:0 8px 22px rgba(0,0,0,.28);border-radius:50%;background:var(--panel);border:1px solid var(--line);display:grid;place-items:center;overflow:hidden;font:800 16px 'Inter';color:var(--orange-bright);animation:clSpin 28s linear infinite reverse}
 .cl-ring.r2 .cl-chip{animation-duration:20s;animation-direction:normal}
-.cl-chip img{width:28px;height:28px;object-fit:contain}
-.cl-ball{position:absolute;inset:30%;animation:clFloat 4s ease-in-out infinite;filter:drop-shadow(0 18px 30px rgba(138,63,252,.45))}
+.cl-chip img{width:52px;height:52px;object-fit:contain}
+.cl-ball{position:absolute;inset:23%;width:54%;height:54%;overflow:visible}
+html[data-theme="light"] .cl-ball{filter:drop-shadow(0 16px 22px rgba(40,28,80,.22))}
+.cl-ball .patch polygon{fill:var(--hp);stroke:var(--hp);stroke-width:1.5;stroke-linejoin:round}
+.cl-ball .seam line{stroke:var(--hseam);stroke-width:1.6;stroke-linecap:round}
+.cl-ball .cl-bf{animation:clBallFloat 9s ease-in-out infinite}
+@keyframes clBallFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 @keyframes clSpin{to{transform:rotate(360deg)}}
 @keyframes clFloat{50%{transform:translateY(-14px) rotate(8deg)}}
 @keyframes clPulse{50%{opacity:.35}}
-@media(max-width:820px){.cl-hero .wrap{grid-template-columns:1fr}.cl-hero{padding-top:120px}}
+@media(max-width:820px){.cl-hero .wrap{grid-template-columns:1fr}.cl-hero{padding-top:120px}.cl-chip{width:62px;height:62px;margin:-31px}.cl-chip img{width:42px;height:42px}}
 .cl-tools{display:flex;gap:14px;flex-wrap:wrap;margin:44px 0 28px;align-items:center}
 .cl-search{flex:1;min-width:220px;position:relative}
 .cl-search input{width:100%;height:46px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:0 16px 0 42px;color:var(--white);font:500 14.5px Inter}
@@ -1629,7 +1635,7 @@ html[data-theme="light"] .lh-logo{border-color:rgba(17,17,22,.10);box-shadow:0 0
 .cl-pager button{min-width:44px;height:44px;padding:0 16px;border-radius:10px;background:var(--panel);border:1px solid var(--line);color:var(--white);font:700 14px Inter;cursor:pointer}
 .cl-pager button:disabled{opacity:.4;cursor:default}.cl-pager button.on{background:linear-gradient(135deg,#7c3aed,#6d28d9);border-color:transparent;color:#fff}
 .cl-pager span{color:var(--muted)}
-@media(prefers-reduced-motion:reduce){.cl-ring,.cl-chip,.cl-ball,.cl-eyebrow i,.cl-card{animation:none!important}}
+@media(prefers-reduced-motion:reduce){.cl-ring,.cl-chip,.cl-ball,.cl-bf,.cl-eyebrow i,.cl-card{animation:none!important}}
 
 .cl-more{margin-top:46px}
 .cl-more h2{font-size:26px;text-transform:uppercase;margin-bottom:6px}
@@ -1648,7 +1654,29 @@ html[data-theme="light"] .lh-logo{border-color:rgba(17,17,22,.10);box-shadow:0 0
  <p>Search any club or filter by league &mdash; summaries, news, squads and key players in one place.</p></div>
  <div class="cl-orbit" aria-hidden="true">
   <div class="cl-ring" id="ring1"></div><div class="cl-ring r2" id="ring2"></div>
-  <svg class="cl-ball" viewBox="0 0 100 100"><circle cx="50" cy="50" r="48" fill="#eee" stroke="#FF7A1A" stroke-width="2"/><path d="M50 30l17 12-6 20H39l-6-20z" fill="#111"/><path d="M50 30V8M67 42l22-8M61 62l12 18M39 62L27 80M33 42L11 34" stroke="#111" stroke-width="3" fill="none"/></svg>
+  <svg class="cl-ball" viewBox="-176 -176 352 352" focusable="false" aria-hidden="true"><defs><clipPath id="cl-ballclip"><circle r="130"/></clipPath><radialGradient id="cl-body" cx="-48" cy="-56" r="215" fx="-48" fy="-56" gradientUnits="userSpaceOnUse">
+    <stop offset="0" style="stop-color:var(--hb-hi)"/><stop offset=".55" style="stop-color:var(--hb-mid)"/><stop offset="1" style="stop-color:var(--hb-lo)"/>
+  </radialGradient><radialGradient id="cl-shade" cx="0" cy="0" r="130" gradientUnits="userSpaceOnUse">
+    <stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#05030A" stop-opacity=".62"/>
+  </radialGradient><radialGradient id="cl-spec" cx="-52" cy="-62" r="86" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset=".5" stop-color="#fff" stop-opacity=".1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+  </radialGradient><linearGradient id="cl-rim" x1="-1" y1="-.2" x2="1" y2=".4">
+    <stop offset="0" stop-color="#A868FF"/><stop offset=".5" stop-color="#A868FF" stop-opacity=".05"/><stop offset="1" stop-color="#FF9540"/>
+  </linearGradient><radialGradient id="cl-halo" cx="0" cy="0" r="1"><stop offset=".72" stop-color="#8A3FFC" stop-opacity=".0"/><stop offset=".8" stop-color="#8A3FFC" stop-opacity=".32"/><stop offset="1" stop-color="#8A3FFC" stop-opacity="0"/></radialGradient></defs><g class="ball">
+  <circle r="176" fill="url(#cl-halo)"/>
+  <g class="cl-bf">
+   <g transform="rotate(-16)">
+    <circle r="130" fill="url(#cl-body)"/>
+    <g clip-path="url(#cl-ballclip)">
+      <g class="seam"><line x1="0.0" y1="-38.0" x2="0.0" y2="-76.3"/><line x1="36.1" y1="-11.7" x2="72.5" y2="-23.6"/><line x1="22.3" y1="30.7" x2="44.8" y2="61.7"/><line x1="-22.3" y1="30.7" x2="-44.8" y2="61.7"/><line x1="-36.1" y1="-11.7" x2="-72.5" y2="-23.6"/><line x1="32.3" y1="-89.9" x2="75.5" y2="-58.5"/><line x1="-20.0" y1="-112.0" x2="-25.1" y2="-140.8"/><line x1="20.0" y1="-112.0" x2="25.1" y2="-140.8"/><line x1="95.5" y1="3.0" x2="79.0" y2="53.7"/><line x1="100.3" y1="-53.6" x2="126.1" y2="-67.4"/><line x1="112.7" y1="-15.6" x2="141.7" y2="-19.6"/><line x1="26.7" y1="91.7" x2="-26.7" y2="91.7"/><line x1="82.0" y1="78.8" x2="103.1" y2="99.1"/><line x1="49.6" y1="102.3" x2="62.4" y2="128.7"/><line x1="-79.0" y1="53.7" x2="-95.5" y2="3.0"/><line x1="-49.6" y1="102.3" x2="-62.4" y2="128.7"/><line x1="-82.0" y1="78.8" x2="-103.1" y2="99.1"/><line x1="-75.5" y1="-58.5" x2="-32.3" y2="-89.9"/><line x1="-112.7" y1="-15.6" x2="-141.7" y2="-19.6"/><line x1="-100.3" y1="-53.6" x2="-126.1" y2="-67.4"/></g>
+      <g class="patch"><polygon points="0.0,-38.0 36.1,-11.7 22.3,30.7 -22.3,30.7 -36.1,-11.7"/><polygon points="0.0,-76.3 -32.3,-89.9 -20.0,-112.0 20.0,-112.0 32.3,-89.9"/><polygon points="72.5,-23.6 75.5,-58.5 100.3,-53.6 112.7,-15.6 95.5,3.0"/><polygon points="44.8,61.7 79.0,53.7 82.0,78.8 49.6,102.3 26.7,91.7"/><polygon points="-44.8,61.7 -26.7,91.7 -49.6,102.3 -82.0,78.8 -79.0,53.7"/><polygon points="-72.5,-23.6 -95.5,3.0 -112.7,-15.6 -100.3,-53.6 -75.5,-58.5"/></g>
+      <circle r="130" fill="url(#cl-shade)"/>
+      <circle r="130" fill="url(#cl-spec)"/>
+    </g>
+    <circle r="129.25" fill="none" stroke="url(#cl-rim)" stroke-width="1.6"/>
+   </g>
+  </g>
+</g></svg>
  </div></div></section>
 <div class="wrap">
  <div class="cl-tools">
