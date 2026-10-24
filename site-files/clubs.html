@@ -1646,7 +1646,11 @@ html[data-theme="light"] .cl-ball{filter:drop-shadow(0 16px 22px rgba(40,28,80,.
 .cl-mcard:hover{transform:translateY(-3px);border-color:var(--purple-bright)}
 .cl-mcard .cl-crest{width:46px;height:46px}
 .cl-mcard h3{font-size:19px;text-transform:uppercase;line-height:1.05}
-.cl-xphoto{display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#3a2370,#1a1226 70%)}.cl-xphoto img{position:static;width:54%;height:auto;max-height:60%;object-fit:contain;filter:drop-shadow(0 8px 18px rgba(0,0,0,.45))}.cl-xphoto span{font:800 44px "Big Shoulders Display";color:var(--muted)}.cl-card:hover .cl-xphoto img{transform:scale(1.06)}
+.cl-xphoto{--k1:#4a2a8f;--k2:#c2571a;position:relative;display:grid;place-items:center;isolation:isolate;background:#0d0b14;transition:--k1 .4s}
+.cl-xphoto::before{content:"";position:absolute;inset:0;z-index:-2;background:radial-gradient(ellipse 85% 70% at 18% 12%,var(--k1),transparent 68%),radial-gradient(ellipse 85% 75% at 85% 92%,var(--k2),transparent 70%),linear-gradient(160deg,#14101f,#0a0810)}
+.cl-xphoto::after{content:"";position:absolute;inset:0;height:auto;z-index:-1;background:radial-gradient(circle at 50% 46%,rgba(255,255,255,.14),transparent 46%),linear-gradient(transparent 55%,rgba(0,0,0,.35))}
+.cl-xphoto .cl-glow{position:absolute;z-index:-1;left:50%;top:46%;width:80%;height:auto;max-height:none;transform:translate(-50%,-50%) scale(1.5);filter:blur(34px) saturate(1.5);opacity:.4;pointer-events:none}
+.cl-xphoto img:not(.cl-glow){position:static;width:54%;height:auto;max-height:60%;object-fit:contain;filter:drop-shadow(0 8px 18px rgba(0,0,0,.45))}.cl-xphoto span{font:800 44px "Big Shoulders Display";color:var(--muted)}.cl-card:hover .cl-xphoto img:not(.cl-glow){transform:scale(1.06)}
 </style>
 <section class="cl-hero"><div class="wrap">
  <div><div class="cl-eyebrow"><i></i>Top 20 European clubs</div>
@@ -1713,7 +1717,58 @@ function loadDir(){
 }
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const LEAGUE_BY_ID={39:"premier-league",140:"la-liga",135:"serie-a",78:"bundesliga",61:"ligue-1",94:"primeira-liga",71:"brasileirao"};
-function extraCard(c){const lg=LEAGUE_BY_ID[c.l],ab=esc(c.t||c.s.slice(0,3));return `<a class="cl-card" href="club.html?id=${c.i}" aria-label="${esc(c.n)}"><div class="cl-photo cl-xphoto">${c.c?`<img src="${esc(c.c)}" alt="" loading="lazy" onerror="this.remove()">`:`<span>${ab}</span>`}</div><div class="cl-info"><span class="cl-crest">${ab}${c.c?`<img src="${esc(c.c)}" alt="" loading="lazy" onerror="this.remove()">`:""}</span><div><h3 class="display">${esc(c.s)}</h3><div class="cl-meta">${esc(lg?L[lg][1]:"European clubs")}</div></div></div></a>`}
+function extraCard(c){const lg=LEAGUE_BY_ID[c.l],ab=esc(c.t||c.s.slice(0,3));return `<a class="cl-card" href="club.html?id=${c.i}" aria-label="${esc(c.n)}"><div class="cl-photo cl-xphoto" data-cid="${c.i}" data-src="${esc(c.c||"")}"${(k=>k?` style="--k1:${esc(liftHex(k[0]))};--k2:${esc(liftHex(k[1]))}"`:"")(clubCols(c))}>${c.c?`<img class="cl-glow" src="${esc(c.c)}" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()"><img src="${esc(c.c)}" alt="" loading="lazy" onerror="this.remove()">`:`<span>${ab}</span>`}</div><div class="cl-info"><span class="cl-crest">${ab}${c.c?`<img src="${esc(c.c)}" alt="" loading="lazy" onerror="this.remove()">`:""}</span><div><h3 class="display">${esc(c.s)}</h3><div class="cl-meta">${esc(lg?L[lg][1]:"European clubs")}</div></div></div></a>`}
+
+
+/* ---- club colours [main, second], matched by club name. Edit/add any line you like. ---- */
+const KCOL={
+/* Premier League */
+"arsenal":["#ef0107","#063672"],"aston villa":["#7b003c","#95bfe5"],"bournemouth":["#da291c","#1a1a1a"],"brentford":["#e30613","#2a2a2e"],"brighton":["#0057b8","#ffcd00"],"brighton and hove albion":["#0057b8","#ffcd00"],"burnley":["#6c1d45","#99d6ea"],"chelsea":["#034694","#dba111"],"crystal palace":["#1b458f","#c4122e"],"everton":["#003399","#1a1a40"],"fulham":["#cc0000","#2a2a2e"],"leeds":["#1d428a","#ffcd00"],"leeds united":["#1d428a","#ffcd00"],"liverpool":["#c8102e","#00b2a9"],"manchester city":["#6cabdd","#1c2c5b"],"manchester united":["#da291c","#fbe122"],"newcastle":["#2a2a2e","#41b6e6"],"newcastle united":["#2a2a2e","#41b6e6"],"nottingham forest":["#dd0000","#7a0a0a"],"sunderland":["#eb172b","#2a2a2e"],"tottenham":["#132257","#8aa0d6"],"tottenham hotspur":["#132257","#8aa0d6"],"west ham":["#7a263a","#1bb1e7"],"west ham united":["#7a263a","#1bb1e7"],"wolves":["#fdb913","#2a2a2e"],"wolverhampton wanderers":["#fdb913","#2a2a2e"],"leicester":["#003090","#fdbe11"],"leicester city":["#003090","#fdbe11"],"ipswich":["#0044aa","#e60000"],"ipswich town":["#0044aa","#e60000"],"southampton":["#d71920","#2a2a2e"],"coventry":["#59b3e6","#12294d"],"coventry city":["#59b3e6","#12294d"],
+/* La Liga */
+"real madrid":["#febe10","#00529f"],"barcelona":["#a50044","#004d98"],"atletico madrid":["#cb3524","#272e61"],"sevilla":["#d4001f","#2a2a2e"],"valencia":["#f28c00","#2a2a2e"],"villarreal":["#fbe10f","#005187"],"real betis":["#0bb363","#2a2a2e"],"betis":["#0bb363","#2a2a2e"],"athletic club":["#ee2523","#2a2a2e"],"athletic bilbao":["#ee2523","#2a2a2e"],"real sociedad":["#0067b1","#13294b"],"celta vigo":["#8ac3ee","#003a70"],"celta":["#8ac3ee","#003a70"],"getafe":["#005999","#e30613"],"osasuna":["#d91a21","#0a346f"],"rayo vallecano":["#e53027","#2a2a2e"],"mallorca":["#e20613","#2a2a2e"],"girona":["#e30613","#fcd116"],"alaves":["#0761af","#2a2a2e"],"espanyol":["#007fc8","#2a2a2e"],"las palmas":["#ffe400","#0a4ba0"],"elche":["#0a7a3d","#2a2a2e"],"levante":["#b4001e","#003a8c"],"real oviedo":["#0b4ea2","#2a2a2e"],"oviedo":["#0b4ea2","#2a2a2e"],
+/* Serie A */
+"inter":["#0068a8","#2a2a2e"],"inter milan":["#0068a8","#2a2a2e"],"internazionale":["#0068a8","#2a2a2e"],"ac milan":["#fb090b","#2a2a2e"],"milan":["#fb090b","#2a2a2e"],"juventus":["#2a2a2e","#8a8a90"],"napoli":["#12a0d7","#003a70"],"roma":["#8e1f2f","#f0bc42"],"as roma":["#8e1f2f","#f0bc42"],"lazio":["#87d8f7","#1b3a6b"],"atalanta":["#1e71b8","#2a2a2e"],"fiorentina":["#5d2a8c","#2a2a2e"],"bologna":["#1a2f48","#a21c26"],"torino":["#8a1e1e","#2a2a2e"],"genoa":["#b01d2e","#0a2a5a"],"udinese":["#3a3a3e","#9a9aa0"],"sassuolo":["#00a652","#2a2a2e"],"cagliari":["#a21c26","#0a2a5a"],"parma":["#f6d200","#0a3a8a"],"lecce":["#f6d200","#c8102e"],"verona":["#f6d200","#0a2a6a"],"hellas verona":["#f6d200","#0a2a6a"],"como":["#0a4a9a","#2a2a2e"],"cremonese":["#c8102e","#777777"],"pisa":["#2a2a2e","#0a3a8a"],
+/* Bundesliga */
+"bayern munich":["#dc052d","#0066b2"],"bayern":["#dc052d","#0066b2"],"borussia dortmund":["#fde100","#2a2a2e"],"dortmund":["#fde100","#2a2a2e"],"bayer leverkusen":["#e32221","#2a2a2e"],"bayer 04 leverkusen":["#e32221","#2a2a2e"],"leverkusen":["#e32221","#2a2a2e"],"rb leipzig":["#dd0741","#001f47"],"leipzig":["#dd0741","#001f47"],"vfb stuttgart":["#e32219","#2a2a2e"],"stuttgart":["#e32219","#2a2a2e"],"eintracht frankfurt":["#e1000f","#2a2a2e"],"frankfurt":["#e1000f","#2a2a2e"],"wolfsburg":["#65b32e","#2a2a2e"],"vfl wolfsburg":["#65b32e","#2a2a2e"],"borussia monchengladbach":["#1a8a3a","#2a2a2e"],"gladbach":["#1a8a3a","#2a2a2e"],"freiburg":["#e2001a","#2a2a2e"],"sc freiburg":["#e2001a","#2a2a2e"],"union berlin":["#eb1923","#fdd700"],"mainz":["#c3141e","#2a2a2e"],"mainz 05":["#c3141e","#2a2a2e"],"hoffenheim":["#1961b5","#2a2a2e"],"werder bremen":["#1d9053","#2a2a2e"],"augsburg":["#ba3733","#007a3d"],"heidenheim":["#e2001a","#0a3a8a"],"st pauli":["#6b3a1d","#2a2a2e"],"fc st pauli":["#6b3a1d","#2a2a2e"],"koln":["#e2001a","#2a2a2e"],"fc koln":["#e2001a","#2a2a2e"],"hamburg":["#0a3a8a","#2a2a2e"],"hamburger sv":["#0a3a8a","#2a2a2e"],
+/* Ligue 1 */
+"paris saint germain":["#004170","#da291c"],"paris saint-germain":["#004170","#da291c"],"psg":["#004170","#da291c"],"marseille":["#2faee0","#2a2a2e"],"olympique de marseille":["#2faee0","#2a2a2e"],"monaco":["#e51b22","#2a2a2e"],"as monaco":["#e51b22","#2a2a2e"],"lyon":["#0a3a8a","#da291c"],"olympique lyonnais":["#0a3a8a","#da291c"],"lille":["#e01e13","#1f2a5a"],"nice":["#d40000","#2a2a2e"],"ogc nice":["#d40000","#2a2a2e"],"lens":["#f6c500","#c8102e"],"rc lens":["#f6c500","#c8102e"],"rennes":["#e01e13","#2a2a2e"],"stade rennais":["#e01e13","#2a2a2e"],"strasbourg":["#0a6ab2","#2a2a2e"],"nantes":["#f6d200","#0a7a3d"],"toulouse":["#5a2a82","#2a2a2e"],"brest":["#e01e13","#2a2a2e"],"stade brestois":["#e01e13","#2a2a2e"],"reims":["#e01e13","#2a2a2e"],"stade de reims":["#e01e13","#2a2a2e"],"montpellier":["#f47b20","#0a2a5a"],"auxerre":["#0a4a9a","#2a2a2e"],"angers":["#2a2a2e","#c8c8c8"],"le havre":["#0a4a9a","#6ccbe6"],"lorient":["#f58220","#2a2a2e"],"metz":["#8a1538","#2a2a2e"],"paris fc":["#0a3a8a","#88ccee"],
+/* Primeira Liga */
+"benfica":["#e30613","#2a2a2e"],"sl benfica":["#e30613","#2a2a2e"],"porto":["#003a8c","#2a2a2e"],"fc porto":["#003a8c","#2a2a2e"],"sporting cp":["#00855a","#2a2a2e"],"sporting":["#00855a","#2a2a2e"],"braga":["#e30613","#2a2a2e"],"sporting braga":["#e30613","#2a2a2e"],"vitoria guimaraes":["#3a3a3e","#aaaaaa"],"vitoria sc":["#3a3a3e","#aaaaaa"],
+/* Brasileirão */
+"flamengo":["#c8102e","#2a2a2e"],"palmeiras":["#006437","#2a2a2e"],"corinthians":["#3a3a3e","#9a9aa0"],"sao paulo":["#e30613","#2a2a2e"],"santos":["#3a3a3e","#9a9aa0"],"fluminense":["#7a0019","#006437"],"botafogo":["#3a3a3e","#9a9aa0"],"vasco da gama":["#3a3a3e","#9a9aa0"],"vasco":["#3a3a3e","#9a9aa0"],"gremio":["#0d80bf","#2a2a2e"],"internacional":["#e30613","#2a2a2e"],"atletico mineiro":["#3a3a3e","#9a9aa0"],"atletico mg":["#3a3a3e","#9a9aa0"],"cruzeiro":["#0a3a8a","#2a2a2e"],"bahia":["#0a4a9a","#e30613"],"fortaleza":["#0a4a9a","#e30613"],"athletico paranaense":["#e30613","#2a2a2e"],"athletico pr":["#e30613","#2a2a2e"],"red bull bragantino":["#e30613","#2a2a2e"],"bragantino":["#e30613","#2a2a2e"],"vitoria":["#e30613","#2a2a2e"],"mirassol":["#f6d200","#0a7a3d"],"juventude":["#0a7a3d","#2a2a2e"],"ceara":["#3a3a3e","#9a9aa0"],"sport recife":["#e30613","#2a2a2e"],"remo":["#0a2a6a","#2a2a2e"],"coritiba":["#0a7a3d","#2a2a2e"],"chapecoense":["#0a7a3d","#2a2a2e"]};
+const kn=t=>norm(t||"").replace(/\b(fc|afc|cf|sc|fk|ssc|as|ac|rc|ogc|fc|us|sl|sd|cd|ud|ca|sv|vfl|vfb|tsg|1899|1848|04|05)\b/g," ").replace(/\s+/g," ").trim();
+function clubCols(c){
+ if(c.colors&&c.colors.length>1)return c.colors;
+ for(const t of [c.n,c.s]){const a=norm(t||""),b=kn(t);const hit=KCOL[a]||KCOL[b];if(hit)return hit}
+ return null}
+const liftHex=h=>{const n=parseInt(h.slice(1),16),r=n>>16,g=n>>8&255,b=n&255;return Math.max(r,g,b)<48?"#"+[r+26,g+26,b+30].map(v=>v.toString(16).padStart(2,"0")).join(""):h};
+/* ---- club-coloured backgrounds: read the 2 main colours of each crest (or use c.colors=["#hex","#hex"] if your data has them) ---- */
+const KC=(()=>{try{return JSON.parse(localStorage.getItem("fs-club-cols-v1")||"{}")}catch(e){return{}}})();
+const saveKC=()=>{try{localStorage.setItem("fs-club-cols-v1",JSON.stringify(KC))}catch(e){}};
+function pickColors(img){
+ const S=40,cv=document.createElement("canvas");cv.width=cv.height=S;const x=cv.getContext("2d",{willReadFrequently:true});
+ x.drawImage(img,0,0,S,S);const d=x.getImageData(0,0,S,S).data,B={};
+ for(let i=0;i<d.length;i+=4){const a=d[i+3];if(a<200)continue;const r=d[i],g=d[i+1],b=d[i+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b);
+  if(mn>215)continue;                       /* skip white */
+  const sat=mx?(mx-mn)/mx:0,k=(r>>5)+","+(g>>5)+","+(b>>5);
+  const w=1+(sat>.35?2.5:0);                /* favour real colours over greys */
+  (B[k]=B[k]||{r:0,g:0,b:0,n:0,w:0}); const o=B[k];o.r+=r;o.g+=g;o.b+=b;o.n++;o.w+=w}
+ const L=Object.values(B).map(o=>({r:o.r/o.n|0,g:o.g/o.n|0,b:o.b/o.n|0,w:o.w})).sort((p,q)=>q.w-p.w);
+ if(!L.length)return null;
+ const dist=(p,q)=>Math.hypot(p.r-q.r,p.g-q.g,p.b-q.b);
+ const c1=L[0],c2=L.find(c=>dist(c,c1)>90)||c1;
+ const hex=c=>"#"+[c.r,c.g,c.b].map(v=>v.toString(16).padStart(2,"0")).join("");
+ /* keep very dark colours visible against the dark card */
+ const lift=c=>{const m=Math.max(c.r,c.g,c.b);return m<40?{r:c.r+26,g:c.g+26,b:c.b+30}:c};
+ return [hex(lift(c1)),hex(lift(c2))]}
+function paintCols(el,cols){if(cols&&cols.length>1){el.style.setProperty("--k1",cols[0]);el.style.setProperty("--k2",cols[1])}}
+function colourCards(){
+ document.querySelectorAll(".cl-xphoto[data-src]").forEach(el=>{
+  if(el.dataset.done||!el.dataset.src||el.style.getPropertyValue("--k1"))return;el.dataset.done=1;
+  const id=el.dataset.cid;if(KC[id]){paintCols(el,KC[id]);return}
+  const im=new Image();im.crossOrigin="anonymous";
+  im.onload=()=>{try{const c=pickColors(im);if(c){KC[id]=c;saveKC();paintCols(el,c)}}catch(e){}};
+  im.src=el.dataset.src})}
 function render(){
  const qn=norm(st.q.trim()),have=new Set(Object.values(FSClubMeta.CLUBS).map(c=>c.id));
  const top=CLUBS.map((c,i)=>[...c,i+1]).filter(c=>(!st.lg||c[2]===st.lg)&&norm(c[1]).includes(qn));
@@ -1726,6 +1781,7 @@ function render(){
  $("#grid").innerHTML=f.length?f.slice((st.p-1)*PER,st.p*PER).map((it,i)=>it.t===2?extraCard(it.c):((c,i)=>`<a class="cl-card" href="${c[0]}.html" aria-label="${c[1]}"><div class="cl-photo"><span class="cl-rank">#${c[4]}</span><img src="club-img/${c[0]}-800.webp" srcset="club-img/${c[0]}-400.webp 400w,club-img/${c[0]}-800.webp 800w" sizes="(max-width:560px) 92vw,(max-width:900px) 46vw,380px" width="400" height="500" alt="${c[1]}" loading="${i<3?"eager":"lazy"}" decoding="async" onerror="this.remove()"></div><div class="cl-info"><span class="cl-crest">${c[3]}${(u=>u?`<img src="${u}" alt="" loading="lazy" onerror="this.remove()">`:"")(FSClubMeta.crest((FSClubMeta.CLUBS[c[0]]||{}).id))}</span><div><h3 class="display">${c[1]}</h3><div class="cl-meta">${L[c[2]][1]}</div></div></div></a>`)(it.c,i)).join(""):`<div class="cl-empty">${(qn.length>=2||st.lg)&&!DIR?"Searching more clubs\u2026":"No club found. Try another name or league."}</div>`;
  const nums=[];for(let i=1;i<=pages;i++)if(i===1||i===pages||Math.abs(i-st.p)<=1)nums.push(i);else if(nums[nums.length-1]!=="\u2026")nums.push("\u2026");
  $("#pager").innerHTML=pages<2?"":`<button data-p="${st.p-1}" ${st.p===1?"disabled":""}>&lsaquo; Previous</button>`+nums.map(n=>n==="\u2026"?"<span>\u2026</span>":`<button data-p="${n}" class="${n===st.p?"on":""}" ${n===st.p?'aria-current="page"':""}>${n}</button>`).join("")+`<button data-p="${st.p+1}" ${st.p===pages?"disabled":""}>Next &rsaquo;</button>`;
+ colourCards();
  const q=new URLSearchParams();if(st.q)q.set("q",st.q);if(st.lg)q.set("league",st.lg);if(st.p>1)q.set("page",st.p);history.replaceState(null,"",q.toString()?"?"+q:location.pathname);
 }
 $("#q").addEventListener("input",e=>{st.q=e.target.value;st.p=1;render()});
