@@ -152,9 +152,10 @@ a.pl-clublink:hover{ color:var(--purple-bright); text-decoration:underline; }
 .pl-pos-legend .unavailable{ color:var(--muted); font-size:13px; font-style:italic; }
 .pl-pitch-wrap{ flex:none; width:190px; }
 .pl-pitch-wrap svg{ width:100%; height:auto; display:block; }
-.pos-dot{ stroke:#fff; stroke-opacity:.55; stroke-width:1.5; }
-.pos-dot.primary{ fill:var(--purple-bright); }
-.pos-dot.alt{ fill:#8f8b99; opacity:.85; }
+.pos-pin rect{ stroke:rgba(255,255,255,.3); stroke-width:1; }
+.pos-pin.primary rect{ fill:var(--purple-bright); }
+.pos-pin.alt rect{ fill:#55525e; }
+.pos-pin text{ font:800 9.5px 'Inter', sans-serif; fill:#fff; letter-spacing:.02em; }
 </style>
 </head>
 <body>
@@ -258,7 +259,7 @@ a.pl-clublink:hover{ color:var(--purple-bright); text-decoration:underline; }
   function parseCodes(str){
     return String(str || '').split(',').map(function(s){ return s.trim().toUpperCase(); }).filter(function(c){ return POS_COORDS[c]; });
   }
-  function pitchSvg(dotsHtml){
+  function pitchSvg(markersHtml){
     return '<svg viewBox="0 0 200 300" role="img" aria-label="Pitch position diagram">' +
       '<rect x="2" y="2" width="196" height="296" rx="6" fill="#123a1f" stroke="rgba(255,255,255,.25)" stroke-width="2"/>' +
       '<line x1="2" y1="150" x2="198" y2="150" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>' +
@@ -267,7 +268,17 @@ a.pl-clublink:hover{ color:var(--purple-bright); text-decoration:underline; }
       '<rect x="68" y="2" width="64" height="18" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>' +
       '<rect x="40" y="252" width="120" height="46" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>' +
       '<rect x="68" y="280" width="64" height="18" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>' +
-      dotsHtml + '</svg>';
+      markersHtml + '</svg>';
+  }
+  // A rounded pill with the position code written inside it (e.g. "LW"), placed at that code's pitch coordinate.
+  function posPin(code, cls){
+    var xy = POS_COORDS[code]; if (!xy) return '';
+    var cx = xy[0]*2, cy = xy[1]*3;
+    var w = code.length >= 3 ? 38 : 32, h = 18;
+    return '<g class="pos-pin ' + cls + '">' +
+      '<rect x="' + (cx - w/2) + '" y="' + (cy - h/2) + '" width="' + w + '" height="' + h + '" rx="9"><title>' + esc(POS_LABELS[code]) + '</title></rect>' +
+      '<text x="' + cx + '" y="' + (cy + 3.5) + '" text-anchor="middle">' + esc(code) + '</text>' +
+    '</g>';
   }
   function positionSectionHtml(p){
     var primaryCode = normalizePosCode(p.position);
@@ -279,15 +290,9 @@ a.pl-clublink:hover{ color:var(--purple-bright); text-decoration:underline; }
     }
     if (!primaryCode && !altCodes.length) return '';
 
-    var dots = '';
-    altCodes.forEach(function(c){
-      var xy = POS_COORDS[c]; if (!xy) return;
-      dots += '<circle class="pos-dot alt" cx="' + (xy[0]*2) + '" cy="' + (xy[1]*3) + '" r="9"><title>' + esc(POS_LABELS[c]) + '</title></circle>';
-    });
-    if (primaryCode && POS_COORDS[primaryCode]) {
-      var pxy = POS_COORDS[primaryCode];
-      dots += '<circle class="pos-dot primary" cx="' + (pxy[0]*2) + '" cy="' + (pxy[1]*3) + '" r="11"><title>' + esc(POS_LABELS[primaryCode]) + '</title></circle>';
-    }
+    var pins = '';
+    altCodes.forEach(function(c){ pins += posPin(c, 'alt'); });
+    if (primaryCode && POS_COORDS[primaryCode]) pins += posPin(primaryCode, 'primary');
 
     var legend = '<div class="pl-pos-legend">';
     if (primaryCode) {
@@ -296,14 +301,14 @@ a.pl-clublink:hover{ color:var(--purple-bright); text-decoration:underline; }
     }
     if (altCodes.length) {
       legend += '<div class="row"><span class="dot alt"></span><span><span class="lbl">' +
-        esc(altCodes.map(function(c){ return POS_LABELS[c]; }).join(', ')) + '</span><br><span class="sub">Also plays here</span></span></div>';
+        esc(altCodes.map(function(c){ return POS_LABELS[c]; }).join(', ')) + '</span><br><span class="sub">Other positions</span></span></div>';
     } else {
       legend += '<div class="row"><span class="dot alt" style="opacity:.3"></span><span class="unavailable">No alternative positions on record</span></div>';
     }
     legend += '</div>';
 
     return '<div class="pl-pos-card"><div class="pl-pos-info"><h2 class="display">On The Pitch</h2>' + legend + '</div>' +
-      '<div class="pl-pitch-wrap">' + pitchSvg(dots) + '</div></div>';
+      '<div class="pl-pitch-wrap">' + pitchSvg(pins) + '</div></div>';
   }
 
   // ---- club logos + country flags ----
