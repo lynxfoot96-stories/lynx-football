@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  var ENDPOINT = '/api/subscribe';
+  var ENDPOINT = '/api/scores?action=subscribe';
   var FAV_KEY = 'fs96_user_favorites';
   var LEAGUES = [
     { id: 'premier-league', label: 'Premier League' },
