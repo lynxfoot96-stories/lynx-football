@@ -108,6 +108,13 @@
     });
   }
 
+  /* favourites: same player id scheme as player-search.js, so one player = one favourite everywhere */
+  function favAttrs(clubName, name, badge) {
+    var id = String(clubName + ' ' + name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
+    return ' data-fav-id="' + esc(id) + '" data-fav-type="player" data-fav-name="' + esc(name) + '" data-fav-badge="' + esc(badge || '') +
+      '" data-fav-url="player.html?name=' + encodeURIComponent(name) + '&amp;club=' + encodeURIComponent(clubName) + '"';
+  }
+
   /* ---------- HEADER (runs on every club page) ---------- */
   var BALL_ICON =
     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
@@ -218,7 +225,7 @@
         if (!u || box.querySelector('.kp-photo')) return;
         var img = new Image();
         img.className = 'kp-photo'; img.alt = '';
-        img.onload = function () { var ini = box.querySelector('.kp-ini'); if (ini) ini.style.display = 'none'; box.insertBefore(img, box.firstChild); };
+        img.onload = function () { var ini = box.querySelector('.kp-ini'); if (ini) ini.style.display = 'none'; box.insertBefore(img, box.firstChild); var kc = box.closest('.kp-card'); if (kc) kc.setAttribute('data-fav-badge', u); };
         img.src = u; // if it fails to load, the initials circle simply stays
       });
     }
@@ -291,7 +298,7 @@
         ? p[2].split(',').map(function (a) { return '<span class="kp-chip">' + esc(a.trim()) + '</span>'; }).join('')
         : '<span class="kp-none">Plays one position only</span>';
       var href = 'player.html?name=' + encodeURIComponent(p[0]) + '&club=' + encodeURIComponent(club.name);
-      return '<a class="kp-card" href="' + href + '" data-grp="' + grp(p[1]) + '" data-n="' + esc(norm(p[0])) + '"><div class="kp-top"><div class="kp-ph" data-name="' + esc(p[0]) + '"><span class="kp-ini">' + esc(initialsOf(p[0])) + '</span><span class="kp-pos ' + grp(p[1]) + '">' + esc(p[1]) + '</span></div><div><div class="kp-name">' + esc(p[0]) + '</div>' +
+      return '<a class="kp-card" href="' + href + '" data-grp="' + grp(p[1]) + '" data-n="' + esc(norm(p[0])) + '"' + favAttrs(club.name, p[0]) + '><div class="kp-top"><div class="kp-ph" data-name="' + esc(p[0]) + '"><span class="kp-ini">' + esc(initialsOf(p[0])) + '</span><span class="kp-pos ' + grp(p[1]) + '">' + esc(p[1]) + '</span></div><div><div class="kp-name">' + esc(p[0]) + '</div>' +
         (hit ? '<span class="kp-goal">&#9917; ' + hit.goals + (hit.goals === 1 ? ' goal' : ' goals') + ' &middot; #' + hit.rank + ' ' + esc(compName(hit.comp)) + '</span>' : '') +
         '</div></div><div class="kp-lbl">' + (club.dynamic ? 'Player info' : 'Footballer identity') + '</div><p class="kp-id">' + esc(p[3]) + '</p>' +
         (club.dynamic ? '' : '<div class="kp-alt"><div class="kp-lbl">Alternative positions</div><div class="kp-chips">' + alt + '</div></div>') + '</a>';
@@ -386,7 +393,7 @@
         var r = out[0], html = '';
         club.comps.forEach(function (comp) {
           var cards = r.hits.filter(function (h) { return h.comp === comp; }).map(function (h) {
-            return '<a class="ct-kp-card" href="player.html?name=' + encodeURIComponent(h.name) + '&club=' + encodeURIComponent(club.name) + '">' +
+            return '<a class="ct-kp-card" href="player.html?name=' + encodeURIComponent(h.name) + '&club=' + encodeURIComponent(club.name) + '"' + favAttrs(club.name, h.name, h.photo) + '>' +
               '<img class="ct-kp-photo" src="' + esc(h.photo || '') + '" alt="' + esc(h.name) + '" loading="lazy" onerror="this.style.visibility=\'hidden\'">' +
               '<div class="ct-kp-info">' +
                 '<div class="ct-kp-role">' + esc(compName(comp)) + ' Top Scorer</div>' +

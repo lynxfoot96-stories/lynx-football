@@ -852,7 +852,7 @@ function renderLeagueHero(){
   const info = (window.FSTopics && window.FSTopics.LEAGUES[meta.id]) || {};
   const logo = leagueLogos[meta.id];
   document.getElementById('leagueHero').innerHTML =
-    '<div class="lh-hero-in"><div class="lh-text">' +
+    '<div class="lh-hero-in" data-fav-id="' + meta.id + '" data-fav-type="league" data-fav-name="' + escapeHtml(meta.name) + '" data-fav-badge="' + escapeHtml(logo || '') + '" data-fav-url="standings.html?league=' + meta.id + '"><div class="lh-text">' +
       '<div class="lh-eyebrow"><span class="dot"></span>Updated every week</div>' +
       '<h1 class="lh-title">' + escapeHtml(meta.name) + '</h1>' +
       '<p>' + escapeHtml(info.tagline || ('All the latest ' + meta.name + ' news in one place.')) + '</p>' +

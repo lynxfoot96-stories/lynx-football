@@ -221,12 +221,12 @@
       var slug = bySlug[c.i], own = slug && META.CLUBS[slug];
       var names = [norm(c.n), norm(c.s)];
       if (own) { names.push(norm(own.name)); (own.alt || []).forEach(function (a) { names.push(norm(a)); }); }
-      out.push({ type: 'club', name: own ? own.name : c.s, n: names, tla: norm(c.t), crest: c.c || null, league: c.l, top: !!own,
+      out.push({ type: 'club', id: c.i, name: own ? own.name : c.s, n: names, tla: norm(c.t), crest: c.c || null, league: c.l, top: !!own,
         href: own ? slug + '.html' : 'club.html?id=' + c.i });
     });
     if (!out.length && META) Object.keys(META.CLUBS).forEach(function (s) {   // directory unavailable: at least the 20 known clubs
       var o = META.CLUBS[s];
-      out.push({ type: 'club', name: o.name, n: [norm(o.name)].concat((o.alt || []).map(norm)), tla: '', crest: META.crest(o.id), league: o.league, top: true, href: s + '.html' });
+      out.push({ type: 'club', id: o.id, name: o.name, n: [norm(o.name)].concat((o.alt || []).map(norm)), tla: '', crest: META.crest(o.id), league: o.league, top: true, href: s + '.html' });
     });
     return out;
   }
@@ -324,6 +324,15 @@
     var localList = [], remoteItem = null, remoteState = 'idle', remoteSeq = 0, remoteTimer = null;
 
     function hrefOf(it) { return it.type === 'player' ? playerHref(it) : it.href; }
+    // favourites: lets favorites.js put a heart on each result
+    function favAttrs(p) {
+      var id, badge = '', url = hrefOf(p);
+      if (p.type === 'league') { id = p.id; var lg = window.FSClubMeta && window.FSClubMeta.leagueLogo(p.id); badge = lg || ''; }
+      else if (p.type === 'club') { id = p.id; badge = p.crest || ''; }
+      else { id = norm((p.clubName || '') + ' ' + p.name).replace(/[^a-z0-9]+/g, '-'); }
+      if (id == null || id === '') return '';
+      return ' data-fav-id="' + esc(id) + '" data-fav-type="' + p.type + '" data-fav-name="' + esc(p.name) + '" data-fav-badge="' + esc(badge) + '" data-fav-url="' + esc(url) + '"';
+    }
     function rowHtml(p, i) {
       var circle, sub;
       if (p.type === 'league') {
@@ -339,7 +348,7 @@
           : '<span class="fs-search-ini" data-pk="' + esc(pkey(p)) + '">' + esc(initialsOf(p.name)) + '</span>';
         sub = [p.clubName, p.pos].filter(Boolean).map(esc).join(' &middot; ');
       }
-      return '<a class="fs-search-row" href="' + esc(hrefOf(p)) + '" data-i="' + i + '">' + circle +
+      return '<a class="fs-search-row" href="' + esc(hrefOf(p)) + '" data-i="' + i + '"' + favAttrs(p) + '>' + circle +
         '<span><span class="fs-search-name">' + esc(p.name) + '</span><br><span class="fs-search-club">' + sub + '</span></span></a>';
     }
     // Sections in display order: Leagues, Clubs, Players. With one filter selected that type gets more rows.
@@ -469,6 +478,9 @@
 
   function boot() {
     document.querySelectorAll('.nav-actions').forEach(mount);
+    // Newsletter modal + favourites hearts: loaded here so every page gets them without extra tags.
+    loadScript('favorites.js');
+    loadScript('newsletter.js');
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
