@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+(function(){
+  var KEY='fs96-theme';
+  var RX=/(?:^|;)\s*fs96-theme=(light|dark)/;
+  function read(){
+    var m=RX.exec(window.name||'');
+    if(m) return m[1];
+    try{ var v=localStorage.getItem(KEY); if(v==='light'||v==='dark') return v; }catch(e){}
+    return null;
+  }
+  function save(v){
+    try{ localStorage.setItem(KEY,v); }catch(e){}
+    window.name=(window.name||'').replace(/(?:^|;)\s*fs96-theme=(?:light|dark)/,'')+';fs96-theme='+v;
+  }
+  function apply(v){
+    var root=document.documentElement;
+    if(v==='light'){ root.setAttribute('data-theme','light'); }
+    else { root.removeAttribute('data-theme'); }
+  }
+  var saved=read();
+  if(saved){ apply(saved); save(saved); }
+  document.addEventListener('DOMContentLoaded', function(){
+    var btn=document.getElementById('themeToggle');
+    if(!btn) return;
+    btn.addEventListener('click', function(){
+      var goingLight=document.documentElement.getAttribute('data-theme')!=='light';
+      var v=goingLight?'light':'dark';
+      apply(v); save(v);
+    });
+  });
+})();
+</script>
+
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Subscribe — Football Stories</title>
+<meta name="description" content="Get the Monday Football Debrief and the Friday Weekend Preview straight to your inbox. Free, personalized to the clubs you follow." />
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800;900&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root{
+    --black: #08070A;
+    --panel: #121116;
+    --panel-2: #17151C;
+    --line: rgba(255,255,255,0.08);
+    --white: #F4F3F6;
+    --muted: #9A96A3;
+    --purple: #8A3FFC;
+    --purple-bright: #A868FF;
+    --orange: #FF7A1A;
+    --orange-bright: #FF9540;
+  }
+  html[data-theme="light"]{
+    --black:#FFFFFF;
+    --panel:#FFFFFF;
+    --panel-2:#F6F6F8;
+    --line:#E5E5EA;
+    --white:#111116;
+    --muted:#55555F;
+    --purple:#7B2CFF;
+    --purple-bright:#6420D6;
+    --orange:#FF6A00;
+    --orange-bright:#E85A00;
+  }
+
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  body{
+    background:var(--black);
+    color:var(--white);
+    font-family:'Inter', sans-serif;
+    overflow-x:hidden;
+  }
+  .display{
+    font-family:'Big Shoulders Display', sans-serif;
+    font-weight:800;
+    letter-spacing:0.01em;
+    line-height:0.92;
+  }
+  a{ color:inherit; text-decoration:none; }
+  img{ max-width:100%; display:block; }
+
+  .wrap{ max-width:1180px; margin:0 auto; padding:0 32px; }
+  @media (max-width:640px){ .wrap{ padding:0 20px; } }
+
+  /* ---------- header (matches site header) ---------- */
+  header{
+    position:sticky; top:0; z-index:40;
+    background:rgba(8,7,10,0.86);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  html[data-theme="light"] header{ background:rgba(255,255,255,0.86); }
+  .navbar{ display:flex; align-items:center; justify-content:space-between; height:72px; gap:20px; }
+  .logo{ display:flex; align-items:center; gap:10px; font-family:'Big Shoulders Display', sans-serif; font-weight:800; font-size:19px; letter-spacing:0.01em; text-transform:uppercase; flex-shrink:0; }
+  .logo img{ width:32px; height:32px; }
+  nav.links{ display:flex; gap:28px; }
+  nav.links a{ font-size:14px; font-weight:500; color:var(--muted); transition:color .2s ease; }
+  nav.links a:hover{ color:var(--white); }
+  .nav-actions{ display:flex; align-items:center; gap:14px; }
+  .nav-home{ display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted); transition:color .2s ease; }
+  .nav-home:hover{ color:var(--white); }
+  .nav-cta{
+    display:inline-flex; align-items:center; justify-content:center;
+    padding:10px 20px; border-radius:999px;
+    background:var(--white); color:var(--black); font-weight:700; font-size:13.5px;
+    transition:background .2s ease, transform .15s ease; white-space:nowrap;
+  }
+  html[data-theme="light"] .nav-cta{ background:var(--purple); color:#fff; }
+  .nav-cta.is-current{ background:var(--purple); color:#fff; pointer-events:none; }
+  .theme-toggle{
+    width:38px; height:38px; border-radius:50%; flex-shrink:0;
+    border:1px solid var(--line); background:var(--panel-2); color:var(--white);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    transition:border-color .2s ease, color .2s ease, transform .15s ease;
+  }
+  .theme-toggle:hover{ border-color:var(--purple-bright); color:var(--purple-bright); transform:translateY(-1px); }
+  .theme-toggle .ti-moon{ display:block; }
+  .theme-toggle .ti-sun{ display:none; }
+  html[data-theme="light"] .theme-toggle .ti-moon{ display:none; }
+  html[data-theme="light"] .theme-toggle .ti-sun{ display:block; }
+  .menu-btn{ display:none; background:none; border:none; color:var(--white); font-size:26px; cursor:pointer; }
+  @media (max-width:860px){
+    nav.links{ display:none; }
+    .nav-home span{ display:none; }
+  }
+
+  /* ---------- hero strip ---------- */
+  .sub-hero{ padding:56px 0 8px; text-align:center; }
+  .sub-eyebrow{ font-size:12px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--orange); margin-bottom:10px; }
+  .sub-title{ font-size:clamp(40px,7vw,64px); text-transform:uppercase; }
+  .sub-title .accent{
+    background:linear-gradient(100deg, var(--white) 35%, var(--purple-bright) 75%, var(--orange-bright) 100%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  .sub-lead{ max-width:540px; margin:16px auto 0; color:var(--muted); font-size:15.5px; line-height:1.6; }
+
+  /* ---------- two-column layout ---------- */
+  .sub-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:28px;
+    padding:44px 0 90px; align-items:start;
+  }
+  @media (max-width:900px){ .sub-grid{ grid-template-columns:1fr; } }
+
+  .sub-card{
+    border-radius:20px; border:1px solid var(--line); background:var(--panel);
+    padding:34px 32px;
+  }
+
+  /* ---- left: form ---- */
+  .sub-form-card{
+    background:linear-gradient(135deg, rgba(138,63,252,.07), rgba(255,122,26,.04)), var(--panel);
+  }
+  .sub-label{ display:block; margin:0 0 8px; font-size:13px; font-weight:600; color:var(--white); }
+  .sub-legend{ display:block; margin:22px 0 8px; font-size:13px; font-weight:600; color:var(--white); }
+  .sub-legend span{ font-weight:400; color:var(--muted); }
+  .sub-input{
+    width:100%; height:48px; padding:0 14px; border-radius:12px;
+    border:1px solid var(--line); background:var(--panel-2); color:var(--white);
+    font:inherit; font-size:16px;
+    transition:border-color .2s, box-shadow .2s;
+  }
+  .sub-input::placeholder{ color:var(--muted); opacity:.8; }
+  .sub-input:focus{ outline:none; border-color:var(--purple); box-shadow:0 0 0 3px rgba(138,63,252,.3); }
+
+  .sub-chips{ display:flex; flex-wrap:wrap; gap:8px; }
+  .sub-chip{ position:relative; }
+  .sub-chip input{ position:absolute; opacity:0; inset:0; width:100%; height:100%; margin:0; cursor:pointer; }
+  .sub-chip span{
+    display:inline-block; padding:8px 14px; border-radius:999px;
+    border:1px solid var(--line); background:var(--panel-2);
+    font-size:13px; font-weight:500; color:var(--muted);
+    transition:all .18s ease; user-select:none;
+  }
+  .sub-chip:hover span{ border-color:var(--purple-bright); color:var(--white); }
+  .sub-chip input:checked + span{ background:rgba(138,63,252,.22); border-color:var(--purple); color:var(--white); font-weight:600; }
+  .sub-chip input:focus-visible + span{ outline:2px solid var(--orange); outline-offset:2px; }
+
+  .sub-personal{
+    margin-top:18px; padding:13px 15px; border-radius:12px;
+    border:1px solid rgba(255,122,26,.45); background:rgba(255,122,26,.09);
+  }
+  .sub-personal[hidden]{ display:none; }
+  .sub-personal strong{ color:var(--orange); }
+
+  .sub-check{ display:flex; gap:10px; align-items:flex-start; font-size:13px; line-height:1.5; color:var(--muted); cursor:pointer; }
+  .sub-check input{ margin:3px 0 0; width:16px; height:16px; flex:none; accent-color:var(--purple); }
+  .sub-check a{ color:var(--white); text-decoration:underline; text-underline-offset:2px; }
+  .sub-check--consent{ margin-top:20px; }
+
+  .sub-hp{ position:absolute !important; left:-9999px; width:1px; height:1px; opacity:0; }
+
+  .sub-submit{
+    position:relative; margin-top:24px; width:100%; height:52px;
+    display:inline-flex; align-items:center; justify-content:center; gap:10px;
+    border:0; border-radius:12px; cursor:pointer;
+    font:inherit; font-size:15px; font-weight:700; color:#fff;
+    background:linear-gradient(135deg, var(--purple), #6a2ad6);
+    box-shadow:0 8px 24px rgba(138,63,252,.35);
+    transition:transform .18s ease, box-shadow .18s ease, filter .18s ease;
+  }
+  .sub-submit:hover{ transform:translateY(-1px); box-shadow:0 12px 30px rgba(138,63,252,.5); filter:brightness(1.08); }
+  .sub-submit:active{ transform:translateY(0); }
+  .sub-submit[disabled]{ cursor:progress; filter:saturate(.7); transform:none; }
+  .sub-spinner{
+    display:none; width:18px; height:18px; border-radius:50%;
+    border:2px solid rgba(255,255,255,.35); border-top-color:#fff;
+    animation:sub-spin .7s linear infinite;
+  }
+  .sub-submit[disabled] .sub-spinner{ display:inline-block; }
+  @keyframes sub-spin{ to{ transform:rotate(360deg); } }
+  .sub-status{ min-height:20px; margin:12px 0 0; font-size:13px; color:#e5484d; }
+
+  .sub-view[hidden]{ display:none; }
+  .sub-done{ text-align:center; padding:30px 0; }
+  .sub-tick{
+    width:64px; height:64px; margin:0 auto 18px; display:grid; place-items:center;
+    border-radius:50%; color:#fff;
+    background:linear-gradient(135deg, var(--orange), #ff4d4d);
+    box-shadow:0 0 0 8px rgba(255,122,26,.15), 0 0 40px rgba(255,122,26,.35);
+  }
+  .sub-done h2{ font-size:34px; text-transform:uppercase; margin-bottom:10px; }
+  .sub-done p{ color:var(--muted); font-size:15px; line-height:1.6; max-width:360px; margin:0 auto 24px; }
+  .sub-done .sub-submit{ max-width:220px; margin-left:auto; margin-right:auto; }
+
+  /* ---- right: what you get + conditions ---- */
+  .sub-right h2{ font-size:26px; text-transform:uppercase; margin-bottom:18px; }
+  .sub-item{ display:flex; gap:14px; padding:16px 0; border-bottom:1px solid var(--line); }
+  .sub-item:last-child{ border-bottom:none; }
+  .sub-item-bar{ width:4px; border-radius:4px; flex-shrink:0; }
+  .sub-item-bar.purple{ background:var(--purple); }
+  .sub-item-bar.orange{ background:var(--orange); }
+  .sub-item-bar.grey{ background:var(--muted); }
+  .sub-item-day{ font-size:11px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--purple-bright); margin-bottom:4px; }
+  .sub-item-day.orange{ color:var(--orange-bright); }
+  .sub-item-day.grey{ color:var(--muted); }
+  .sub-item-title{ font-size:16.5px; font-weight:700; margin-bottom:4px; }
+  .sub-item-desc{ font-size:13.5px; color:var(--muted); line-height:1.55; }
+
+  .sub-conditions{ margin-top:26px; padding-top:22px; border-top:1px solid var(--line); }
+  .sub-conditions h3{ font-size:13px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
+  .sub-conditions p{ font-size:13px; line-height:1.65; color:var(--muted); margin-bottom:10px; }
+  .sub-conditions a{ color:var(--white); text-decoration:underline; text-underline-offset:2px; }
+
+  /* ---------- footer ---------- */
+  footer{ border-top:1px solid var(--line); padding:46px 0 30px; }
+  .footer-top{ display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:30px; padding-bottom:30px; }
+  .footer-top > .logo{ font-size:17px; }
+  .footer-links{ display:flex; gap:50px; flex-wrap:wrap; }
+  .footer-col h5{ font-size:13px; color:var(--muted); font-weight:600; margin-bottom:14px; }
+  .footer-col a{ display:block; font-size:14px; color:var(--white); margin-bottom:10px; transition:color .2s ease; }
+  .footer-col a:hover{ color:var(--orange); }
+  .footer-legal{ display:flex; gap:20px; flex-wrap:wrap; padding:20px 0; border-top:1px solid var(--line); font-size:13px; color:var(--muted); }
+  .footer-legal a:hover{ color:var(--white); }
+  .footer-bottom{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; padding-top:20px; border-top:1px solid var(--line); font-size:13px; color:var(--muted); }
+  .socials{ display:flex; gap:14px; }
+  .socials a{ width:32px; height:32px; border-radius:50%; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--muted); transition:color .2s ease, border-color .2s ease; }
+  .socials a:hover{ color:var(--white); border-color:var(--purple-bright); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap navbar">
+    <a href="index.html#top" class="logo"><img src="football-stories-logo.png" alt="" />FOOTBALL STORIES</a>
+    <nav class="links">
+      <a href="index.html#videos">Videos</a>
+      <a href="index.html#news">News</a>
+      <a href="index.html#about">About</a>
+      <a href="index.html#latest">Latest</a>
+    </nav>
+    <div class="nav-actions">
+      <a href="index.html#top" class="nav-home" aria-label="Back to home page">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>
+        <span>Home</span>
+      </a>
+      <a href="subscribe.html" class="nav-cta is-current">Subscribe</a>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle light and dark mode" title="Toggle light/dark mode"><svg class="ti ti-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><svg class="ti ti-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+    </div>
+  </div>
+</header>
+
+<section class="sub-hero wrap">
+  <div class="sub-eyebrow">Football Stories 96</div>
+  <h1 class="display sub-title">Never miss<br><span class="accent">a story</span></h1>
+  <p class="sub-lead">The Monday Football Debrief and the Friday Weekend Preview, straight to your inbox. Free. Personalized to the clubs you follow. Unsubscribe anytime.</p>
+</section>
+
+<section class="wrap">
+  <div class="sub-grid">
+
+    <!-- LEFT: form -->
+    <div class="sub-card sub-form-card">
+      <div class="sub-view" data-view="form">
+        <form data-form novalidate>
+          <label class="sub-label" for="sub-email">Email address</label>
+          <input id="sub-email" class="sub-input" type="email" name="email" required maxlength="254" autocomplete="email" inputmode="email" placeholder="you@example.com">
+
+          <span class="sub-legend">Favorite leagues <span>(optional)</span></span>
+          <div class="sub-chips" data-leagues></div>
+
+          <div class="sub-personal" data-personal hidden>
+            <label class="sub-check">
+              <input type="checkbox" name="alerts" checked>
+              <span data-personal-text></span>
+            </label>
+          </div>
+
+          <label class="sub-check sub-check--consent">
+            <input type="checkbox" name="consent" required>
+            <span>I agree to receive this newsletter and accept the <a href="privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a>.</span>
+          </label>
+
+          <input class="sub-hp" type="text" name="company" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+          <button type="submit" class="sub-submit"><span data-label>Subscribe</span><span class="sub-spinner" aria-hidden="true"></span></button>
+          <p class="sub-status" data-status role="status" aria-live="polite"></p>
+        </form>
+      </div>
+
+      <div class="sub-view sub-done" data-view="done" hidden>
+        <div class="sub-tick"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 10 17.5 19 7"/></svg></div>
+        <h2 class="display" data-done-title tabindex="-1">You're in</h2>
+        <p>Check your inbox for a welcome email. If you don't see it, look in spam or promotions.</p>
+        <a href="index.html" class="sub-submit" style="text-decoration:none;display:inline-flex;">Back to the site</a>
+      </div>
+    </div>
+
+    <!-- RIGHT: what you get + conditions -->
+    <div class="sub-card sub-right">
+      <h2 class="display">What lands<br>in your inbox</h2>
+
+      <div class="sub-item">
+        <div class="sub-item-bar purple"></div>
+        <div>
+          <div class="sub-item-day">Every Monday</div>
+          <div class="sub-item-title">The Monday Football Debrief</div>
+          <div class="sub-item-desc">The weekend's biggest story explained, plus one Stat of the Week that's worth repeating.</div>
+        </div>
+      </div>
+
+      <div class="sub-item">
+        <div class="sub-item-bar orange"></div>
+        <div>
+          <div class="sub-item-day orange">Every Friday</div>
+          <div class="sub-item-title">The Friday Weekend Preview</div>
+          <div class="sub-item-desc">The games that matter this weekend, what to watch for, and the latest breakdown from the channel.</div>
+        </div>
+      </div>
+
+      <div class="sub-item">
+        <div class="sub-item-bar grey"></div>
+        <div>
+          <div class="sub-item-day grey">Made for you</div>
+          <div class="sub-item-title">Your Clubs This Week</div>
+          <div class="sub-item-desc">Chose matchday alerts when you signed up? You'll also get fixtures and quick updates for the clubs you favorited.</div>
+        </div>
+      </div>
+
+      <div class="sub-conditions">
+        <h3>Before you subscribe</h3>
+        <p>It's free, and sent at most twice a week — no spam, no third-party ads in your inbox.</p>
+        <p>You can unsubscribe at any time using the link in every email, with no questions asked.</p>
+        <p>By subscribing you agree to our <a href="privacy-policy.html">Privacy Policy</a> and <a href="terms-of-service.html">Terms of Service</a>. We only use your email to send this newsletter.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-top">
+      <a href="index.html#top" class="logo"><img src="football-stories-logo.png" alt="" style="width:28px;height:28px;margin-right:10px;" />FOOTBALL STORIES</a>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h5>Explore</h5>
+          <a href="index.html#latest">Latest upload</a>
+          <a href="index.html#videos">All stories</a>
+          <a href="index.html#about">About the channel</a>
+        </div>
+        <div class="footer-col">
+          <h5>Topics</h5>
+          <a href="index.html#videos">Transfer news</a>
+          <a href="index.html#videos">Ballon d'Or</a>
+          <a href="index.html#videos">Tactics</a>
+        </div>
+      </div>
+    </div>
+    <nav class="footer-legal" aria-label="Legal">
+      <a href="contact-us.html">Contact us</a>
+      <a href="terms-of-service.html">Terms of service</a>
+      <a href="privacy-policy.html">Privacy Policy</a>
+      <a href="privacy-settings.html">Privacy settings</a>
+    </nav>
+    <div class="footer-bottom">
+      <span>© 2026 Football Stories. Made for the fans who read past the headline.</span>
+      <div class="socials">
+        <a href="https://www.youtube.com/@football-stories-96" aria-label="YouTube" target="_blank" rel="noopener noreferrer"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8ZM9.6 15.5V8.5L15.8 12Z"/></svg></a>
+        <a href="https://www.instagram.com/lynx.football.stories/" aria-label="Instagram" target="_blank" rel="noopener noreferrer"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 2c2.7 0 3.1 0 4.1.06 1.1.05 1.8.22 2.5.47.7.28 1.2.6 1.8 1.16.5.5.9 1.1 1.16 1.8.25.7.42 1.4.47 2.5.05 1 .06 1.4.06 4.1s0 3.1-.06 4.1c-.05 1.1-.22 1.8-.47 2.5a4.9 4.9 0 0 1-1.16 1.8 4.9 4.9 0 0 1-1.8 1.16c-.7.25-1.4.42-2.5.47-1 .05-1.4.06-4.1.06s-3.1 0-4.1-.06c-1.1-.05-1.8-.22-2.5-.47a4.9 4.9 0 0 1-1.8-1.16 4.9 4.9 0 0 1-1.16-1.8c-.25-.7-.42-1.4-.47-2.5C2 15.1 2 14.7 2 12s0-3.1.06-4.1c.05-1.1.22-1.8.47-2.5.28-.7.6-1.2 1.16-1.8.5-.5 1.1-.9 1.8-1.16.7-.25 1.4-.42 2.5-.47C8.9 2 9.3 2 12 2Zm0 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm5.2-2.6a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Z"/></svg></a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  var ENDPOINT = '/api/scores?action=subscribe';
+  var FAV_KEY = 'fs96_user_favorites';
+  var LEAGUES = [
+    { id: 'premier-league', label: 'Premier League' },
+    { id: 'la-liga', label: 'La Liga' },
+    { id: 'serie-a', label: 'Serie A' },
+    { id: 'bundesliga', label: 'Bundesliga' },
+    { id: 'ligue-1', label: 'Ligue 1' },
+    { id: 'champions-league', label: 'Champions League' }
+  ];
+
+  function slug(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+
+  function readFavs() {
+    try {
+      var a = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+      return Array.isArray(a) ? a.filter(function (f) { return f && f.type && f.name; }) : [];
+    } catch (e) { return []; }
+  }
+  function namesOf(favs, type) {
+    return favs.filter(function (f) { return f.type === type; }).map(function (f) { return String(f.name); });
+  }
+
+  var form = document.querySelector('[data-form]');
+  var wrap = document.querySelector('[data-leagues]');
+  var busy = false;
+
+  LEAGUES.forEach(function (l) {
+    var lab = document.createElement('label'); lab.className = 'sub-chip';
+    var inp = document.createElement('input'); inp.type = 'checkbox'; inp.name = 'league'; inp.value = l.id;
+    var sp = document.createElement('span'); sp.textContent = l.label;
+    lab.appendChild(inp); lab.appendChild(sp); wrap.appendChild(lab);
+  });
+
+  function personalise() {
+    var favs = readFavs();
+    var clubs = namesOf(favs, 'club');
+    var favLeagueIds = namesOf(favs, 'league').map(slug);
+
+    Array.prototype.forEach.call(form.querySelectorAll('input[name="league"]'), function (i) {
+      if (favLeagueIds.indexOf(i.value) !== -1) i.checked = true;
+    });
+
+    var box = document.querySelector('[data-personal]');
+    var txt = document.querySelector('[data-personal-text]');
+    txt.textContent = '';
+    if (!clubs.length) { box.hidden = true; return; }
+
+    var shown = clubs.slice(0, 3), extra = clubs.length - shown.length;
+    txt.appendChild(document.createTextNode('We noticed you favorite '));
+    var strong = document.createElement('strong');
+    strong.textContent = shown.join(', ') + (extra > 0 ? ' +' + extra + ' more' : '');
+    txt.appendChild(strong);
+    txt.appendChild(document.createTextNode('. Would you like custom matchday alerts included in your weekly digest?'));
+    box.hidden = false;
+    box.querySelector('input').checked = true;
+  }
+  personalise();
+
+  function setStatus(msg) { document.querySelector('[data-status]').textContent = msg; }
+  function setBusy(b) {
+    busy = b;
+    var btn = form.querySelector('.sub-submit');
+    btn.disabled = b;
+    btn.querySelector('[data-label]').textContent = b ? 'Subscribing…' : 'Subscribe';
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (busy) return;
+    var fd = new FormData(form);
+    var favs = readFavs();
+    var alertsBox = form.querySelector('input[name="alerts"]');
+    var alerts = !!(alertsBox && !alertsBox.closest('[data-personal]').hidden && alertsBox.checked);
+
+    var payload = {
+      email: String(fd.get('email') || '').trim(),
+      leagues: fd.getAll('league'),
+      clubs: alerts ? namesOf(favs, 'club') : [],
+      players: alerts ? namesOf(favs, 'player') : [],
+      alerts: alerts,
+      consent: !!fd.get('consent'),
+      company: String(fd.get('company') || ''), // honeypot
+      source: location.pathname
+    };
+
+    setStatus(''); setBusy(true);
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, 12000);
+
+    fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: ctrl.signal
+    })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) throw new Error((res.d && res.d.error) || 'failed');
+        document.querySelector('[data-view="form"]').hidden = true;
+        document.querySelector('[data-view="done"]').hidden = false;
+        form.reset();
+        document.querySelector('[data-done-title]').focus();
+      })
+      .catch(function (err) {
+        var m = 'Something went wrong. Please try again in a moment.';
+        if (err.name === 'AbortError') m = 'The request timed out. Please check your connection and try again.';
+        else if (err.message === 'invalid_email') m = 'Please enter a valid email address.';
+        setStatus(m);
+      })
+      .then(function () { clearTimeout(timer); setBusy(false); });
+  });
+})();
+</script>
+
+</body>
+</html>
