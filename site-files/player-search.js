@@ -264,7 +264,8 @@
     // .navbar/.logo (e.g. a very different page), fall back to the old icon button in .nav-actions.
     var navbar = navActions.closest('.navbar');
     var logoEl = navbar && navbar.querySelector(':scope > .logo');
-    var barMode = !!(navbar && logoEl);
+    var sharedSlot = navActions.classList.contains('fs-search-slot') && !!navActions.closest('.fs-hd');
+    var barMode = sharedSlot || !!(navbar && logoEl);
     var isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
 
     var wrap = document.createElement('div');
@@ -281,7 +282,7 @@
           '<input type="search" class="fs-search-input" placeholder="Search players, clubs, leagues&hellip;" autocomplete="off" aria-label="Search players, clubs and leagues">' +
           CHIPS +
         '</div>';
-    if (barMode) {
+    if (barMode && !sharedSlot) {
       var slot = document.createElement('div');
       slot.className = 'fs-search-slot';
       slot.appendChild(wrap);
@@ -299,6 +300,7 @@
         ch.style.setProperty('flex', 'none', 'important');
       });
     } else {
+      // Shared header already provides the correctly positioned search slot.
       navActions.insertBefore(wrap, navActions.firstChild);
     }
 
@@ -477,7 +479,7 @@
   });
 
   function boot() {
-    document.querySelectorAll('.nav-actions').forEach(mount);
+    document.querySelectorAll('.fs-hd .fs-search-slot, .nav-actions').forEach(mount);
     // Newsletter modal + favourites hearts: loaded here so every page gets them without extra tags.
     loadScript('favorites.js');
     loadScript('newsletter.js');
