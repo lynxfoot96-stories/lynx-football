@@ -1741,6 +1741,32 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
 .cs-ln-row:hover span:first-child{color:var(--orange-bright)}
 .cs-ln-row .cs-ln-date{flex-shrink:0}
 </style>
+<style>
+/* Scores toolbar: compact two logical groups and responsive wrap. */
+.scores-header { display:flex; justify-content:space-between; align-items:center; column-gap:22px; row-gap:12px; flex-wrap:wrap; }
+.scores-header-left { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+.scores-header-left .scores-title { margin-right:3px; }
+.scores-controls { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin-left:auto; }
+.scores-date-nav { gap:6px; }
+.date-strip { gap:6px; }
+.league-nav-btn, .see-all-games-btn { min-height:36px; }
+.scores-refresh-btn { width:36px; height:36px; flex:none; }
+/* Favorites is rendered after the match list, without a second oversized gap. */
+#scores .fs-favbar { margin:18px 0 0; }
+@media(max-width:1050px){
+  .scores-controls { margin-left:0; justify-content:flex-start; }
+  .scores-header { justify-content:flex-start; }
+}
+@media(max-width:620px){
+  .scores-header { gap:12px; }
+  .scores-header-left { gap:8px; }
+  .scores-controls { width:100%; gap:8px; }
+  .scores-date-nav { gap:4px; }
+  .date-strip { gap:4px; }
+  .date-btn { padding:8px 10px; }
+  .date-arrow { width:28px; height:28px; }
+}
+</style>
 </head>
 <body>
 <div id="homeView">
@@ -1757,37 +1783,15 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
           See All Games
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 18l6-6-6-6"/></svg>
         </a>
-      </div>
-      <div class="league-nav-wrap">
-        <button class="league-nav-btn" id="leagueNavBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Select league">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="14" y2="17"/></svg>
-          <span>Select League</span>
-        </button>
-        <div class="league-nav-menu" id="leagueNavMenu" role="menu" aria-label="Competitions"></div>
+        <div class="league-nav-wrap">
+          <button class="league-nav-btn" id="leagueNavBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Select league">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="14" y2="17"/></svg>
+            <span>Select League</span>
+          </button>
+          <div class="league-nav-menu" id="leagueNavMenu" role="menu" aria-label="Competitions"></div>
+        </div>
       </div>
       <div class="scores-controls">
-        <div class="scores-league-wrap">
-          <button class="scores-league-btn" id="scoresLeagueBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Select competition">
-            <span id="scoresLeagueIcon" style="display:flex;"></span>
-            <span class="sl-label" id="scoresLeagueLabel">All Competitions</span>
-            <svg class="sl-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div class="scores-league-menu" id="scoresLeagueMenu" role="menu" aria-label="Competitions"></div>
-          <select class="scores-league-select" id="scoresLeagueSelect" style="display:none;" aria-hidden="true" tabindex="-1">
-          <option value="all">All Competitions</option>
-          <option value="39">Premier League</option>
-          <option value="140">La Liga</option>
-          <option value="135">Serie A</option>
-          <option value="78">Bundesliga</option>
-          <option value="61">Ligue 1</option>
-          <option value="2">Champions League</option>
-          <option value="3">Europa League</option>
-          <option value="71">Brasileirão Série A</option>
-          <option value="94">Primeira Liga</option>
-          <option value="5">UEFA Nations League</option>
-          <option value="29">Africa Cup of Nations - Qualification</option>
-        </select>
-        </div>
         <div class="scores-date-nav" id="scoresDateNav">
           <button class="date-arrow" id="datePrev" aria-label="Previous date">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
@@ -1801,11 +1805,26 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
           </button>
         </div>
-        <button class="scores-refresh-btn" id="scoresRefreshBtn" title="Refresh">
+        <button class="scores-refresh-btn" id="scoresRefreshBtn" type="button" title="Refresh" aria-label="Refresh scores">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
         </button>
       </div>
     </div>
+    <!-- Hidden filter retained so existing match-fetching logic defaults to all leagues. -->
+    <select class="scores-league-select" id="scoresLeagueSelect" style="display:none;" aria-hidden="true" tabindex="-1">
+          <option value="all">All Competitions</option>
+          <option value="39">Premier League</option>
+          <option value="140">La Liga</option>
+          <option value="135">Serie A</option>
+          <option value="78">Bundesliga</option>
+          <option value="61">Ligue 1</option>
+          <option value="2">Champions League</option>
+          <option value="3">Europa League</option>
+          <option value="71">Brasileirão Série A</option>
+          <option value="94">Primeira Liga</option>
+          <option value="5">UEFA Nations League</option>
+          <option value="29">Africa Cup of Nations - Qualification</option>
+        </select>
     <div class="scores-body" id="scoresBody">
       <div class="scores-state" id="scoresLoading">Loading matches…</div>
     </div>
@@ -2570,108 +2589,7 @@ window.FSLeagueLogos = (function(){
 
 </div>
 
-<script>
-(function(){
-  // Custom "All Competitions" picker. The hidden <select id="scoresLeagueSelect"> stays as the single source of
-  // truth, so the existing scores code (which listens for its "change" event) works exactly as before.
-  var COMPS = [
-    { value: 'all', name: 'All Competitions', sub: 'Every league', all: true },
-    { value: '39',  name: 'Premier League', sub: 'England', abbr: 'PL' },
-    { value: '140', name: 'La Liga', sub: 'Spain', abbr: 'LL' },
-    { value: '135', name: 'Serie A', sub: 'Italy', abbr: 'SA' },
-    { value: '78',  name: 'Bundesliga', sub: 'Germany', abbr: 'BL' },
-    { value: '61',  name: 'Ligue 1', sub: 'France', abbr: 'L1' },
-    { value: '2',   name: 'Champions League', sub: 'Europe', abbr: 'UCL' },
-    { value: '3',   name: 'Europa League', sub: 'Europe', abbr: 'UEL' },
-    { value: '71',  name: 'Brasileirão Série A', sub: 'Brazil', abbr: 'BSA' },
-    { value: '94',  name: 'Primeira Liga', sub: 'Portugal', abbr: 'PPL' },
-    { value: '5',   name: 'UEFA Nations League', sub: 'Europe', abbr: 'UNL' },
-    { value: '29',  name: 'Africa Cup of Nations - Qualification', sub: 'Africa', abbr: 'AFC' }
-  ];
-  var btn = document.getElementById('scoresLeagueBtn');
-  var menu = document.getElementById('scoresLeagueMenu');
-  var select = document.getElementById('scoresLeagueSelect');
-  var iconEl = document.getElementById('scoresLeagueIcon');
-  var labelEl = document.getElementById('scoresLeagueLabel');
-  if (!btn || !menu || !select) return;
 
-  function esc(s){
-    return String(s).replace(/[&<>"']/g, function(c){
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-    });
-  }
-  var ALL_ICON = '<div class="sl-badge"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></div>';
-  function iconFor(c){
-    if (c.all) return ALL_ICON;
-    var logo = window.FSLeagueLogos && window.FSLeagueLogos.get(c.value);
-    return logo
-      ? '<img src="' + esc(logo) + '" alt="" data-abbr="' + esc(c.abbr) + '" />'
-      : '<div class="sl-badge">' + esc(c.abbr) + '</div>';
-  }
-  function current(){
-    for (var i = 0; i < COMPS.length; i++) if (COMPS[i].value === select.value) return COMPS[i];
-    return COMPS[0];
-  }
-  function renderButton(){
-    var c = current();
-    iconEl.innerHTML = iconFor(c);
-    labelEl.textContent = c.name;
-  }
-  function renderMenu(){
-    var active = current().value;
-    menu.innerHTML = COMPS.filter(function(c){ return !c.all; }).map(function(c){
-      return '<div class="scores-league-item' + (c.value === active ? ' is-active' : '') + '" role="menuitem" data-value="' + c.value + '" title="' + esc(c.name) + '">' +
-        iconFor(c) +
-        '<div class="sl-text"><span class="sl-name">' + esc(c.name) + '</span><span class="sl-country">' + esc(c.sub) + '</span></div>' +
-      '</div>';
-    }).join('');
-  }
-  function openMenu(){
-    if (window.FSLeagueLogos) window.FSLeagueLogos.start();
-    renderMenu();
-    menu.classList.add('is-open'); btn.classList.add('is-open'); btn.setAttribute('aria-expanded', 'true');
-  }
-  function closeMenu(){
-    menu.classList.remove('is-open'); btn.classList.remove('is-open'); btn.setAttribute('aria-expanded', 'false');
-  }
-  btn.addEventListener('click', function(e){
-    e.stopPropagation();
-    if (menu.classList.contains('is-open')) closeMenu(); else openMenu();
-  });
-  menu.addEventListener('click', function(e){
-    var item = e.target.closest('.scores-league-item');
-    if (!item) return;
-    var v = item.getAttribute('data-value');
-    closeMenu();
-    if (v === select.value) v = 'all'; // tapping the selected competition again clears the filter
-    if (v === select.value) return;
-    select.value = v;
-    select.dispatchEvent(new Event('change'));
-    renderButton();
-  });
-  document.addEventListener('click', function(e){
-    if (!menu.classList.contains('is-open')) return;
-    if (menu.contains(e.target) || btn.contains(e.target)) return;
-    closeMenu();
-  });
-  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeMenu(); });
-  // A logo file that fails to load falls back to the letter badge instead of a broken image.
-  function badgeOnError(e){
-    var img = e.target;
-    if (!img || img.tagName !== 'IMG') return;
-    var b = document.createElement('div');
-    b.className = 'sl-badge';
-    b.textContent = img.getAttribute('data-abbr') || '';
-    img.replaceWith(b);
-  }
-  menu.addEventListener('error', badgeOnError, true);
-  iconEl.addEventListener('error', badgeOnError, true);
-  if (window.FSLeagueLogos){
-    window.FSLeagueLogos.onUpdate(function(){ renderButton(); if (menu.classList.contains('is-open')) renderMenu(); });
-  }
-  renderButton();
-})();
-</script>
 <script>
 (function(){
   const LIVE_POLL_MS = 1800000; // 30 minutes -> 48 refreshes/day max, to stay on the free API plan

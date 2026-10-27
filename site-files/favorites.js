@@ -211,7 +211,7 @@
 
   /* ---------- pinned shelf ---------- */
   var bar = null;
-  var BAR_ANCHORS = ['[data-fav-bar-anchor]', '#scores .scores-header'];
+  var BAR_ANCHORS = ['[data-fav-bar-anchor]', '#scores .scores-body', '#scores .scores-header'];
 
   function findAnchor() {
     for (var i = 0; i < BAR_ANCHORS.length; i++) { var a = document.querySelector(BAR_ANCHORS[i]); if (a) return a; }
@@ -314,7 +314,11 @@
       if (!anchor) return;
       bar = document.createElement('section');
       bar.className = 'fs-favbar'; bar.setAttribute('aria-label', 'Your pinned favorites');
-      anchor.parentNode.insertBefore(bar, anchor);
+      if (anchor.matches('#scores .scores-body')) {
+        anchor.insertAdjacentElement('afterend', bar);
+      } else {
+        anchor.parentNode.insertBefore(bar, anchor);
+      }
     }
     bar.hidden = !favs.length;
     bar.textContent = '';
