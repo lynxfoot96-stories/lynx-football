@@ -75,10 +75,20 @@
   function safeImg(u) { return /^https:\/\//i.test(u || '') ? u : ''; }
   function svg(k) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + '</svg>'; }
 
+  function hexOk(c) { return /^#[0-9a-f]{6}$/i.test(c || ''); }
+  function shade(hex, f) { var n = parseInt(hex.slice(1), 16); return 'rgb(' + Math.round((n >> 16) * f) + ',' + Math.round(((n >> 8) & 255) * f) + ',' + Math.round((n & 255) * f) + ')'; }
+  function isLight(hex) { var n = parseInt(hex.slice(1), 16); return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) > 175; }
+
   function fillAvatar(el, user) {
     el.textContent = '';
-    var p = pal(String(user.email || user.name || '?'));
-    el.style.background = 'linear-gradient(135deg,' + p[0] + ',' + p[1] + ')';
+    if (hexOk(user.color)) {
+      el.style.background = 'linear-gradient(135deg,' + user.color + ',' + shade(user.color, 0.62) + ')';
+      el.style.color = isLight(user.color) ? '#111' : '#fff';
+    } else {
+      var p = pal(String(user.email || user.name || '?'));
+      el.style.background = 'linear-gradient(135deg,' + p[0] + ',' + p[1] + ')';
+      el.style.color = '#fff';
+    }
     var src = safeImg(user.avatar);
     if (src) {
       var img = document.createElement('img');
@@ -172,7 +182,7 @@
       .then(function (r) { return r.json(); })
       .then(function (j) {
         if (j && j.user) {
-          try { localStorage.setItem(HINT, JSON.stringify({ name: j.user.name, email: j.user.email, avatar: j.user.avatar || '' })); } catch (e) {}
+          try { localStorage.setItem(HINT, JSON.stringify({ name: j.user.name, email: j.user.email, avatar: j.user.avatar || '', color: j.user.color || '' })); } catch (e) {}
           render(j.user);
         } else {
           try { localStorage.removeItem(HINT); } catch (e) {}

@@ -48,6 +48,17 @@ html[data-theme=light]{--black:#F7F6FB;--panel:#fff;--panel-2:#F0EEF6;--line:rgb
 .fv-empty{padding:34px 20px;text-align:center;border:1px dashed var(--line);border-radius:14px;color:var(--muted);font-size:14px;line-height:1.7}
 .fv-empty a{color:var(--purple-bright);font-weight:800}
 .fv-more{display:inline-block;margin-top:22px;color:var(--purple-bright);font-weight:800;font-size:14px}
+.avatar-edit{display:flex;gap:24px;align-items:flex-start;padding-bottom:28px;margin-bottom:28px;border-bottom:1px solid var(--line)}
+.acct-av.big{width:88px;height:88px;font-size:32px;flex:none}
+.avatar-edit b{display:block;font-size:15px;margin-bottom:4px}.avatar-edit .hint{font-size:13px;color:var(--muted);line-height:1.5}
+.swatches{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0 14px;align-items:center}
+.sw-c{width:34px;height:34px;border-radius:50%;border:2px solid var(--panel);cursor:pointer;padding:0;box-shadow:0 0 0 1px var(--line);transition:transform .15s}
+.sw-c:hover{transform:scale(1.12)}.sw-c.on{box-shadow:0 0 0 2px var(--purple-bright),0 0 0 5px rgba(138,63,252,.25)}
+.cust{position:relative;width:34px;height:34px;border-radius:50%;background:conic-gradient(#f43f5e,#f59e0b,#84cc16,#06b6d4,#6366f1,#d946ef,#f43f5e);box-shadow:0 0 0 1px var(--line);cursor:pointer;overflow:hidden;flex:none}
+.cust input{position:absolute;inset:-8px;width:60px;height:60px;opacity:0;cursor:pointer}
+.cust-lbl{font-size:13px;font-weight:700;color:var(--muted)}
+.linkbtn{background:none;border:0;color:var(--purple-bright);font-weight:800;font-size:13px;cursor:pointer;padding:6px 4px}
+@media(max-width:560px){.avatar-edit{flex-direction:column}}
 @media(max-width:860px){.acct-grid{grid-template-columns:1fr}.acct-side{position:static}.acct{padding:30px 16px 70px}.acct-main{padding:24px 20px}.pref{flex-direction:row}}
 </style>
 <style id="fs-auth-theme-header-match">
@@ -111,6 +122,16 @@ html[data-theme="light"] .fs-hd #themeToggle .ti-moon { display: none !important
       <div class="sect" id="s-details">
         <h2>Account details</h2>
         <p class="sub">Update how your name appears and keep your account secure.</p>
+        <div class="avatar-edit">
+          <span class="acct-av big" id="bigAv"></span>
+          <div>
+            <b>Profile color</b>
+            <span class="hint">Pick a color for your avatar, or create your own.</span>
+            <div class="swatches" id="swatches"></div>
+            <div class="swatches" style="margin:0"><label class="cust" title="Custom color"><input type="color" id="custColor" value="#8a3fff" aria-label="Custom color"></label><span class="cust-lbl">Custom</span><button type="button" class="linkbtn" id="resetColor">Reset</button></div>
+            <p class="notice" id="colorNote" role="status" aria-live="polite" hidden></p>
+          </div>
+        </div>
         <form class="acct-form" id="profileForm">
           <div class="field"><label for="pName">Display name</label><input id="pName" required maxlength="60" autocomplete="nickname"></div>
           <div class="field"><label for="pEmail">Email address</label><input id="pEmail" readonly></div>
@@ -159,11 +180,16 @@ var MSG={name_required:'Please enter a display name.',weak_password:'The new pas
 function note(id,t,c){var m=$(id);m.hidden=false;m.className='notice '+(c||'');m.textContent=t}
 function pal(n){var h=0;for(var i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))>>>0;return PAL[h%PAL.length]}
 function ini(n){var w=String(n||'?').trim().split(/\s+/);return ((w[0]||'?').charAt(0)+(w[1]?w[1].charAt(0):'')).toUpperCase()}
-function avatar(el,u){el.textContent='';var p=pal(String(u.email||u.name||'?'));el.style.background='linear-gradient(135deg,'+p[0]+','+p[1]+')';
+function hexOk(c){return /^#[0-9a-f]{6}$/i.test(c||'')}
+function shade(h,f){var n=parseInt(h.slice(1),16);return 'rgb('+Math.round((n>>16)*f)+','+Math.round(((n>>8)&255)*f)+','+Math.round((n&255)*f)+')'}
+function isLight(h){var n=parseInt(h.slice(1),16);return (0.299*(n>>16)+0.587*((n>>8)&255)+0.114*(n&255))>175}
+function avatar(el,u){el.textContent='';
+ if(hexOk(u.color)){el.style.background='linear-gradient(135deg,'+u.color+','+shade(u.color,.62)+')';el.style.color=isLight(u.color)?'#111':'#fff'}
+ else{var p=pal(String(u.email||u.name||'?'));el.style.background='linear-gradient(135deg,'+p[0]+','+p[1]+')';el.style.color='#fff'}
  if(/^https:\/\//i.test(u.avatar||'')){var i=document.createElement('img');i.alt='';i.referrerPolicy='no-referrer';i.src=u.avatar;i.onerror=function(){i.remove();el.textContent=ini(u.name)};el.appendChild(i)}else el.textContent=ini(u.name)}
-function paintUser(){avatar($('sideAv'),ME);$('sideName').textContent=ME.name;$('sideEmail').textContent=ME.email;$('pName').value=ME.name;$('pEmail').value=ME.email;
+function paintUser(){avatar($('sideAv'),ME);avatar($('bigAv'),ME);markSwatch();$('sideName').textContent=ME.name;$('sideEmail').textContent=ME.email;$('pName').value=ME.name;$('pEmail').value=ME.email;
  $('mkSw').setAttribute('aria-checked',ME.marketing?'true':'false');
- try{localStorage.setItem(HINT,JSON.stringify({name:ME.name,email:ME.email,avatar:ME.avatar||''}))}catch(e){}}
+ try{localStorage.setItem(HINT,JSON.stringify({name:ME.name,email:ME.email,avatar:ME.avatar||'',color:ME.color||''}))}catch(e){}}
 
 /* ---- sections (same page, no reload) ---- */
 var SECS=['details','favorites','preferences'];
@@ -177,6 +203,15 @@ window.addEventListener('hashchange',function(){show(location.hash.slice(1))});
 /* ---- logout ---- */
 $('logout').addEventListener('click',function(){try{localStorage.removeItem(HINT)}catch(e){}
  var go=function(){location.href='index.html'};fetch('/api/scores?action=logout',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'}).then(go,go)});
+
+/* ---- profile color ---- */
+var COLORS=['#8a3fff','#ff7a1a','#2563eb','#0e9f8e','#db2777','#e11d48','#16a34a','#f5b301','#06b6d4','#64748b','#111827','#f4f3f6'];
+function markSwatch(){document.querySelectorAll('.sw-c').forEach(function(b){b.classList.toggle('on',(ME.color||'')===b.getAttribute('data-c'))})}
+COLORS.forEach(function(col){var b=document.createElement('button');b.type='button';b.className='sw-c';b.setAttribute('data-c',col);b.setAttribute('aria-label','Use color '+col);b.style.background='linear-gradient(135deg,'+col+','+shade(col,.62)+')';b.addEventListener('click',function(){saveColor(col)});$('swatches').appendChild(b)});
+function saveColor(col){ME.color=col;paintUser();fsPost('setavatar',{color:col}).then(function(j){if(j.ok)note('colorNote',col?'Color saved.':'Back to the automatic color.','ok');else note('colorNote',MSG[j.error]||'Could not save your color. Please try again.','err')})}
+$('custColor').addEventListener('input',function(){ME.color=this.value;avatar($('sideAv'),ME);avatar($('bigAv'),ME)});
+$('custColor').addEventListener('change',function(){saveColor(this.value)});
+$('resetColor').addEventListener('click',function(){saveColor('')});
 
 /* ---- profile ---- */
 $('profileForm').addEventListener('submit',function(e){e.preventDefault();var b=$('profileGo');b.disabled=true;
