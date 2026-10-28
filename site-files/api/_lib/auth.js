@@ -88,22 +88,27 @@ function sameOrigin(req) {
   try { return new URL(o).host === String(req.headers.host || ''); } catch (e) { return false; }
 }
 
-/* ---------- Brevo: add the new member to your mailing list ---------- */
-async function addToBrevo(email, name) {
+/* ---------- Brevo: save every new member as a contact ----------
+   Everyone who creates an account is stored in Brevo (so you always have their email).
+   Only people who ticked the marketing box are put on the mailing list, so only they
+   receive newsletters and promotions. The others are stored as plain contacts with
+   SIGNUP_SOURCE = "account-no-marketing" (you can filter on that in Brevo). */
+async function addToBrevo(email, name, marketing) {
   var key = process.env.BREVO_API_KEY;
   var listId = Number(process.env.BREVO_MEMBERS_LIST_ID) || Number(process.env.BREVO_LIST_ID);
-  if (!key || !listId) { console.error('Brevo not configured, member not added to list'); return false; }
+  if (!key) { console.error('Brevo not configured, member not saved'); return false; }
+  var payload = {
+    email: email,
+    updateEnabled: true,
+    // FIRSTNAME exists in every Brevo account; SIGNUP_SOURCE is the one your newsletter already uses.
+    attributes: { FIRSTNAME: name, SIGNUP_SOURCE: marketing ? 'account' : 'account-no-marketing' }
+  };
+  if (marketing && listId) payload.listIds = [listId];
   try {
     var r = await fetch('https://api.brevo.com/v3/contacts', {
       method: 'POST',
       headers: { 'api-key': key, 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({
-        email: email,
-        listIds: [listId],
-        updateEnabled: true,
-        // FIRSTNAME exists in every Brevo account; SIGNUP_SOURCE is the one your newsletter already uses.
-        attributes: { FIRSTNAME: name, SIGNUP_SOURCE: 'account' }
-      }),
+      body: JSON.stringify(payload),
       signal: AbortSignal.timeout(8000)
     });
     if (r.status === 201 || r.status === 204) return true;
@@ -170,8 +175,8 @@ async function handleAuth(req, res, action) {
         return res.status(502).json({ error: 'provider_error' });
       }
 
-      // Only people who ticked the (unticked-by-default) marketing box go into Brevo.
-      if (b.marketing === true) await addToBrevo(email, name);
+      // Everyone is saved in Brevo; only people who ticked the (unticked-by-default) box join the mailing list.
+      await addToBrevo(email, name, b.marketing === true);
 
       if (r.data.access_token) { // email confirmation is switched off in Supabase: log in right away
         setSession(req, res, r.data);
