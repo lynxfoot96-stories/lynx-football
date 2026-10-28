@@ -36,47 +36,152 @@
 })();
 
 /* ==========================================================
-   Logged-in state: the "Login" button becomes the member's name,
-   with a small "Log out" menu. Does nothing if nobody is logged in.
+   Logged-in state: a round avatar replaces the "Login" button and opens
+   an account menu (My account, Favorites, Preferences, Log out).
+   Shows the member's photo if they have one, otherwise colored initials.
+   Does nothing if nobody is logged in.
    ========================================================== */
 (function () {
+  var HINT = 'fs96_user_hint';
+  var PAL = [['#8A3FFC', '#5B21B6'], ['#FF7A1A', '#C2410C'], ['#2563EB', '#1E3A8A'], ['#0E9F8E', '#065F46'], ['#DB2777', '#9D174D'], ['#7C3AED', '#E8590C']];
+  var ICON = {
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>',
+    heart: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
+    sliders: '<path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2.2"/><circle cx="9" cy="12" r="2.2"/><circle cx="17" cy="18" r="2.2"/>',
+    out: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>'
+  };
+  var CSS = '.fsu-wrap{position:relative;display:inline-flex;flex:none}' +
+    '.fsu-btn{width:42px;height:42px;border-radius:50%;padding:2px;border:0;cursor:pointer;background:linear-gradient(135deg,#8A3FFC,#FF7A1A);display:inline-flex;flex:none;transition:transform .2s ease,box-shadow .2s ease}' +
+    '.fsu-btn:hover,.fsu-btn[aria-expanded="true"]{transform:scale(1.07);box-shadow:0 0 0 4px rgba(138,63,252,.25),0 6px 18px rgba(255,122,26,.25)}' +
+    '.fsu-btn:focus-visible{outline:2px solid #A868FF;outline-offset:3px}' +
+    '.fsu-av{width:100%;height:100%;border-radius:50%;display:grid;place-items:center;overflow:hidden;color:#fff;font:800 14px/1 Inter,Arial,sans-serif;letter-spacing:.03em;border:2px solid var(--black,#08070A);box-sizing:border-box}' +
+    '.fsu-av img{width:100%;height:100%;object-fit:cover;display:block}' +
+    '.fsu-menu{position:fixed;width:300px;max-width:calc(100vw - 24px);background:var(--panel,#121116);color:var(--white,#F4F3F6);border:1px solid var(--line,rgba(255,255,255,.12));border-radius:18px;box-shadow:0 22px 60px rgba(0,0,0,.45);z-index:100000;overflow:hidden;opacity:0;transform:translateY(-6px) scale(.98);transform-origin:top right;pointer-events:none;transition:opacity .16s ease,transform .16s ease;font-family:Inter,Arial,sans-serif}' +
+    '.fsu-menu.open{opacity:1;transform:none;pointer-events:auto}' +
+    '.fsu-top{padding:18px;display:flex;gap:14px;align-items:center;background:linear-gradient(135deg,rgba(138,63,252,.24),rgba(255,122,26,.12));border-bottom:1px solid var(--line,rgba(255,255,255,.12))}' +
+    '.fsu-top .fsu-av{width:50px;height:50px;font-size:17px;flex:none;border:2px solid rgba(255,255,255,.25)}' +
+    '.fsu-nm{font-weight:800;font-size:15px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+    '.fsu-em{font-size:12px;color:var(--muted,#9A96A3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}' +
+    '.fsu-txt{min-width:0}' +
+    '.fsu-list{padding:8px}' +
+    '.fsu-item{display:flex;align-items:center;gap:12px;width:100%;padding:11px 12px;border-radius:11px;color:inherit;font:600 14px Inter,Arial,sans-serif;text-decoration:none;background:none;border:0;cursor:pointer;text-align:left;box-sizing:border-box}' +
+    '.fsu-item:hover,.fsu-item:focus-visible{background:var(--panel-2,#17151C);outline:none}' +
+    '.fsu-item svg{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;opacity:.85}' +
+    '.fsu-sep{height:1px;background:var(--line,rgba(255,255,255,.12));margin:6px 8px}' +
+    '.fsu-out{color:#ff6b6b}.fsu-out:hover,.fsu-out:focus-visible{background:rgba(255,80,80,.12)}';
+
+  function pal(n) { var h = 0; for (var i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0; return PAL[h % PAL.length]; }
+  function ini(n) { var w = String(n || '?').trim().split(/\s+/); return ((w[0] || '?').charAt(0) + (w[1] ? w[1].charAt(0) : '')).toUpperCase(); }
+  function safeImg(u) { return /^https:\/\//i.test(u || '') ? u : ''; }
+  function svg(k) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + '</svg>'; }
+
+  function fillAvatar(el, user) {
+    el.textContent = '';
+    var p = pal(String(user.email || user.name || '?'));
+    el.style.background = 'linear-gradient(135deg,' + p[0] + ',' + p[1] + ')';
+    var src = safeImg(user.avatar);
+    if (src) {
+      var img = document.createElement('img');
+      img.alt = ''; img.referrerPolicy = 'no-referrer'; img.src = src;
+      img.onerror = function () { img.remove(); el.textContent = ini(user.name); };
+      el.appendChild(img);
+    } else el.textContent = ini(user.name);
+  }
+
+  var state = { wrap: null, menu: null, login: null };
+
+  function close() {
+    if (!state.menu) return;
+    state.menu.classList.remove('open');
+    var b = state.wrap && state.wrap.firstChild; if (b) b.setAttribute('aria-expanded', 'false');
+  }
+  function place() {
+    var b = state.wrap.firstChild.getBoundingClientRect();
+    state.menu.style.top = (b.bottom + 10) + 'px';
+    state.menu.style.right = Math.max(12, window.innerWidth - b.right) + 'px';
+  }
+
+  function build(user) {
+    if (!document.getElementById('fsu-css')) {
+      var st = document.createElement('style'); st.id = 'fsu-css'; st.textContent = CSS; document.head.appendChild(st);
+    }
+    var wrap = document.createElement('span'); wrap.className = 'fsu-wrap';
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'fsu-btn'; btn.setAttribute('aria-haspopup', 'menu'); btn.setAttribute('aria-expanded', 'false');
+    var av = document.createElement('span'); av.className = 'fsu-av'; btn.appendChild(av);
+    wrap.appendChild(btn);
+
+    var menu = document.createElement('div'); menu.className = 'fsu-menu'; menu.setAttribute('role', 'menu');
+    menu.innerHTML =
+      '<div class="fsu-top"><span class="fsu-av" data-big></span><div class="fsu-txt"><div class="fsu-nm"></div><div class="fsu-em"></div></div></div>' +
+      '<div class="fsu-list">' +
+      '<a class="fsu-item" role="menuitem" href="account.html#details">' + svg('user') + 'My account</a>' +
+      '<a class="fsu-item" role="menuitem" href="account.html#favorites">' + svg('heart') + 'Favorites</a>' +
+      '<a class="fsu-item" role="menuitem" href="account.html#preferences">' + svg('sliders') + 'Preferences</a>' +
+      '<div class="fsu-sep"></div>' +
+      '<button type="button" class="fsu-item fsu-out" role="menuitem">' + svg('out') + 'Log out</button>' +
+      '</div>';
+    document.body.appendChild(menu);
+
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = menu.classList.contains('open');
+      if (open) return close();
+      place(); menu.classList.add('open'); btn.setAttribute('aria-expanded', 'true');
+    });
+    document.addEventListener('click', function (e) { if (!menu.contains(e.target) && !wrap.contains(e.target)) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+    window.addEventListener('resize', function () { if (menu.classList.contains('open')) place(); });
+    menu.querySelector('.fsu-out').addEventListener('click', function () {
+      try { localStorage.removeItem(HINT); } catch (e) {}
+      var done = function () { location.reload(); };
+      fetch('/api/scores?action=logout', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(done, done);
+    });
+
+    state.wrap = wrap; state.menu = menu;
+    return { av: av };
+  }
+
+  function render(user) {
+    var login = document.querySelector('.fs-hd__login');
+    if (!login) return;
+    state.login = login;
+    var parts;
+    if (!state.wrap) {
+      parts = build(user);
+      login.parentNode.insertBefore(state.wrap, login);
+      login.style.setProperty('display', 'none', 'important');
+    } else parts = { av: state.wrap.querySelector('.fsu-av') };
+    fillAvatar(parts.av, user);
+    parts.av.parentNode.setAttribute('aria-label', 'Account menu for ' + user.name);
+    fillAvatar(state.menu.querySelector('[data-big]'), user);
+    state.menu.querySelector('.fsu-nm').textContent = user.name || 'My account';
+    state.menu.querySelector('.fsu-em').textContent = user.email || '';
+  }
+
+  function unrender() {
+    if (state.wrap) { state.wrap.remove(); state.menu.remove(); state.wrap = state.menu = null; }
+    if (state.login) state.login.style.removeProperty('display');
+  }
+
   function init() {
-    var a = document.querySelector('.fs-hd__login');
-    if (!a || a.dataset.fsAuth) return;
-    a.dataset.fsAuth = '1';
+    var hint = null;
+    try { hint = JSON.parse(localStorage.getItem(HINT) || 'null'); } catch (e) {}
+    if (hint && hint.email) render(hint); // instant, no flicker; confirmed below
     fetch('/api/scores?action=me', { credentials: 'same-origin', cache: 'no-store' })
       .then(function (r) { return r.json(); })
       .then(function (j) {
-        if (!j || !j.user) return;
-        var first = String(j.user.name || 'Account').split(' ')[0].slice(0, 14);
-        var lbl = a.querySelector('span');
-        if (lbl) lbl.textContent = first;
-        a.removeAttribute('href');
-        a.setAttribute('role', 'button');
-        a.setAttribute('aria-label', 'Account menu for ' + first);
-        a.style.cursor = 'pointer';
-        a.style.width = 'auto';
-        var menu = document.createElement('div');
-        menu.style.cssText = 'position:absolute;top:calc(100% + 8px);right:0;min-width:170px;padding:8px;border-radius:12px;background:var(--panel,#121116);border:1px solid var(--line,rgba(255,255,255,.12));box-shadow:0 14px 34px rgba(0,0,0,.35);display:none;z-index:9999;text-align:left';
-        menu.innerHTML = '<div style="padding:8px 10px;font-size:12px;opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div><button type="button" style="width:100%;text-align:left;background:none;border:0;color:inherit;font:inherit;font-weight:700;padding:10px;border-radius:8px;cursor:pointer">Log out</button>';
-        menu.firstChild.textContent = j.user.email || '';
-        a.style.position = 'relative';
-        a.appendChild(menu);
-        a.addEventListener('click', function (e) {
-          if (menu.contains(e.target)) return;
-          e.preventDefault();
-          menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-        });
-        document.addEventListener('click', function (e) { if (!a.contains(e.target)) menu.style.display = 'none'; });
-        menu.querySelector('button').addEventListener('click', function (e) {
-          e.stopPropagation();
-          fetch('/api/scores?action=logout', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' })
-            .then(function () { location.reload(); })
-            .catch(function () { location.reload(); });
-        });
+        if (j && j.user) {
+          try { localStorage.setItem(HINT, JSON.stringify({ name: j.user.name, email: j.user.email, avatar: j.user.avatar || '' })); } catch (e) {}
+          render(j.user);
+        } else {
+          try { localStorage.removeItem(HINT); } catch (e) {}
+          unrender();
+        }
       })
       .catch(function () {});
   }
+
   var tries = 0;
   (function wait() {
     if (document.querySelector('.fs-hd__login')) return init();
