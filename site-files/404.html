@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Page not found — Football Stories</title>
+<meta name="robots" content="noindex" />
+<meta name="theme-color" content="#08070A" />
+<script>
+(function(){
+  var KEY='fs96-theme';
+  var RX=/(?:^|;)\s*fs96-theme=(light|dark)/;
+  /* Lit le thème : window.name d'abord (survit d'une page à l'autre dans
+     le même onglet, même en ouvrant les fichiers en local file://),
+     puis localStorage. */
+  function read(){
+    var m=RX.exec(window.name||'');
+    if(m) return m[1];
+    try{ var v=localStorage.getItem(KEY); if(v==='light'||v==='dark') return v; }catch(e){}
+    return null;
+  }
+  function save(v){
+    try{ localStorage.setItem(KEY,v); }catch(e){}
+    window.name=(window.name||'').replace(/(?:^|;)\s*fs96-theme=(?:light|dark)/,'')+';fs96-theme='+v;
+  }
+  function apply(v){
+    var root=document.documentElement;
+    if(v==='light'){ root.setAttribute('data-theme','light'); }
+    else { root.removeAttribute('data-theme'); }
+  }
+  var saved=read();
+  if(saved){ apply(saved); save(saved); }
+  document.addEventListener('DOMContentLoaded', function(){
+    var btn=document.getElementById('themeToggle');
+    if(!btn) return;
+    btn.addEventListener('click', function(){
+      var goingLight=document.documentElement.getAttribute('data-theme')!=='light';
+      var v=goingLight?'light':'dark';
+      apply(v); save(v);
+    });
+  });
+})();
+</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800;900&family=Inter:wght@400;500;600;700&display=swap');
+  :root{ --black:#08070A; --panel:#121116; --panel-2:#17151C; --line:rgba(255,255,255,0.08); --white:#F4F3F6; --muted:#9A96A3; --purple:#8A3FFC; --purple-bright:#A868FF; --orange:#FF7A1A; }
+  html[data-theme="light"]{ --black:#F7F6FB; --panel:#FFFFFF; --panel-2:#F1EFF7; --line:rgba(17,17,22,0.1); --white:#111116; --muted:#5E5A68; --purple:#7B2CFF; --purple-bright:#7B2CFF; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ background:var(--black); color:var(--white); font-family:'Inter',sans-serif; min-height:100vh; }
+  a{ color:inherit; text-decoration:none; }
+  .nf{ min-height:calc(100vh - 77px); display:flex; align-items:center; justify-content:center; text-align:center; padding:40px 24px; position:relative; overflow:hidden; }
+  .nf::before{ content:''; position:absolute; width:620px; height:620px; border-radius:50%; background:radial-gradient(circle, rgba(138,63,252,.28), transparent 62%); top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:none; }
+  .nf-in{ position:relative; max-width:560px; }
+  .nf-code{ font-family:'Big Shoulders Display',sans-serif; font-weight:900; font-size:clamp(110px,24vw,210px); line-height:.85; letter-spacing:.01em; background:linear-gradient(135deg,var(--purple-bright),var(--orange)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .nf h1{ font-family:'Big Shoulders Display',sans-serif; font-weight:800; font-size:clamp(32px,6vw,48px); line-height:1; margin:14px 0 14px; text-transform:uppercase; }
+  .nf p{ color:var(--muted); font-size:16px; line-height:1.6; margin-bottom:30px; }
+  .nf-btns{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .nf-btn{ display:inline-flex; align-items:center; padding:13px 26px; border-radius:10px; font-weight:600; font-size:15px; border:1px solid var(--line); background:var(--panel); transition:transform .2s ease, border-color .2s ease; }
+  .nf-btn:hover{ transform:translateY(-2px); border-color:var(--purple-bright); }
+  .nf-btn.primary{ background:var(--purple); border-color:var(--purple); color:#fff; }
+</style>
+</head>
+<body>
+<script src="site-header.js"></script>
+<main class="nf">
+  <div class="nf-in">
+    <div class="nf-code">404</div>
+    <h1>Offside! Page not found</h1>
+    <p>The page you are looking for does not exist or has moved. Let&rsquo;s get you back into the game.</p>
+    <div class="nf-btns">
+      <a class="nf-btn primary" href="index.html">Back to home</a>
+      <a class="nf-btn" href="videos.html">Watch videos</a>
+      <a class="nf-btn" href="news.html">Read the news</a>
+    </div>
+  </div>
+</main>
+</body>
+</html>
