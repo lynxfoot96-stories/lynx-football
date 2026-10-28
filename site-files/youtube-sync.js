@@ -70,15 +70,10 @@
     merged = true;
     var known = {};
     window.FS_VIDEOS.forEach(function (v) { var i = idOf(v); if (i) known[i] = true; });
-    /* feed is newest-first: everything before the first video we already have is a new upload.
-       (No overlap at all = something is off, e.g. wrong channel: add nothing.) */
-    var fresh = [];
-    for (var i = 0; i < feed.length; i++) {
-      if (known[feed[i].id]) break;
-      fresh.push(feed[i]);
-    }
-    var overlap = feed.some(function (f) { return known[f.id]; });
-    if (!overlap || !fresh.length) return;
+    // The feed/channel page contains the latest uploads. Merge every unknown ID,
+    // even when all 15 uploads are newer than the hand-maintained video list.
+    var fresh = feed.filter(function (f) { return f && idOf(f.id) && !known[f.id]; });
+    if (!fresh.length) return;
     var add = fresh.map(function (f) { return { id: f.id, c: guessTheme(f.title), t: f.title }; });
     Array.prototype.unshift.apply(window.FS_VIDEOS, add);   // same array object, newest on top
   }
