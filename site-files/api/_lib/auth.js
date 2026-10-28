@@ -76,7 +76,15 @@ function body(req) {
 
 function publicUser(u) {
   var m = (u && u.user_metadata) || {};
-  return { name: String(m.name || '').slice(0, 60) || String((u && u.email) || '').split('@')[0], email: u && u.email };
+  var email = (u && u.email) || '';
+  var av = String(m.avatar_url || m.picture || '');
+  if (!/^https:\/\//i.test(av)) av = '';
+  return {
+    name: String(m.name || m.full_name || '').slice(0, 60) || email.split('@')[0],
+    email: email,
+    avatar: av.slice(0, 500),
+    marketing: m.marketing === true
+  };
 }
 
 function validEmail(e) { return e.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e); }
@@ -117,21 +125,43 @@ async function addToBrevo(email, name, marketing) {
   return false;
 }
 
+/* Take a member off the mailing list (they stay in Brevo as a contact). */
+async function removeFromBrevo(email) {
+  var key = process.env.BREVO_API_KEY;
+  var listId = Number(process.env.BREVO_MEMBERS_LIST_ID) || Number(process.env.BREVO_LIST_ID);
+  if (!key || !listId) return false;
+  try {
+    var r = await fetch('https://api.brevo.com/v3/contacts/lists/' + listId + '/contacts/remove', {
+      method: 'POST',
+      headers: { 'api-key': key, 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ emails: [email] }),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (r.status === 201 || r.status === 204 || r.status === 200) return true;
+    console.error('Brevo remove error', r.status, (await r.text().catch(function () { return ''; })).slice(0, 300));
+  } catch (e) { console.error('Brevo remove failed', e && e.message); }
+  return false;
+}
+
 /* ---------- who is logged in? (refreshes an expired session automatically) ---------- */
-async function currentUser(req, res) {
+async function getSession(req, res) {
   var ck = parseCookies(req);
   if (ck[AT]) {
     var u = await gotrue('/user', { method: 'GET', token: ck[AT] }).catch(function () { return null; });
-    if (u && u.ok && u.data && u.data.id) return u.data;
+    if (u && u.ok && u.data && u.data.id) return { user: u.data, token: ck[AT] };
   }
   if (ck[RT]) {
     var r = await gotrue('/token?grant_type=refresh_token', { body: { refresh_token: ck[RT] } }).catch(function () { return null; });
     if (r && r.ok && r.data.access_token) {
       setSession(req, res, r.data);
-      return r.data.user || null;
+      return { user: r.data.user || null, token: r.data.access_token };
     }
   }
   return null;
+}
+async function currentUser(req, res) {
+  var s = await getSession(req, res);
+  return s && s.user ? s.user : null;
 }
 
 /* ---------- main entry ---------- */
@@ -165,7 +195,7 @@ async function handleAuth(req, res, action) {
       if (!validEmail(email)) return res.status(400).json({ error: 'invalid_email' });
       if (pw.length < 8 || pw.length > 72) return res.status(400).json({ error: 'weak_password' });
 
-      var r = await gotrue('/signup', { body: { email: email, password: pw, data: { name: name } } });
+      var r = await gotrue('/signup', { body: { email: email, password: pw, data: { name: name, marketing: b.marketing === true } } });
       if (!r.ok) {
         var code = String(r.data.error_code || r.data.msg || '');
         if (/already|exists/i.test(code)) return res.status(409).json({ error: 'exists' });
@@ -236,6 +266,47 @@ async function handleAuth(req, res, action) {
         return res.status(502).json({ error: 'provider_error' });
       }
       return res.status(200).json({ ok: true });
+    }
+
+    /* ----- ACCOUNT PAGE ACTIONS (need to be logged in) ----- */
+    if (action === 'updateprofile' || action === 'changepassword' || action === 'setmarketing') {
+      var ss = await getSession(req, res);
+      if (!ss || !ss.user) return res.status(401).json({ error: 'not_logged_in' });
+
+      if (action === 'updateprofile') {
+        var nn = String(b.name || '').replace(/[\r\n<>]/g, ' ').trim().slice(0, 60);
+        if (!nn) return res.status(400).json({ error: 'name_required' });
+        var up = await gotrue('/user', { method: 'PUT', token: ss.token, body: { data: { name: nn } } });
+        if (!up.ok) { console.error('updateprofile failed', up.status, JSON.stringify(up.data).slice(0, 300)); return res.status(502).json({ error: 'provider_error' }); }
+        return res.status(200).json({ ok: true, user: publicUser(up.data) });
+      }
+
+      if (action === 'changepassword') {
+        var cur = String(b.current_password || '');
+        var npw = String(b.password || '');
+        if (!cur) return res.status(400).json({ error: 'current_required' });
+        if (npw.length < 8 || npw.length > 72) return res.status(400).json({ error: 'weak_password' });
+        var chk = await gotrue('/token?grant_type=password', { body: { email: ss.user.email, password: cur } });
+        if (!chk.ok) return res.status(chk.status === 429 ? 429 : 401).json({ error: chk.status === 429 ? 'rate_limited' : 'wrong_password' });
+        var pu = await gotrue('/user', { method: 'PUT', token: ss.token, body: { password: npw } });
+        if (!pu.ok) {
+          var pc = String(pu.data.error_code || pu.data.msg || '');
+          if (/same/i.test(pc)) return res.status(400).json({ error: 'same_password' });
+          if (/weak|password/i.test(pc)) return res.status(400).json({ error: 'weak_password' });
+          console.error('changepassword failed', pu.status, JSON.stringify(pu.data).slice(0, 300));
+          return res.status(502).json({ error: 'provider_error' });
+        }
+        return res.status(200).json({ ok: true });
+      }
+
+      if (action === 'setmarketing') {
+        var want = b.marketing === true;
+        var mu = await gotrue('/user', { method: 'PUT', token: ss.token, body: { data: { marketing: want } } });
+        if (!mu.ok) { console.error('setmarketing failed', mu.status, JSON.stringify(mu.data).slice(0, 300)); return res.status(502).json({ error: 'provider_error' }); }
+        var pub = publicUser(mu.data);
+        var synced = want ? await addToBrevo(pub.email, pub.name, true) : await removeFromBrevo(pub.email);
+        return res.status(200).json({ ok: true, marketing: want, synced: synced });
+      }
     }
 
     return res.status(400).json({ error: 'unknown_action' });
