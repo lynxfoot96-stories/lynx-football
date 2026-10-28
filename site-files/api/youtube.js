@@ -5,7 +5,7 @@
 const CHANNEL_HANDLE = '@football-stories-96';
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 let cachedChannelId = null;
-let lastGood = null;
+let lastGood = null; // Best-effort fallback within a warm serverless instance
 
 function decode(s) {
   return String(s || '').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
@@ -126,7 +126,7 @@ module.exports = async function handler(req, res) {
         const videos = parseFeed(await request(url));
         if (videos.length) {
           lastGood = { ok: true, channelId, videos, source: 'rss' };
-          res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=86400');
+          res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=43200, stale-while-revalidate=86400');
           return res.status(200).json(lastGood);
         }
         errors.push('RSS returned zero videos');
@@ -138,7 +138,7 @@ module.exports = async function handler(req, res) {
     const videos = parseVideoPage(await request('https://www.youtube.com' + path + '?view=0&sort=dd'));
     if (videos.length) {
       lastGood = { ok: true, channelId, videos, source: 'channel-page' };
-      res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=86400');
+      res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=43200, stale-while-revalidate=86400');
       return res.status(200).json(lastGood);
     }
     errors.push('Channel Videos page returned no readable videos');
