@@ -16,7 +16,7 @@
   if (!window.FSV || typeof FSV.load !== 'function' || FSV.__ytSync) return;
   FSV.__ytSync = true;
 
-  var CACHE_KEY = 'fs-yt-feed-v1', FRESH_MS = 10 * 60 * 1000, TIMEOUT_MS = 3000;
+  var CACHE_KEY = 'fs-yt-feed-v1', FRESH_MS = 12 * 60 * 60 * 1000, TIMEOUT_MS = 8000;
 
   function idOf(v) {
     var s = typeof v === 'string' ? v : (v && v.id) || '';
@@ -41,7 +41,7 @@
   function readCache() {
     try {
       var c = JSON.parse(localStorage.getItem(CACHE_KEY));
-      if (c && c.videos) return c;
+      if (c && Array.isArray(c.videos) && c.videos.length) return c;
     } catch (e) {}
     return null;
   }
