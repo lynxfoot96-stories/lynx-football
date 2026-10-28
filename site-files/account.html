@@ -12,8 +12,8 @@ html[data-theme=light]{--black:#F7F6FB;--panel:#fff;--panel-2:#F0EEF6;--line:rgb
 .acct-grid{display:grid;grid-template-columns:330px 1fr;gap:28px;align-items:start}
 .acct-side,.acct-main{background:var(--panel);border:1px solid var(--line);border-radius:20px}
 .acct-side{padding:18px;position:sticky;top:98px}
-.acct-user{display:flex;gap:14px;align-items:center;padding:6px 6px 18px;border-bottom:1px solid var(--line);margin-bottom:14px;min-width:0}
-.acct-av{width:58px;height:58px;border-radius:50%;flex:none;display:grid;place-items:center;overflow:hidden;color:#fff;font:800 20px/1 Inter,Arial,sans-serif;border:3px solid transparent;background-clip:padding-box;box-shadow:0 0 0 2px var(--purple-bright)}
+.acct-user{display:flex;gap:18px;align-items:center;padding:6px 6px 18px;border-bottom:1px solid var(--line);margin-bottom:14px;min-width:0}
+.acct-av{width:58px;height:58px;border-radius:50%;flex:none;display:grid;place-items:center;overflow:hidden;color:#fff;font:800 20px/1 Inter,Arial,sans-serif;border:0;box-shadow:0 0 0 3px var(--panel),0 0 0 5px var(--purple-bright)}
 .acct-av img{width:100%;height:100%;object-fit:cover;display:block}
 .acct-who{min-width:0}.acct-who b{display:block;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.acct-who span{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px}
 .acct-nav button{display:flex;justify-content:space-between;align-items:center;width:100%;padding:15px 16px;border-radius:12px;background:none;border:1px solid transparent;color:var(--white);font-weight:700;font-size:15px;cursor:pointer;margin-bottom:6px;text-align:left}
@@ -184,8 +184,8 @@ function hexOk(c){return /^#[0-9a-f]{6}$/i.test(c||'')}
 function shade(h,f){var n=parseInt(h.slice(1),16);return 'rgb('+Math.round((n>>16)*f)+','+Math.round(((n>>8)&255)*f)+','+Math.round((n&255)*f)+')'}
 function isLight(h){var n=parseInt(h.slice(1),16);return (0.299*(n>>16)+0.587*((n>>8)&255)+0.114*(n&255))>175}
 function avatar(el,u){el.textContent='';
- if(hexOk(u.color)){el.style.background='linear-gradient(135deg,'+u.color+','+shade(u.color,.62)+')';el.style.color=isLight(u.color)?'#111':'#fff'}
- else{var p=pal(String(u.email||u.name||'?'));el.style.background='linear-gradient(135deg,'+p[0]+','+p[1]+')';el.style.color='#fff'}
+ if(hexOk(u.color)){el.style.background=u.color;el.style.color=isLight(u.color)?'#111':'#fff'}
+ else{var p=pal(String(u.email||u.name||'?'));el.style.background=p[0];el.style.color='#fff'}
  if(/^https:\/\//i.test(u.avatar||'')){var i=document.createElement('img');i.alt='';i.referrerPolicy='no-referrer';i.src=u.avatar;i.onerror=function(){i.remove();el.textContent=ini(u.name)};el.appendChild(i)}else el.textContent=ini(u.name)}
 function paintUser(){avatar($('sideAv'),ME);avatar($('bigAv'),ME);markSwatch();$('sideName').textContent=ME.name;$('sideEmail').textContent=ME.email;$('pName').value=ME.name;$('pEmail').value=ME.email;
  $('mkSw').setAttribute('aria-checked',ME.marketing?'true':'false');
@@ -207,7 +207,7 @@ $('logout').addEventListener('click',function(){try{localStorage.removeItem(HINT
 /* ---- profile color ---- */
 var COLORS=['#8a3fff','#ff7a1a','#2563eb','#0e9f8e','#db2777','#e11d48','#16a34a','#f5b301','#06b6d4','#64748b','#111827','#f4f3f6'];
 function markSwatch(){document.querySelectorAll('.sw-c').forEach(function(b){b.classList.toggle('on',(ME.color||'')===b.getAttribute('data-c'))})}
-COLORS.forEach(function(col){var b=document.createElement('button');b.type='button';b.className='sw-c';b.setAttribute('data-c',col);b.setAttribute('aria-label','Use color '+col);b.style.background='linear-gradient(135deg,'+col+','+shade(col,.62)+')';b.addEventListener('click',function(){saveColor(col)});$('swatches').appendChild(b)});
+COLORS.forEach(function(col){var b=document.createElement('button');b.type='button';b.className='sw-c';b.setAttribute('data-c',col);b.setAttribute('aria-label','Use color '+col);b.style.background=col;b.addEventListener('click',function(){saveColor(col)});$('swatches').appendChild(b)});
 function saveColor(col){ME.color=col;paintUser();fsPost('setavatar',{color:col}).then(function(j){if(j.ok)note('colorNote',col?'Color saved.':'Back to the automatic color.','ok');else note('colorNote',MSG[j.error]||'Could not save your color. Please try again.','err')})}
 $('custColor').addEventListener('input',function(){ME.color=this.value;avatar($('sideAv'),ME);avatar($('bigAv'),ME)});
 $('custColor').addEventListener('change',function(){saveColor(this.value)});

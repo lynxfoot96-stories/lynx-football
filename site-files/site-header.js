@@ -82,11 +82,11 @@
   function fillAvatar(el, user) {
     el.textContent = '';
     if (hexOk(user.color)) {
-      el.style.background = 'linear-gradient(135deg,' + user.color + ',' + shade(user.color, 0.62) + ')';
+      el.style.background = user.color;
       el.style.color = isLight(user.color) ? '#111' : '#fff';
     } else {
       var p = pal(String(user.email || user.name || '?'));
-      el.style.background = 'linear-gradient(135deg,' + p[0] + ',' + p[1] + ')';
+      el.style.background = p[0];
       el.style.color = '#fff';
     }
     var src = safeImg(user.avatar);
