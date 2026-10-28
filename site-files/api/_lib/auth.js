@@ -83,7 +83,8 @@ function publicUser(u) {
     name: String(m.name || m.full_name || '').slice(0, 60) || email.split('@')[0],
     email: email,
     avatar: av.slice(0, 500),
-    marketing: m.marketing === true
+    marketing: m.marketing === true,
+    color: /^#[0-9a-f]{6}$/i.test(String(m.avatar_color || '')) ? String(m.avatar_color).toLowerCase() : ''
   };
 }
 
@@ -269,7 +270,7 @@ async function handleAuth(req, res, action) {
     }
 
     /* ----- ACCOUNT PAGE ACTIONS (need to be logged in) ----- */
-    if (action === 'updateprofile' || action === 'changepassword' || action === 'setmarketing') {
+    if (action === 'updateprofile' || action === 'changepassword' || action === 'setmarketing' || action === 'setavatar') {
       var ss = await getSession(req, res);
       if (!ss || !ss.user) return res.status(401).json({ error: 'not_logged_in' });
 
@@ -279,6 +280,14 @@ async function handleAuth(req, res, action) {
         var up = await gotrue('/user', { method: 'PUT', token: ss.token, body: { data: { name: nn } } });
         if (!up.ok) { console.error('updateprofile failed', up.status, JSON.stringify(up.data).slice(0, 300)); return res.status(502).json({ error: 'provider_error' }); }
         return res.status(200).json({ ok: true, user: publicUser(up.data) });
+      }
+
+      if (action === 'setavatar') {
+        var col = String(b.color || '').trim();
+        if (col && !/^#[0-9a-f]{6}$/i.test(col)) return res.status(400).json({ error: 'invalid_color' });
+        var au = await gotrue('/user', { method: 'PUT', token: ss.token, body: { data: { avatar_color: col.toLowerCase() } } });
+        if (!au.ok) { console.error('setavatar failed', au.status, JSON.stringify(au.data).slice(0, 300)); return res.status(502).json({ error: 'provider_error' }); }
+        return res.status(200).json({ ok: true, user: publicUser(au.data) });
       }
 
       if (action === 'changepassword') {
