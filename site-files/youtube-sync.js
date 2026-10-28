@@ -16,7 +16,7 @@
   if (!window.FSV || typeof FSV.load !== 'function' || FSV.__ytSync) return;
   FSV.__ytSync = true;
 
-  var CACHE_KEY = 'fs-yt-feed-v1', FRESH_MS = 10 * 60 * 1000, TIMEOUT_MS = 8000;
+  var CACHE_KEY = 'fs-yt-feed-v1', FRESH_MS = 10 * 60 * 1000, TIMEOUT_MS = 3000;
 
   function idOf(v) {
     var s = typeof v === 'string' ? v : (v && v.id) || '';
@@ -77,13 +77,9 @@
       if (known[feed[i].id]) break;
       fresh.push(feed[i]);
     }
-    // The API already fetches this site's configured YouTube channel. If more than
-    // 15 uploads have appeared since the manual list was updated, the feed may
-    // have NO overlap with videos-data.js. Do not discard those new uploads.
-    // Only prepend IDs not already listed; keep the user's manual entries intact.
-    if (!fresh.length) return;
-    var add = fresh.filter(function (f) { return f && /^[\w-]{11}$/.test(f.id); })
-      .map(function (f) { return { id: f.id, c: guessTheme(f.title), t: f.title }; });
+    var overlap = feed.some(function (f) { return known[f.id]; });
+    if (!overlap || !fresh.length) return;
+    var add = fresh.map(function (f) { return { id: f.id, c: guessTheme(f.title), t: f.title }; });
     Array.prototype.unshift.apply(window.FS_VIDEOS, add);   // same array object, newest on top
   }
 
