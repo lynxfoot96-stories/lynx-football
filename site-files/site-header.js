@@ -34,3 +34,52 @@
   s.textContent = ":root{ --play-red-1:#ff3b30; --play-red-2:#d70f0f; --play-glow:rgba(255,40,30,.45); } .play-btn, .mini-play, .vplay, .yt-play{ border-radius:14px !important; background:linear-gradient(180deg,var(--play-red-1) 0%,var(--play-red-2) 100%) !important; border:0 !important; box-shadow:0 6px 18px var(--play-glow), inset 0 1px 0 rgba(255,255,255,.28) !important; backdrop-filter:none !important; -webkit-backdrop-filter:none !important; display:flex; align-items:center; justify-content:center; transition:transform .22s ease, box-shadow .22s ease, filter .22s ease !important; } .play-btn svg, .mini-play svg, .vplay svg, .yt-play svg{ fill:#fff; margin-left:2px !important; filter:drop-shadow(0 1px 2px rgba(0,0,0,.25)); } .play-btn{ width:86px !important; height:60px !important; border-radius:18px !important; } .play-btn svg{ width:28px !important; height:28px !important; margin-left:3px !important; } .mini-play{ width:54px !important; height:38px !important; } .mini-play svg{ width:18px !important; height:18px !important; } .vplay{ width:48px !important; height:34px !important; border-radius:12px !important; } .vplay svg{ width:16px !important; height:16px !important; } .yt-play{ width:52px !important; height:36px !important; } .yt-play svg{ width:18px !important; height:18px !important; } .play-btn:hover, .video-card:hover .mini-play, .vcard:hover .vplay, .nx-card:hover .vplay, .club-video-card:hover .yt-play, .featured:hover .play-btn{ background:linear-gradient(180deg,#ff5247 0%,#e81212 100%) !important; box-shadow:0 8px 24px rgba(255,40,30,.6), inset 0 1px 0 rgba(255,255,255,.35) !important; filter:brightness(1.05); } .play-btn:hover, .video-card:hover .mini-play, .vcard:hover .vplay, .nx-card:hover .vplay{ transform:scale(1.1) !important; } .club-video-card:hover .yt-play{ transform:translate(-50%,-50%) scale(1.1) !important; } @media (max-width:600px){ .play-btn{ width:68px !important; height:48px !important; border-radius:14px !important; } .play-btn svg{ width:22px !important; height:22px !important; } }";
   (document.head || document.documentElement).appendChild(s);
 })();
+
+/* ==========================================================
+   Logged-in state: the "Login" button becomes the member's name,
+   with a small "Log out" menu. Does nothing if nobody is logged in.
+   ========================================================== */
+(function () {
+  function init() {
+    var a = document.querySelector('.fs-hd__login');
+    if (!a || a.dataset.fsAuth) return;
+    a.dataset.fsAuth = '1';
+    fetch('/api/scores?action=me', { credentials: 'same-origin', cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.user) return;
+        var first = String(j.user.name || 'Account').split(' ')[0].slice(0, 14);
+        var lbl = a.querySelector('span');
+        if (lbl) lbl.textContent = first;
+        a.removeAttribute('href');
+        a.setAttribute('role', 'button');
+        a.setAttribute('aria-label', 'Account menu for ' + first);
+        a.style.cursor = 'pointer';
+        a.style.width = 'auto';
+        var menu = document.createElement('div');
+        menu.style.cssText = 'position:absolute;top:calc(100% + 8px);right:0;min-width:170px;padding:8px;border-radius:12px;background:var(--panel,#121116);border:1px solid var(--line,rgba(255,255,255,.12));box-shadow:0 14px 34px rgba(0,0,0,.35);display:none;z-index:9999;text-align:left';
+        menu.innerHTML = '<div style="padding:8px 10px;font-size:12px;opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div><button type="button" style="width:100%;text-align:left;background:none;border:0;color:inherit;font:inherit;font-weight:700;padding:10px;border-radius:8px;cursor:pointer">Log out</button>';
+        menu.firstChild.textContent = j.user.email || '';
+        a.style.position = 'relative';
+        a.appendChild(menu);
+        a.addEventListener('click', function (e) {
+          if (menu.contains(e.target)) return;
+          e.preventDefault();
+          menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+        });
+        document.addEventListener('click', function (e) { if (!a.contains(e.target)) menu.style.display = 'none'; });
+        menu.querySelector('button').addEventListener('click', function (e) {
+          e.stopPropagation();
+          fetch('/api/scores?action=logout', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+            .then(function () { location.reload(); })
+            .catch(function () { location.reload(); });
+        });
+      })
+      .catch(function () {});
+  }
+  var tries = 0;
+  (function wait() {
+    if (document.querySelector('.fs-hd__login')) return init();
+    if (++tries < 40) setTimeout(wait, 100);
+  })();
+})();
