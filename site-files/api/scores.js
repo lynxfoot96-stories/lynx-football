@@ -12,6 +12,8 @@
 const { cacheGet, cacheSet, acquireLock, releaseLock } = require('./_lib/cache');
 const { selectDetailLinks, allowDetails, filterAlreadyOpened } = require('./_lib/match-priority');
 const { handleSubscribe } = require('./_lib/subscribe'); // newsletter signup (POST ?action=subscribe)
+const { handleAuth } = require('./_lib/auth');           // accounts: sign up / log in / log out / me / password reset
+const AUTH_ACTIONS = new Set(['signup', 'login', 'logout', 'me', 'reset', 'newpassword']);
 
 const API_BASE = 'https://v3.football.api-sports.io';
 
@@ -60,6 +62,10 @@ function normalise(item) {
 }
 
 module.exports = async function handler(req, res) {
+  // Account actions (signup/login/...) also share this file for the same 12-function reason.
+  const action = String((req.query || {}).action || '');
+  if (AUTH_ACTIONS.has(action)) return handleAuth(req, res, action);
+
   // Newsletter signup shares this file so the project stays within Vercel's 12-function Hobby limit.
   if (req.method === 'POST') return handleSubscribe(req, res);
   if (req.method !== 'GET') return res.status(405).json({ ok: false, error: 'Method not allowed' });
