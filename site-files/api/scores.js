@@ -13,7 +13,7 @@ const { cacheGet, cacheSet, acquireLock, releaseLock } = require('./_lib/cache')
 const { selectDetailLinks, allowDetails, filterAlreadyOpened } = require('./_lib/match-priority');
 const { handleSubscribe } = require('./_lib/subscribe'); // newsletter signup (POST ?action=subscribe)
 const { handleAuth } = require('./_lib/auth');           // accounts: sign up / log in / log out / me / password reset
-const AUTH_ACTIONS = new Set(['signup', 'login', 'logout', 'me', 'reset', 'newpassword']);
+const AUTH_ACTIONS = new Set(['signup', 'login', 'logout', 'me', 'reset', 'newpassword', 'updateprofile', 'changepassword', 'setmarketing']);
 
 const API_BASE = 'https://v3.football.api-sports.io';
 
