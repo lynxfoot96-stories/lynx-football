@@ -251,7 +251,7 @@
   function leagueMatches(q) {
     var nq = norm(q);
     return LEAGUES.filter(function (l) { return !nq || l.n.indexOf(nq) !== -1; }).map(function (l) {
-      return { type: 'league', name: l.name, sub: l.country, id: l.id, href: 'clubs.html?league=' + l.slug };
+      return { type: 'league', name: l.name, sub: l.country, id: l.id, href: 'standings.html?league=' + l.id };
     });
   }
 
