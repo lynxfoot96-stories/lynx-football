@@ -5,4 +5,47 @@ html[data-theme=light]{--black:#F7F6FB;--panel:#fff;--panel-2:#F0EEF6;--line:rgb
 
 /* Shared gradient accent, matching the Never Miss a Story heading */
 .auth-main h1 .auth-accent{background:linear-gradient(100deg,var(--white) 5%,var(--purple-bright) 66%,var(--orange-bright) 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
-</style></head><body><script src="site-header.js" data-fixed></script><main class="auth-shell"><section class="auth-main"><div class="auth-inner"><div class="eyebrow">Football Stories · Your account</div><h1>Join the <span class="auth-accent">story.</span></h1><p class="lead">Follow the players, clubs and stories that matter to you.</p><form id="auth-form"><div class="field"><label for="name">Display name</label><input id="name" autocomplete="nickname" required placeholder="How should we call you?"></div><div class="field"><label for="email">Email address</label><input id="email" type="email" required autocomplete="email" placeholder="you@example.com"></div><div class="field"><label for="password">Password</label><div class="pw-wrap"><input id="password" type="password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters"><button class="show-pw" type="button" data-toggle-password>Show</button></div></div><button class="primary" type="submit">Create account</button><p class="notice" id="form-note" role="status" aria-live="polite" hidden></p></form><p class="auth-switch">Already have an account? <a href="login.html">Log in</a></p><p class="auth-footer" id="account-help">This is a design preview. Account authentication and password reset require a secure backend to be connected before launch. Never enter a real password while testing.</p></div></section><aside class="auth-side"><div class="benefits"><div class="eyebrow">Made for football fans</div><h2>Never miss<br>the story.</h2><div class="benefit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7 7 .8-5.2 4.8 1.5 7.4L12 18.3 5.7 22l1.5-7.4L2 9.8 9 9z"/></svg><span>Keep your favorite clubs and players close.</span></div><div class="benefit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.7a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.5a5.5 5.5 0 0 0 0-7.8z"/></svg><span>Build your personal football following list.</span></div><div class="benefit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18V6l7 6 4-4 5 4v6z"/><path d="M4 21h16"/></svg><span>Stay connected to new football breakdowns and news.</span></div></div></aside></main><script src="player-search.js"></script><script>document.querySelectorAll('[data-toggle-password]').forEach(function(b){b.addEventListener('click',function(){var i=b.parentNode.querySelector('input');i.type=i.type==='password'?'text':'password';b.textContent=i.type==='password'?'Show':'Hide'})});document.getElementById('auth-form').addEventListener('submit',function(e){e.preventDefault();var m=document.getElementById('form-note');m.hidden=false;m.textContent='Account registration is not connected yet. No account was created and no credentials were sent.';});</script></body></html>
+</style>
+<style id="fs-auth-theme-header-match">
+/* Exact homepage-style theme switch, independent of page-specific defaults. */
+.fs-hd #themeToggle {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 38px !important;
+  min-width: 38px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  flex: 0 0 38px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 50% !important;
+  border: 1px solid var(--line, rgba(255,255,255,.1)) !important;
+  background: var(--panel-2, #17151C) !important;
+  color: var(--white, #F4F3F6) !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+}
+.fs-hd #themeToggle:hover {
+  border-color: var(--purple-bright, #A868FF) !important;
+  color: var(--purple-bright, #A868FF) !important;
+}
+.fs-hd #themeToggle svg {
+  width: 16px !important;
+  height: 16px !important;
+  flex: none !important;
+  stroke: currentColor;
+}
+.fs-hd #themeToggle .ti-sun { display: none !important; }
+.fs-hd #themeToggle .ti-moon { display: block !important; }
+html[data-theme="light"] .fs-hd #themeToggle .ti-sun { display: block !important; }
+html[data-theme="light"] .fs-hd #themeToggle .ti-moon { display: none !important; }
+.fs-hd #themeToggle:focus-visible {
+  outline: 2px solid var(--purple-bright, #A868FF) !important;
+  outline-offset: 3px;
+}
+</style>
+</head><body><script src="site-header.js" data-fixed></script><main class="auth-shell"><section class="auth-main"><div class="auth-inner"><div class="eyebrow">Football Stories · Your account</div><h1>Join the <span class="auth-accent">story.</span></h1><p class="lead">Follow the players, clubs and stories that matter to you.</p><form id="auth-form"><div class="field"><label for="name">Display name</label><input id="name" autocomplete="nickname" required placeholder="How should we call you?"></div><div class="field"><label for="email">Email address</label><input id="email" type="email" required autocomplete="email" placeholder="you@example.com"></div><div class="field"><label for="password">Password</label><div class="pw-wrap"><input id="password" type="password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters"><button class="show-pw" type="button" data-toggle-password>Show</button></div></div><button class="primary" type="submit">Create account</button><p class="notice" id="form-note" role="status" aria-live="polite" hidden></p></form><p class="auth-switch">Already have an account? <a href="login.html">Log in</a></p><p class="auth-footer" id="account-help">This is a design preview. Account authentication and password reset require a secure backend to be connected before launch. Never enter a real password while testing.</p></div></section><aside class="auth-side"><div class="benefits"><div class="eyebrow">Made for football fans</div><h2>Never miss<br>the story.</h2><div class="benefit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7 7 .8-5.2 4.8 1.5 7.4L12 18.3 5.7 22l1.5-7.4L2 9.8 9 9z"/></svg><span>Keep your favorite clubs and players close.</span></div><div class="benefit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.7a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.5a5.5 5.5 0 0 0 0-7.8z"/></svg><span>Build your personal football following list.</span></div><div class="benefit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18V6l7 6 4-4 5 4v6z"/><path d="M4 21h16"/></svg><span>Stay connected to new football breakdowns and news.</span></div></div></aside></main><script src="player-search.js"></script><script>document.querySelectorAll('[data-toggle-password]').forEach(function(b){b.addEventListener('click',function(){var i=b.parentNode.querySelector('input');i.type=i.type==='password'?'text':'password';b.textContent=i.type==='password'?'Show':'Hide'})});document.getElementById('auth-form').addEventListener('submit',function(e){e.preventDefault();var m=document.getElementById('form-note');m.hidden=false;m.textContent='Account registration is not connected yet. No account was created and no credentials were sent.';});</script></body></html>
