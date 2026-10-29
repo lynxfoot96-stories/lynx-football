@@ -594,9 +594,10 @@ function showState(container, msg, isError){
       return '<span class="tl-icon var">\u2139</span>';
     }
 
+    function bio(name){ return '<a class="fs-player-link" href="player.html?name=' + encodeURIComponent(name) + '">' + escapeHtml(name) + '</a>'; }
     function content(e){
       if (e.type === 'goal'){
-        const player = e.player ? escapeHtml(e.player.name) : 'Goal';
+        const player = e.player ? bio(e.player.name) : 'Goal';
         let tag = '';
         if (e.detail === 'Own Goal') tag = ' (OG)';
         if (e.detail === 'Penalty') tag = ' (Pen)';
@@ -605,14 +606,14 @@ function showState(container, msg, isError){
             (e.player ? '<div class="ev-sub">' + player + '</div>' : '') + '</div>';
         }
         return '<div class="tl-text"><div class="ev-player">' + player + tag + '</div>' +
-          (e.assist ? '<div class="ev-sub">Assist: ' + escapeHtml(e.assist.name) + '</div>' : '') + '</div>';
+          (e.assist ? '<div class="ev-sub">Assist: ' + bio(e.assist.name) + '</div>' : '') + '</div>';
       }
       if (e.type === 'card'){
-        return '<div class="tl-text"><div class="ev-player">' + (e.player ? escapeHtml(e.player.name) : '') + '</div></div>';
+        return '<div class="tl-text"><div class="ev-player">' + (e.player ? bio(e.player.name) : '') + '</div></div>';
       }
       if (e.type === 'subst'){
         return '<div class="tl-text">' +
-          (e.player ? '<div class="ev-player"><span class="in-tag">IN</span> ' + escapeHtml(e.player.name) + '</div>' : '') +
+          (e.player ? '<div class="ev-player"><span class="in-tag">IN</span> ' + bio(e.player.name) + '</div>' : '') +
           (e.assist ? '<div class="ev-sub ev-player out"><span class="out-tag">OUT</span> ' + escapeHtml(e.assist.name) + '</div>' : '') +
         '</div>';
       }
