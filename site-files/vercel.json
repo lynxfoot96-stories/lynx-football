@@ -13,10 +13,6 @@
     {
       "path": "/api/scores?action=weekly-preview",
       "schedule": "0 1 * * 6"
-    },
-    {
-      "path": "/api/scores?action=weekly-preview&test=1&sample=1",
-      "schedule": "0 2 1 1 *"
     }
   ],
   "functions": {
