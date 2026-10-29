@@ -308,6 +308,34 @@ async function handleAuth(req, res, action) {
         return res.status(200).json({ ok: true });
       }
 
+      if (action === 'getfavorites') {
+        var favs = ss.user.user_metadata && ss.user.user_metadata.fs_favorites;
+        return res.status(200).json({ ok: true, favorites: Array.isArray(favs) ? favs : [] });
+      }
+
+      if (action === 'setfavorites') {
+        if (!Array.isArray(b.favorites) || b.favorites.length > 60)
+          return res.status(400).json({ error: 'invalid_favorites' });
+        var types = { club: 1, player: 1, league: 1 }, unique = {};
+        var favorites = [];
+        for (var fi = 0; fi < b.favorites.length; fi++) {
+          var x = b.favorites[fi] || {}, typ = String(x.type || '');
+          var id = String(x.id == null ? '' : x.id).trim().slice(0, 90);
+          if (!types[typ] || !id || unique[typ + ':' + id]) continue;
+          unique[typ + ':' + id] = true;
+          favorites.push({
+            id: id, type: typ,
+            name: String(x.name || id).replace(/[<>\r\n]/g, '').slice(0, 80),
+            badge: /^https:\/\//i.test(String(x.badge || '')) ? String(x.badge).slice(0, 500) : '',
+            url: /^[a-z0-9-]+\.html(?:\?[^#]*)?$/i.test(String(x.url || '')) ? String(x.url).slice(0, 250) : '',
+            ts: Number.isFinite(Number(x.ts)) ? Number(x.ts) : Date.now()
+          });
+        }
+        var updated = await gotrue('/user', { method: 'PUT', token: ss.token, body: { data: { fs_favorites: favorites } } });
+        if (!updated.ok) return res.status(502).json({ error: 'favorites_sync_failed' });
+        return res.status(200).json({ ok: true, count: favorites.length });
+      }
+
       if (action === 'setmarketing') {
         var want = b.marketing === true;
         var mu = await gotrue('/user', { method: 'PUT', token: ss.token, body: { data: { marketing: want } } });
