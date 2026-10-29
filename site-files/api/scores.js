@@ -12,6 +12,7 @@
 const { cacheGet, cacheSet, acquireLock, releaseLock } = require('./_lib/cache');
 const { selectDetailLinks, allowDetails, filterAlreadyOpened } = require('./_lib/match-priority');
 const { handleWeeklyPreview } = require('./_lib/preview');
+const { handleMondayDebrief } = require('./_lib/monday-debrief');
 const { handleSubscribe } = require('./_lib/subscribe'); // newsletter signup (POST ?action=subscribe)
 const { handleAuth } = require('./_lib/auth');           // accounts: sign up / log in / log out / me / password reset
 const AUTH_ACTIONS = new Set(['signup', 'login', 'logout', 'me', 'reset', 'newpassword', 'updateprofile', 'changepassword', 'setmarketing', 'setavatar']);
@@ -67,6 +68,7 @@ module.exports = async function handler(req, res) {
   const action = String((req.query || {}).action || '');
   if (AUTH_ACTIONS.has(action)) return handleAuth(req, res, action);
   if (action === 'weekly-preview') return handleWeeklyPreview(req, res);
+  if (action === 'monday-debrief') return handleMondayDebrief(req, res);
 
   // Newsletter signup shares this file so the project stays within Vercel's 12-function Hobby limit.
   if (req.method === 'POST') return handleSubscribe(req, res);
