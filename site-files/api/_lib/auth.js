@@ -130,7 +130,7 @@ async function addToBrevo(email, name, marketing) {
 /* Take a member off the mailing list (they stay in Brevo as a contact). */
 async function removeFromBrevo(email) {
   var key = process.env.BREVO_API_KEY;
-  var listId = Number(process.env.BREVO_MEMBERS_LIST_ID) || Number(process.env.BREVO_LIST_ID);
+  var listId = Number(process.env.BREVO_LIST_ID);
   if (!key || !listId) return false;
   try {
     var r = await fetch('https://api.brevo.com/v3/contacts/lists/' + listId + '/contacts/remove', {
