@@ -84,6 +84,7 @@ function publicUser(u) {
     email: email,
     avatar: av.slice(0, 500),
     marketing: m.marketing === true,
+    clubResultsEmail: m.club_results_email === true,
     color: /^#[0-9a-f]{6}$/i.test(String(m.avatar_color || '')) ? String(m.avatar_color).toLowerCase() : ''
   };
 }
@@ -334,6 +335,15 @@ async function handleAuth(req, res, action) {
         var updated = await gotrue('/user', { method: 'PUT', token: ss.token, body: { data: { fs_favorites: favorites } } });
         if (!updated.ok) return res.status(502).json({ error: 'favorites_sync_failed' });
         return res.status(200).json({ ok: true, count: favorites.length });
+      }
+
+      if (action === 'setclubresults') {
+        var enabled = b.enabled === true;
+        // Club results are separate from general marketing consent and default OFF.
+        var saved = await gotrue('/user', { method:'PUT', token:ss.token,
+          body:{data:{club_results_email:enabled}} });
+        if(!saved.ok)return res.status(502).json({error:'preferences_update_failed'});
+        return res.status(200).json({ok:true,enabled:enabled});
       }
 
       if (action === 'setmarketing') {
