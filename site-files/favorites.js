@@ -50,6 +50,45 @@
     try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) { /* private mode / quota: works in memory for this page */ }
     document.dispatchEvent(new CustomEvent(EVT, { detail: { favorites: list.slice() } }));
   }
+  // Sync favorites to the currently signed-in account. Anonymous favorites stay local.
+  var syncReady = false, syncTimer = null, activeEmail = '';
+  function sendFavorites() {
+    if (!syncReady) return;
+    fetch('/api/scores?action=setfavorites', {
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({favorites:read()})
+    }).catch(function(){});
+  }
+  function syncFavorites() {
+    fetch('/api/scores?action=me',{credentials:'same-origin'})
+      .then(function(r){return r.json();})
+      .then(function(info){
+        if(!info.user || !info.user.email) { syncReady=false; activeEmail=''; return; }
+        var email=String(info.user.email);
+        if(syncReady && activeEmail===email) return;
+        syncReady=false; activeEmail=email;
+        return fetch('/api/scores?action=getfavorites',{credentials:'same-origin'})
+          .then(function(r){if(!r.ok)throw Error('sync');return r.json();})
+          .then(function(data){
+            var merged={}, list=[];
+            (Array.isArray(data.favorites)?data.favorites:[]).concat(read()).forEach(function(x){
+              if(!x || !TYPES[x.type] || x.id==null) return;
+              merged[x.type+':'+x.id]=x;
+            });
+            Object.keys(merged).forEach(function(k){list.push(merged[k]);});
+            write(list.slice(-MAX));
+            syncReady=true;
+            sendFavorites();
+          }).catch(function(){syncReady=false;});
+      }).catch(function(){syncReady=false;});
+  }
+  document.addEventListener(EVT,function(){
+    if(!syncReady)return;
+    clearTimeout(syncTimer);
+    syncTimer=setTimeout(sendFavorites,600);
+  });
+
   function idx(type, id) {
     var l = read();
     for (var i = 0; i < l.length; i++) if (l[i].type === type && String(l[i].id) === String(id)) return i;
@@ -357,6 +396,8 @@
       requestAnimationFrame(function () { queued = false; scan(); decorateClubPage(); decoratePlayerPage(); injectNavLink(); });
     }).observe(document.body, { childList: true, subtree: true });
     document.addEventListener(EVT, renderBar);
+    syncFavorites();
+    window.addEventListener('focus', syncFavorites);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
