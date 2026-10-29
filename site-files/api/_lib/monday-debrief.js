@@ -17,12 +17,12 @@ async function redis(parts){
  const j=await r.json();if(j.error)throw Error('Redis command rejected');
  return j.result;
 }
-async function brevo(path,body){
+async function brevo(path,body,expectId=true){
  const r=await fetch('https://api.brevo.com/v3'+path,{method:'POST',headers:{
   'api-key':process.env.BREVO_API_KEY,'Content-Type':'application/json'
  },body:JSON.stringify(body),signal:AbortSignal.timeout(14000)});
  const data=await r.json().catch(()=>({}));
- if(!r.ok||!data.id)throw Error('Brevo draft creation not confirmed ('+r.status+'); inspect dashboard before retry');
+ if(!r.ok||(expectId&&!data.id))throw Error('Brevo operation not confirmed ('+r.status+'); inspect dashboard before retry');
  return data;
 }
 function quality(a){
@@ -76,7 +76,12 @@ async function handleMondayDebrief(req,res){
     recipients:{listIds:[list]},htmlContent:html});
   if(test)return res.status(200).json({ok:true,createdDraft:true,test:true,campaignId:campaign.id});
   await redis(['SET',key,'draft:'+campaign.id,'EX',String(14*86400)]);
-  return res.status(200).json({ok:true,createdDraft:true,automatic:false,campaignId:campaign.id,headlines:selected.map(a=>a.title)});
+  if(String(process.env.MONDAY_DEBRIEF_SEND||'').toLowerCase()!=='true')
+    return res.status(200).json({ok:true,createdDraft:true,automatic:false,campaignId:campaign.id});
+  await redis(['SET',key,'send_attempted:'+campaign.id,'EX',String(14*86400)]);
+  await brevo('/emailCampaigns/'+encodeURIComponent(campaign.id)+'/sendNow',{},false);
+  await redis(['SET',key,'send_requested:'+campaign.id,'EX',String(14*86400)]);
+  return res.status(200).json({ok:true,sendRequested:true,campaignId:campaign.id});
  }catch(e){console.error('[monday-debrief]',e.message);return res.status(502).json({ok:false,error:'debrief_failed_review_logs'});}
 }
 module.exports={handleMondayDebrief};
