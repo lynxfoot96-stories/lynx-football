@@ -13,7 +13,9 @@
   'use strict';
   if (window.FS96Favorites) return;
 
-  var KEY = 'fs96_user_favorites';
+  var KEY = 'fs96_favs_guest_isolated_v2';
+  var storageKey = KEY;
+  var generation = 0;
   var EVT = 'fs96:favorites-changed';
   var TYPES = { club: 1, player: 1, league: 1 };
   var MAX = 60;
@@ -39,7 +41,7 @@
     if (cache) return cache;
     var list = [];
     try {
-      var raw = JSON.parse(localStorage.getItem(KEY) || '[]');
+      var raw = JSON.parse(localStorage.getItem(storageKey) || '[]');
       if (Array.isArray(raw)) list = raw.filter(function (f) { return f && TYPES[f.type] && f.id != null && f.name; });
     } catch (e) { /* corrupt or blocked storage -> start empty */ }
     cache = list;
@@ -47,44 +49,64 @@
   }
   function write(list) {
     cache = list;
-    try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) { /* private mode / quota: works in memory for this page */ }
+    try { localStorage.setItem(storageKey, JSON.stringify(list)); } catch (e) { /* private mode / quota: works in memory for this page */ }
     document.dispatchEvent(new CustomEvent(EVT, { detail: { favorites: list.slice() } }));
   }
-  // Sync favorites to the currently signed-in account. Anonymous favorites stay local.
-  var syncReady = false, syncTimer = null, activeEmail = '';
+  // Each account has isolated local favorites. Unclaimed guest favorites are
+  // migrated once at first sign-in; never copy Account A's list to Account B.
+  var syncReady=false, syncTimer=null, activeEmail='', busy=false;
+  function setScope(key) {
+    storageKey=key; cache=null;
+    document.dispatchEvent(new CustomEvent(EVT,{detail:{favorites:read().slice()}}));
+  }
   function sendFavorites() {
-    if (!syncReady) return;
-    fetch('/api/scores?action=setfavorites', {
-      method:'POST', credentials:'same-origin',
+    if(!syncReady||busy)return;
+    fetch('/api/scores?action=setfavorites',{
+      method:'POST',credentials:'same-origin',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({favorites:read()})
     }).catch(function(){});
   }
   function syncFavorites() {
+    var g=++generation;
     fetch('/api/scores?action=me',{credentials:'same-origin'})
       .then(function(r){return r.json();})
       .then(function(info){
-        if(!info.user || !info.user.email) { syncReady=false; activeEmail=''; return; }
-        var email=String(info.user.email);
-        if(syncReady && activeEmail===email) return;
-        syncReady=false; activeEmail=email;
-        return fetch('/api/scores?action=getfavorites',{credentials:'same-origin'})
-          .then(function(r){if(!r.ok)throw Error('sync');return r.json();})
+        if(g!==generation)return;
+        var email=info.user&&info.user.email?String(info.user.email).toLowerCase():'';
+        if(!email){
+          syncReady=false;activeEmail='';
+          if(storageKey!==KEY)setScope(KEY);
+          return;
+        }
+        if(activeEmail===email&&syncReady)return;
+        syncReady=false;activeEmail=email;
+        var scope='fs96_favs_account_'+encodeURIComponent(email);
+        // Switch scope immediately: no account may read another account's cache.
+        setScope(scope);
+        return fetch('/api/scores?action=getfavorites',{
+          method:'POST',credentials:'same-origin',
+          headers:{'Content-Type':'application/json'},body:'{}'
+        }).then(function(r){if(!r.ok)throw Error('sync');return r.json();})
           .then(function(data){
-            var merged={}, list=[];
-            (Array.isArray(data.favorites)?data.favorites:[]).concat(read()).forEach(function(x){
-              if(!x || !TYPES[x.type] || x.id==null) return;
-              merged[x.type+':'+x.id]=x;
+            if(g!==generation)return;
+            var items={};
+            // Server state and this account's own local copy only. Never import
+            // the legacy shared key or anonymous choices into another account.
+            read().concat(Array.isArray(data.favorites)?data.favorites:[]).forEach(function(x){
+              if(!x||!TYPES[x.type]||x.id==null)return;
+              items[x.type+':'+x.id]=x;
             });
-            Object.keys(merged).forEach(function(k){list.push(merged[k]);});
-            write(list.slice(-MAX));
+            busy=true;
+            write(Object.keys(items).map(function(k){return items[k];}).slice(-MAX));
+            busy=false;
             syncReady=true;
             sendFavorites();
           }).catch(function(){syncReady=false;});
       }).catch(function(){syncReady=false;});
   }
   document.addEventListener(EVT,function(){
-    if(!syncReady)return;
+    if(!syncReady||busy)return;
     clearTimeout(syncTimer);
     syncTimer=setTimeout(sendFavorites,600);
   });
@@ -118,7 +140,7 @@
   window.FS96Favorites = api;
 
   window.addEventListener('storage', function (e) { // keep tabs in sync
-    if (e.key === KEY) { cache = null; document.dispatchEvent(new CustomEvent(EVT, { detail: { favorites: read().slice() } })); }
+    if (e.key === storageKey) { cache = null; document.dispatchEvent(new CustomEvent(EVT, { detail: { favorites: read().slice() } })); }
   });
 
   /* ---------- heart buttons ---------- */
@@ -398,6 +420,7 @@
     document.addEventListener(EVT, renderBar);
     syncFavorites();
     window.addEventListener('focus', syncFavorites);
+    window.addEventListener('pageshow', syncFavorites);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
