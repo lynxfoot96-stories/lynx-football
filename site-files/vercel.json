@@ -17,10 +17,6 @@
     {
       "path": "/api/scores?action=monday-debrief",
       "schedule": "0 9 * * 1"
-    },
-    {
-      "path": "/api/scores?action=monday-debrief&test=1&sample=1",
-      "schedule": "0 2 1 1 *"
     }
   ],
   "functions": {
