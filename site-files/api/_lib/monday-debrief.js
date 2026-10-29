@@ -33,7 +33,7 @@ function quality(a){
 }
 function buildHtml(articles,weekend,base){
  const lead=articles[0],other=articles.slice(1,5);
- const url=a=>base+'/news-article.html?slug='+encodeURIComponent(a.slug);
+ const url=a=>a.demo?base+'/news.html':base+'/news-article.html?slug='+encodeURIComponent(a.slug);
  const text=a=>esc(String(a.summary||'').slice(0,230));
  const link=(a,label)=>'<a href="'+esc(url(a))+'" style="color:#CAAAFF;text-decoration:underline">'+esc(label)+'</a>';
  const main='<tr><td style="padding:24px;background:#211332"><div style="color:#FFA65C;letter-spacing:2px;font:700 11px Arial,sans-serif">THE WEEKEND HEADLINE</div><div style="color:#FFFFFF;font:700 25px/1.25 Arial,sans-serif;margin:12px 0">'+esc(lead.title)+'</div><p style="color:#D7CFE1;font:14px/1.7 Arial,sans-serif">'+text(lead)+'</p>'+link(lead,'Read the full story')+'</td></tr>';
@@ -52,13 +52,14 @@ async function handleMondayDebrief(req,res){
   const monday=localDate(now);
   const fri=addDays(monday,-3),sun=addDays(monday,-1);
   // Load already-published articles; never create stories or consume football API quotas.
-  const all=await db.listPublished({limit:120,compact:true});
+  const sample=test&&String(q.sample||'')==='1';
+  const all=sample?[]:await db.listPublished({limit:120,compact:true});
   const relevant=all.filter(a=>{
    const d=String(a.published_date||a.created_at||'').slice(0,10);
    return d>=fri&&d<=sun&&a.title&&a.slug;
   });
   relevant.sort((a,b)=>quality(b)-quality(a)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
-  const selected=relevant.slice(0,5);
+  const selected=sample ? [{title:'SAMPLE: Weekend headline',summary:'Demonstration text, not real football news.',slug:'sample',demo:true},{title:'SAMPLE: Football weekend roundup',summary:'Sample text for checking the design.',slug:'sample2',demo:true}] : relevant.slice(0,5);
   if(!selected.length)return res.status(200).json({ok:true,skipped:'no_published_weekend_articles',dates:[fri,sun]});
   const base=verifiedUrl(process.env.SITE_URL)||(req.headers.host?'https://'+req.headers.host:'');
   const html=buildHtml(selected,fri+' — '+sun,base);
