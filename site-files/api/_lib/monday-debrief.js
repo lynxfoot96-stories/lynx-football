@@ -44,25 +44,26 @@ async function handleMondayDebrief(req,res){
  res.setHeader('Cache-Control','no-store');
  if(req.method!=='GET')return res.status(405).json({ok:false,error:'method_not_allowed'});
  if(!process.env.CRON_SECRET||String(req.headers.authorization||'')!=='Bearer '+process.env.CRON_SECRET)return res.status(401).json({ok:false,error:'unauthorized'});
- const q=req.query||{},dry=String(q.dry||'')==='1',test=String(q.test||'')==='1';
+ const q=req.query||{},dry=String(q.dry||'')==='1',test=String(q.test||'')==='1',todayTest=test&&String(q.today||'')==='1',sendTest=todayTest&&String(q.sendtest||'')==='1';
  try{
   const now=new Date();
   const weekday=new Intl.DateTimeFormat('en-US',{timeZone:TZ,weekday:'short'}).format(now);
   if(weekday!=='Mon'&&!dry&&!test)return res.status(200).json({ok:true,skipped:'not_monday_lisbon'});
   const monday=localDate(now);
   const fri=addDays(monday,-3),sun=addDays(monday,-1);
+  const from=todayTest?monday:fri,through=todayTest?monday:sun;
   // Load already-published articles; never create stories or consume football API quotas.
   const sample=test&&String(q.sample||'')==='1';
   const all=sample?[]:await db.listPublished({limit:120,compact:true});
   const relevant=all.filter(a=>{
    const d=String(a.published_date||a.created_at||'').slice(0,10);
-   return d>=fri&&d<=sun&&a.title&&a.slug;
+   return d>=from&&d<=through&&a.title&&a.slug;
   });
   relevant.sort((a,b)=>quality(b)-quality(a)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
   const selected=sample ? [{title:'SAMPLE: Weekend headline',summary:'Demonstration text, not real football news.',slug:'sample',demo:true},{title:'SAMPLE: Football weekend roundup',summary:'Sample text for checking the design.',slug:'sample2',demo:true}] : relevant.slice(0,5);
-  if(!selected.length)return res.status(200).json({ok:true,skipped:'no_published_weekend_articles',dates:[fri,sun]});
+  if(!selected.length)return res.status(200).json({ok:true,skipped:'no_published_weekend_articles',dates:[from,through]});
   const base=verifiedUrl(process.env.SITE_URL)||(req.headers.host?'https://'+req.headers.host:'');
-  const html=buildHtml(selected,fri+' — '+sun,base);
+  const html=buildHtml(selected,(todayTest?'TODAY TEST · ':'')+from+' — '+through,base);
   if(dry){res.setHeader('Content-Type','text/html; charset=utf-8');return res.status(200).send(html);}
   const list=Number(process.env.BREVO_LIST_ID),sender=process.env.BREVO_SENDER_EMAIL;
   if(!process.env.BREVO_API_KEY||!Number.isSafeInteger(list)||list<=0||!sender)throw Error('Brevo configuration incomplete');
