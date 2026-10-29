@@ -15,7 +15,7 @@ const { handleWeeklyPreview } = require('./_lib/preview');
 const { handleMondayDebrief } = require('./_lib/monday-debrief');
 const { handleSubscribe } = require('./_lib/subscribe'); // newsletter signup (POST ?action=subscribe)
 const { handleAuth } = require('./_lib/auth');           // accounts: sign up / log in / log out / me / password reset
-const AUTH_ACTIONS = new Set(['signup', 'login', 'logout', 'me', 'reset', 'newpassword', 'updateprofile', 'changepassword', 'setmarketing', 'setavatar', 'getfavorites', 'setfavorites']);
+const AUTH_ACTIONS = new Set(['signup', 'login', 'logout', 'me', 'reset', 'newpassword', 'updateprofile', 'changepassword', 'setmarketing', 'setavatar', 'getfavorites', 'setfavorites', 'setclubresults']);
 
 const API_BASE = 'https://v3.football.api-sports.io';
 
