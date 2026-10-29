@@ -104,7 +104,6 @@
             sendFavorites();
           }).catch(function(){syncReady=false;});
       }).catch(function(){syncReady=false;});
-      }).catch(function(){syncReady=false;});
   }
   document.addEventListener(EVT,function(){
     if(!syncReady||busy)return;
