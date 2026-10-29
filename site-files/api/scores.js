@@ -15,7 +15,7 @@ const { handleWeeklyPreview } = require('./_lib/preview');
 const { handleMondayDebrief } = require('./_lib/monday-debrief');
 const { handleSubscribe } = require('./_lib/subscribe'); // newsletter signup (POST ?action=subscribe)
 const { handleAuth } = require('./_lib/auth');           // accounts: sign up / log in / log out / me / password reset
-const AUTH_ACTIONS = new Set(['signup', 'login', 'logout', 'me', 'reset', 'newpassword', 'updateprofile', 'changepassword', 'setmarketing', 'setavatar', 'getfavorites', 'setfavorites']);
+const AUTH_ACTIONS = new Set(['signup', 'login', 'logout', 'me', 'reset', 'newpassword', 'updateprofile', 'changepassword', 'setmarketing', 'setavatar', 'getfavorites', 'setfavorites', 'setclubresults']);
 
 const API_BASE = 'https://v3.football.api-sports.io';
 
@@ -127,6 +127,12 @@ module.exports = async function handler(req, res) {
           await cacheSet(cacheKey, fixtures, SCORES_TTL_SECONDS);
         }
       }
+    }
+
+    // Preserve scores the website has already fetched for a future weekly
+    // followed-club email. This adds NO API-Football request.
+    if (view === 'date' && Array.isArray(fixtures) && params.date) {
+      await cacheSet('club-results:fixtures:' + params.date, fixtures, 9 * 24 * 60 * 60);
     }
 
     // Store a reusable UPCOMING-fixture snapshot for the Friday email. No extra

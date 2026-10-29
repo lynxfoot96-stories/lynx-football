@@ -161,6 +161,11 @@ html[data-theme="light"] .fs-hd #themeToggle .ti-moon { display: none !important
           <div><b>News &amp; updates by email</b><span>Football news, weekly summaries and updates from Football Stories. You can switch this off at any time.</span></div>
           <button type="button" class="sw" id="mkSw" role="switch" aria-checked="false" aria-label="News and updates by email"></button>
         </div>
+        <div class="pref">
+          <div><b>Your clubs' weekly results</b><span>Get one weekly email with scores for clubs you follow. This is separate from news emails and is off unless you enable it.</span></div>
+          <button type="button" class="sw" id="clubResultsSw" role="switch" aria-checked="false" aria-label="Weekly results for followed clubs"></button>
+        </div>
+        <p class="notice" id="clubResultsNote" role="status" aria-live="polite" hidden></p>
         <p class="notice" id="prefNote" role="status" aria-live="polite" hidden></p>
       </div>
     </section>
@@ -189,6 +194,7 @@ function avatar(el,u){el.textContent='';
  if(/^https:\/\//i.test(u.avatar||'')){var i=document.createElement('img');i.alt='';i.referrerPolicy='no-referrer';i.src=u.avatar;i.onerror=function(){i.remove();el.textContent=ini(u.name)};el.appendChild(i)}else el.textContent=ini(u.name)}
 function paintUser(){avatar($('sideAv'),ME);avatar($('bigAv'),ME);markSwatch();$('sideName').textContent=ME.name;$('sideEmail').textContent=ME.email;$('pName').value=ME.name;$('pEmail').value=ME.email;
  $('mkSw').setAttribute('aria-checked',ME.marketing?'true':'false');
+ $('clubResultsSw').setAttribute('aria-checked',ME.clubResultsEmail?'true':'false');
  try{localStorage.setItem(HINT,JSON.stringify({name:ME.name,email:ME.email,avatar:ME.avatar||'',color:ME.color||''}))}catch(e){}}
 
 /* ---- sections (same page, no reload) ---- */
@@ -227,6 +233,18 @@ $('mkSw').addEventListener('click',function(){var sw=this,want=sw.getAttribute('
  fsPost('setmarketing',{marketing:want}).then(function(j){sw.disabled=false;
   if(j.ok){ME.marketing=want;note('prefNote',want?'You will now receive our news and updates.':'You will no longer receive our news and updates.','ok')}
   else{sw.setAttribute('aria-checked',want?'false':'true');note('prefNote',MSG[j.error]||'Something went wrong. Please try again.','err')}})});
+
+/* ---- separate weekly club-results email opt-in ---- */
+$('clubResultsSw').addEventListener('click',function(){
+ var sw=this, want=sw.getAttribute('aria-checked')!=='true';
+ sw.disabled=true;
+ fsPost('setclubresults',{enabled:want}).then(function(j){
+  sw.disabled=false;
+  if(j.ok){ME.clubResultsEmail=want;sw.setAttribute('aria-checked',want?'true':'false');
+    note('clubResultsNote',want?'Weekly club results enabled.':'Weekly club results disabled.','ok');}
+  else note('clubResultsNote','Could not update your preference. Please try again.','err');
+ }).catch(function(){sw.disabled=false;note('clubResultsNote','Could not update your preference.','err');});
+});
 
 /* ---- favorites (stored in this browser, same as the Following page) ---- */
 var F=window.FS96Favorites;
