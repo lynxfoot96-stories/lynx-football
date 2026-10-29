@@ -767,7 +767,7 @@ function placeTeam(team, side){
     }
     rowPlayers.forEach(function(p, ci){
       const y = 9 + ((ci + 1) / (cols + 1)) * 82;
-      markers += '<div class="player-h" style="left:' + x + '%; top:' + y + '%;">' +
+      markers += '<div class="player-h" data-fs-player="' + encodeURIComponent(p.name || '') + '" style="left:' + x + '%; top:' + y + '%;">' +
         subOffMinuteHtml(p) +
         '<div class="avatar-wrap">' + avatarHtml(p) + badgeHtml(p) + subBadgeHtml(p) +
           capOrAssistHtml(p) + goalsHtml(p) +
@@ -803,7 +803,7 @@ function subsListHtml(team){
     const isMotm = r !== undefined && motmPlayerId !== null && String(p.id) === String(motmPlayerId);
     const cls = isMotm ? 'r-blue' : ratingBadgeClass(r);
     const star = isMotm ? ' \u2605' : '';
-    return '<div class="subs-row">' +
+    return '<div class="subs-row" data-fs-player="' + encodeURIComponent(p.name || '') + '">' +
       (photoMap[p.id] ? '<img class="avatar" src="' + photoMap[p.id] + '" alt="" />' : '<div class="avatar-fallback">' + escapeHtml(initials(p.name).toUpperCase()) + '</div>') +
       (showRating && r !== undefined ? '<span class="rating-badge ' + cls + '">' + r.toFixed(1) + star + '</span>' : '') +
       '<div class="info"><div class="name">' + escapeHtml(p.name) + '</div>' +

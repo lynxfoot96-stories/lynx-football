@@ -97,6 +97,47 @@
     if (t) go(e, t);
   }, true);
 
+  /* Match tabs: make club logos/headers and player cards navigable.
+   * player.html uses a name query, not the API player ID. */
+  var extraStyle = document.createElement('style');
+  extraStyle.textContent =
+    '.match-head-team,.players-team-head,.pitch-head .side,.pitch-h-head .side,' +
+    '.standings-table td.club,[data-fs-player]{cursor:pointer}' +
+    '[data-fs-player]:hover .pname,[data-fs-player]:hover .name,' +
+    '.match-head-team:hover .name,.standings-table td.club:hover .n{' +
+    'text-decoration:underline;text-decoration-thickness:1px}' +
+    '.fs-player-link{color:inherit;text-decoration:none}' +
+    '.fs-player-link:hover{text-decoration:underline}';
+  document.head.appendChild(extraStyle);
+
+  function navigate(e, href) {
+    if (!href) return;
+    e.preventDefault(); e.stopPropagation();
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) window.open(href, '_blank');
+    else window.location.href = href;
+  }
+  function matchDestination(target) {
+    var player = target.closest('[data-fs-player]');
+    if (player) {
+      var name = player.getAttribute('data-fs-player');
+      return name ? 'player.html?name=' + name : null;
+    }
+    var clubEl = target.closest('.match-head-team,.players-team-head,.standings-table td.club,.pitch-head .side,.pitch-h-head .side');
+    if (!clubEl) return null;
+    var nameNode = clubEl.querySelector('.name.display,.team-name,.n');
+    var name = nameNode ? nameNode.textContent : clubEl.textContent;
+    return hrefFor(name.trim());
+  }
+  document.addEventListener('click', function (e) {
+    if (!lookup || !(e.target instanceof Element) || e.target.closest('a,[data-club-href]')) return;
+    navigate(e, matchDestination(e.target));
+  }, true);
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || !lookup || !(e.target instanceof Element)) return;
+    if (e.target.closest('a,[data-club-href]')) return;
+    navigate(e, matchDestination(e.target));
+  }, true);
+
   /* ---------- boot ---------- */
   var queued = false;
   function schedule() {
