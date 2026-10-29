@@ -17,12 +17,12 @@ async function redis(parts){
  const j=await r.json();if(j.error)throw Error('Redis command rejected');
  return j.result;
 }
-async function brevo(path,body){
+async function brevo(path,body,expectId=true){
  const r=await fetch('https://api.brevo.com/v3'+path,{method:'POST',headers:{
   'api-key':process.env.BREVO_API_KEY,'Content-Type':'application/json'
  },body:JSON.stringify(body),signal:AbortSignal.timeout(14000)});
  const data=await r.json().catch(()=>({}));
- if(!r.ok||!data.id)throw Error('Brevo draft creation not confirmed ('+r.status+'); inspect dashboard before retry');
+ if(!r.ok||(expectId&&!data.id))throw Error('Brevo operation not confirmed ('+r.status+'); inspect dashboard before retry');
  return data;
 }
 function quality(a){
@@ -33,7 +33,7 @@ function quality(a){
 }
 function buildHtml(articles,weekend,base){
  const lead=articles[0],other=articles.slice(1,5);
- const url=a=>base+'/news-article.html?slug='+encodeURIComponent(a.slug);
+ const url=a=>a.demo?base+'/news.html':base+'/news-article.html?slug='+encodeURIComponent(a.slug);
  const text=a=>esc(String(a.summary||'').slice(0,230));
  const link=(a,label)=>'<a href="'+esc(url(a))+'" style="color:#CAAAFF;text-decoration:underline">'+esc(label)+'</a>';
  const main='<tr><td style="padding:24px;background:#211332"><div style="color:#FFA65C;letter-spacing:2px;font:700 11px Arial,sans-serif">THE WEEKEND HEADLINE</div><div style="color:#FFFFFF;font:700 25px/1.25 Arial,sans-serif;margin:12px 0">'+esc(lead.title)+'</div><p style="color:#D7CFE1;font:14px/1.7 Arial,sans-serif">'+text(lead)+'</p>'+link(lead,'Read the full story')+'</td></tr>';
@@ -44,21 +44,22 @@ async function handleMondayDebrief(req,res){
  res.setHeader('Cache-Control','no-store');
  if(req.method!=='GET')return res.status(405).json({ok:false,error:'method_not_allowed'});
  if(!process.env.CRON_SECRET||String(req.headers.authorization||'')!=='Bearer '+process.env.CRON_SECRET)return res.status(401).json({ok:false,error:'unauthorized'});
- const q=req.query||{},dry=String(q.dry||'')==='1';
+ const q=req.query||{},dry=String(q.dry||'')==='1',test=String(q.test||'')==='1';
  try{
   const now=new Date();
   const weekday=new Intl.DateTimeFormat('en-US',{timeZone:TZ,weekday:'short'}).format(now);
-  if(weekday!=='Mon'&&!dry)return res.status(200).json({ok:true,skipped:'not_monday_lisbon'});
+  if(weekday!=='Mon'&&!dry&&!test)return res.status(200).json({ok:true,skipped:'not_monday_lisbon'});
   const monday=localDate(now);
   const fri=addDays(monday,-3),sun=addDays(monday,-1);
   // Load already-published articles; never create stories or consume football API quotas.
-  const all=await db.listPublished({limit:120,compact:true});
+  const sample=test&&String(q.sample||'')==='1';
+  const all=sample?[]:await db.listPublished({limit:120,compact:true});
   const relevant=all.filter(a=>{
    const d=String(a.published_date||a.created_at||'').slice(0,10);
    return d>=fri&&d<=sun&&a.title&&a.slug;
   });
   relevant.sort((a,b)=>quality(b)-quality(a)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
-  const selected=relevant.slice(0,5);
+  const selected=sample ? [{title:'SAMPLE: Weekend headline',summary:'Demonstration text, not real football news.',slug:'sample',demo:true},{title:'SAMPLE: Football weekend roundup',summary:'Sample text for checking the design.',slug:'sample2',demo:true}] : relevant.slice(0,5);
   if(!selected.length)return res.status(200).json({ok:true,skipped:'no_published_weekend_articles',dates:[fri,sun]});
   const base=verifiedUrl(process.env.SITE_URL)||(req.headers.host?'https://'+req.headers.host:'');
   const html=buildHtml(selected,fri+' — '+sun,base);
@@ -67,14 +68,20 @@ async function handleMondayDebrief(req,res){
   if(!process.env.BREVO_API_KEY||!Number.isSafeInteger(list)||list<=0||!sender)throw Error('Brevo configuration incomplete');
   // Idempotent reservation; never retry an ambiguous Brevo creation automatically.
   const key='monday-debrief:draft:'+monday;
-  const reserved=await redis(['SET',key,'reserved','NX','EX',String(14*86400)]);
+  const reserved=test?'OK':await redis(['SET',key,'reserved','NX','EX',String(14*86400)]);
   if(reserved===null)return res.status(200).json({ok:true,skipped:'draft_already_attempted_check_brevo'});
   if(reserved!=='OK')throw Error('Cannot confirm Redis reservation');
-  const campaign=await brevo('/emailCampaigns',{name:'Monday Football Debrief '+monday,subject:'Monday Football Debrief: '+selected[0].title,
+  const campaign=await brevo('/emailCampaigns',{name:(test?'TEST ':'')+'Monday Football Debrief '+monday+(test?' '+now.toISOString():''),subject:(test?'[TEST] ':'')+'Monday Football Debrief: '+selected[0].title,
     sender:{name:process.env.BREVO_SENDER_NAME||'Football Stories 96',email:sender},
     recipients:{listIds:[list]},htmlContent:html});
+  if(test)return res.status(200).json({ok:true,createdDraft:true,test:true,campaignId:campaign.id});
   await redis(['SET',key,'draft:'+campaign.id,'EX',String(14*86400)]);
-  return res.status(200).json({ok:true,createdDraft:true,automatic:false,campaignId:campaign.id,headlines:selected.map(a=>a.title)});
+  if(String(process.env.MONDAY_DEBRIEF_SEND||'').toLowerCase()!=='true')
+    return res.status(200).json({ok:true,createdDraft:true,automatic:false,campaignId:campaign.id});
+  await redis(['SET',key,'send_attempted:'+campaign.id,'EX',String(14*86400)]);
+  await brevo('/emailCampaigns/'+encodeURIComponent(campaign.id)+'/sendNow',{},false);
+  await redis(['SET',key,'send_requested:'+campaign.id,'EX',String(14*86400)]);
+  return res.status(200).json({ok:true,sendRequested:true,campaignId:campaign.id});
  }catch(e){console.error('[monday-debrief]',e.message);return res.status(502).json({ok:false,error:'debrief_failed_review_logs'});}
 }
 module.exports={handleMondayDebrief};
