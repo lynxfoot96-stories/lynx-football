@@ -11,6 +11,7 @@
  */
 const { cacheGet, cacheSet, acquireLock, releaseLock } = require('./_lib/cache');
 const { selectDetailLinks, allowDetails, filterAlreadyOpened } = require('./_lib/match-priority');
+const { handleWeeklyPreview } = require('./_lib/preview');
 const { handleSubscribe } = require('./_lib/subscribe'); // newsletter signup (POST ?action=subscribe)
 const { handleAuth } = require('./_lib/auth');           // accounts: sign up / log in / log out / me / password reset
 const AUTH_ACTIONS = new Set(['signup', 'login', 'logout', 'me', 'reset', 'newpassword', 'updateprofile', 'changepassword', 'setmarketing', 'setavatar']);
@@ -65,6 +66,7 @@ module.exports = async function handler(req, res) {
   // Account actions (signup/login/...) also share this file for the same 12-function reason.
   const action = String((req.query || {}).action || '');
   if (AUTH_ACTIONS.has(action)) return handleAuth(req, res, action);
+  if (action === 'weekly-preview') return handleWeeklyPreview(req, res);
 
   // Newsletter signup shares this file so the project stays within Vercel's 12-function Hobby limit.
   if (req.method === 'POST') return handleSubscribe(req, res);
@@ -123,6 +125,13 @@ module.exports = async function handler(req, res) {
           await cacheSet(cacheKey, fixtures, SCORES_TTL_SECONDS);
         }
       }
+    }
+
+    // Store a reusable UPCOMING-fixture snapshot for the Friday email. No extra
+    // external football API call: these fixtures were fetched for the website.
+    // Store only future dates; past scores never become long-lived snapshots.
+    if (view === 'date' && params.date >= new Date().toISOString().slice(0, 10)) {
+      await cacheSet('newsletter:fixtures:' + params.date, fixtures, 9 * 24 * 60 * 60);
     }
 
     // Match-details links: decided per day from the FULL day list (before the league

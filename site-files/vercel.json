@@ -2,12 +2,31 @@
   "cleanUrls": false,
   "trailingSlash": false,
   "crons": [
-    { "path": "/api/automated-news", "schedule": "0 8 * * *" },
-    { "path": "/api/automated-news-openrouter", "schedule": "0 19 * * *" }
+    {
+      "path": "/api/automated-news",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/automated-news-openrouter",
+      "schedule": "0 19 * * *"
+    },
+    {
+      "path": "/api/scores?action=weekly-preview",
+      "schedule": "0 1 * * 6"
+    }
   ],
   "functions": {
-    "api/automated-news.js": { "maxDuration": 60 },
-    "api/automated-news-openrouter.js": { "maxDuration": 60 },
-    "api/player.js": { "maxDuration": 25 }
+    "api/automated-news.js": {
+      "maxDuration": 60
+    },
+    "api/automated-news-openrouter.js": {
+      "maxDuration": 60
+    },
+    "api/player.js": {
+      "maxDuration": 25
+    },
+    "api/scores.js": {
+      "maxDuration": 60
+    }
   }
 }

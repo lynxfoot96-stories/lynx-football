@@ -286,7 +286,31 @@ async function detailsAllowed(id) {
   return (await cacheGet(summaryKey(id))) !== null;
 }
 
+// ---- "biggest upcoming games" (used by the Friday Weekend Preview email) -------
+// Ranks NOT-YET-STARTED matches over any number of days using the SAME priority list above:
+// the higher a club sits in MATCH_DETAIL_PRIORITY, the more points it gives; a match between
+// two listed clubs gets a bonus; Champions League / Europa League and the big leagues add a little.
+const UPCOMING_STATUSES = new Set(['NS', 'TBD']);
+const LEAGUE_BONUS = { 2: 60, 3: 25, 39: 12, 140: 12, 135: 10, 78: 10, 61: 8, 5: 6, 94: 5, 71: 4 };
+
+function rankUpcoming(fixtures, n) {
+  const N = ENTRIES.length;
+  const teamScore = (team, lid) => {
+    for (let i = 0; i < N; i++) if (teamMatches(ENTRIES[i], team, lid)) return N - i;
+    return 0;
+  };
+  const rows = (fixtures || [])
+    .filter(f => f && UPCOMING_STATUSES.has(f.statusShort))
+    .map(f => {
+      const lid = f.league && f.league.id;
+      const a = teamScore(f.home, lid), b = teamScore(f.away, lid);
+      return { f, score: a + b + (a && b ? 40 : 0) + (LEAGUE_BONUS[lid] || 0) };
+    });
+  rows.sort((x, y) => (y.score - x.score) || (new Date(x.f.date) - new Date(y.f.date)));
+  return rows.slice(0, n).map(r => r.f);
+}
+
 module.exports = {
   MATCH_DETAIL_PRIORITY, MATCH_DETAIL_DAILY_CAP,
-  selectDetailLinks, allowDetails, filterAlreadyOpened, detailsAllowed,
+  selectDetailLinks, allowDetails, filterAlreadyOpened, detailsAllowed, rankUpcoming,
 };
