@@ -88,10 +88,10 @@ function buildHtml(games, siteUrl, subject, intro) {
   var base = String(siteUrl || '').replace(/\/+$/, '');
   var rows = games.map(function (g, i) {
     return '<tr><td style="padding-bottom:14px;">' +
-      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#17151C" style="background:#17151C;border:1px solid #2a2635;border-radius:16px;">' +
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#17151C" style="background:#1C1725;border:1px solid #393044;border-radius:16px;">' +
       '<tr><td width="6" bgcolor="' + (i % 2 ? '#FF7A1A' : '#8A3FFC') + '" style="width:6px;background:' + (i % 2 ? '#FF7A1A' : '#8A3FFC') + ';border-radius:16px 0 0 16px;font-size:0;line-height:0;">&nbsp;</td>' +
       '<td style="padding:18px 16px;">' +
-      '<div style="font-family:Inter,Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;color:' + (i % 2 ? '#FF9540' : '#A868FF') + ';text-transform:uppercase;text-align:center;">' + esc(kickoffLabel(g.date)) + '</div>' +
+      '<div style="font-family:Inter,Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;letter-spacing:1.3px;color:' + (i % 2 ? '#FF9540' : '#A868FF') + ';text-transform:uppercase;text-align:center;">' + esc(kickoffLabel(g.date)) + '</div>' +
       '<div style="font-family:Inter,Arial,Helvetica,sans-serif;font-size:12px;color:#8D889A;text-align:center;padding:4px 0 14px;">' + esc(g.league.name) + '</div>' +
       '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' +
       teamCell(g.home) +
@@ -111,14 +111,14 @@ function buildHtml(games, siteUrl, subject, intro) {
     '<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#08070A;font-size:1px;">The biggest games from Saturday and Sunday, in kickoff order.</div>' +
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#08070A" style="background:#08070A;"><tr><td align="center" style="padding:28px 12px 36px;">' +
     '<table role="presentation" class="wrap" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">' +
-    '<tr><td bgcolor="#121116" style="background:#121116;background-image:linear-gradient(160deg,#26124a 0%,#15101f 45%,#121116 100%);border-radius:24px 24px 0 0;border:1px solid #2a2635;border-bottom:0;">' +
+    '<tr><td bgcolor="#121116" style="background:#211332;background-image:linear-gradient(160deg,#29163d 0%,#211332 65%,#1a1227 100%);border-radius:24px 24px 0 0;border:1px solid #2a2635;border-bottom:0;">' +
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="5" bgcolor="#8A3FFC" style="height:5px;line-height:5px;font-size:0;background:#8A3FFC;background-image:linear-gradient(90deg,#8A3FFC,#FF7A1A);border-radius:24px 24px 0 0;">&nbsp;</td></tr></table>' +
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" class="px" style="padding:34px 36px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tr>' + logo +
     '<td valign="middle" style="font-family:\'Big Shoulders Display\',Impact,Arial,sans-serif;font-weight:800;font-size:32px;line-height:34px;letter-spacing:.02em;color:#F4F3F6;text-transform:uppercase;">Football Stories</td></tr></table></td></tr>' +
-    '<tr><td align="center" class="px h1" style="padding:16px 36px 0;font-family:\'Big Shoulders Display\',Impact,Arial,sans-serif;font-weight:900;font-size:64px;line-height:62px;color:#F4F3F6;text-transform:uppercase;letter-spacing:1px;">Weekend preview</td></tr>' +
-    '<tr><td align="center" class="px" style="padding:14px 48px 28px;font-family:Inter,Arial,Helvetica,sans-serif;font-size:16px;line-height:25px;color:#C4BFD1;">' + esc(intro || ('The ' + games.length + ' biggest games on Saturday and Sunday.')) + ' Kickoff times are in ' + esc(TZ_LABEL) + '.</td></tr></table>' +
+    '<tr><td align="center" class="px h1" style="padding:16px 36px 0;font-family:\'Big Shoulders Display\',Impact,Arial,sans-serif;font-weight:900;font-size:62px;line-height:62px;color:#F4F3F6;text-transform:uppercase;letter-spacing:1px;">Weekend <span style="color:#B987FF;">preview</span></td></tr>' +
+    '<tr><td align="center" class="px" style="padding:14px 48px 28px;font-family:Inter,Arial,Helvetica,sans-serif;font-size:16px;line-height:25px;color:#C4BFD1;">' + esc(intro || ('The five biggest matches. One unmissable weekend.')) + ' Kickoff times are in ' + esc(TZ_LABEL) + '.</td></tr></table>' +
     '</td></tr>' +
-    '<tr><td bgcolor="#0E0D12" class="px" style="background:#0E0D12;border-left:1px solid #2a2635;border-right:1px solid #2a2635;padding:26px 30px 22px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">' + rows + btn + '</table></td></tr>' +
+    '<tr><td bgcolor="#0E0D12" class="px" style="background:#0E0D12;border-left:1px solid #2a2635;border-right:1px solid #2a2635;padding:30px 30px 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">' + rows + btn + '</table></td></tr>' +
     '<tr><td bgcolor="#0A090D" align="center" class="px" style="background:#0A090D;border:1px solid #2a2635;border-top:0;border-radius:0 0 24px 24px;padding:24px 36px 28px;font-family:Inter,Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#6F6A7A;">' +
     'You are getting this because you subscribed to Football Stories updates.<br><a href="{{ unsubscribe }}" style="color:#A7A2B3;text-decoration:underline;">Unsubscribe</a> &nbsp;&middot;&nbsp; <a href="{{ mirror }}" style="color:#A7A2B3;text-decoration:underline;">View in browser</a></td></tr>' +
     '</table></td></tr></table></body></html>';
