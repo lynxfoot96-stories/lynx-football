@@ -188,14 +188,31 @@ async function handleWeeklyPreview(req, res) {
     // A manual retry on a different day must not accidentally send.
     const weekday = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'short' }).format(now);
     if (weekday !== 'Sat' && !isDry && !isTest) return res.status(200).json({ ok: true, skipped: 'not_saturday_lisbon' });
-    const data = await pickGames(now);
+    // Sample mode is available only with test=1 (draft-only). Never fetch sports APIs.
+    const sample = isTest && String(q.sample || '') === '1';
+    const demoGames = [
+      ['Barcelona', 'Real Madrid', 'La Liga', 140],
+      ['Arsenal', 'Liverpool', 'Premier League', 39],
+      ['Bayern Munich', 'Borussia Dortmund', 'Bundesliga', 78],
+      ['Inter Milan', 'Juventus', 'Serie A', 135],
+      ['PSG', 'Marseille', 'Ligue 1', 61],
+    ];
+    const data = sample
+      ? { games: demoGames.map(([home, away, league, id], i) => ({
+          id: 'sample-' + i,
+          date: new Date(now.getTime() + (i < 2 ? 1 : 2) * 86400000 + i * 3600000).toISOString(),
+          home: { name: home, logo: '' },
+          away: { name: away, logo: '' },
+          league: { name: league, id },
+        })), available: 2, total: 2, sources: ['sample-no-football-api'] }
+      : await pickGames(now);
     const { games } = data;
     if (data.available !== data.total) return res.status(503).json({ ok: false, error: 'incomplete_weekend_data_no_campaign_created', daysLoaded: data.available, checkedDays: data.total, sources: data.sources });
     if (!games.length) return res.status(200).json({ ok: true, skipped: 'no_fixtures_found', daysLoaded: data.available, checkedDays: data.total, sources: data.sources });
     const siteUrl = process.env.SITE_URL || (req.headers.host ? 'https://' + req.headers.host : '');
     const testing = isDry || isTest || weekday !== 'Sat';
     const subject = (testing ? '[TEST] ' : '') + 'Weekend preview: the ' + games.length + ' games you cannot miss';
-    const intro = testing ? 'TEST EMAIL: the ' + games.length + ' biggest games today and tomorrow.' : undefined;
+    const intro = sample ? 'DESIGN DEMO ONLY: example matches, not real fixtures.' : (testing ? 'TEST EMAIL: the ' + games.length + ' biggest games today and tomorrow.' : undefined);
     const html = buildHtml(games, siteUrl, subject, intro);
     if (isDry) {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
