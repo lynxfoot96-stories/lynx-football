@@ -44,11 +44,11 @@ async function handleMondayDebrief(req,res){
  res.setHeader('Cache-Control','no-store');
  if(req.method!=='GET')return res.status(405).json({ok:false,error:'method_not_allowed'});
  if(!process.env.CRON_SECRET||String(req.headers.authorization||'')!=='Bearer '+process.env.CRON_SECRET)return res.status(401).json({ok:false,error:'unauthorized'});
- const q=req.query||{},dry=String(q.dry||'')==='1';
+ const q=req.query||{},dry=String(q.dry||'')==='1',test=String(q.test||'')==='1';
  try{
   const now=new Date();
   const weekday=new Intl.DateTimeFormat('en-US',{timeZone:TZ,weekday:'short'}).format(now);
-  if(weekday!=='Mon'&&!dry)return res.status(200).json({ok:true,skipped:'not_monday_lisbon'});
+  if(weekday!=='Mon'&&!dry&&!test)return res.status(200).json({ok:true,skipped:'not_monday_lisbon'});
   const monday=localDate(now);
   const fri=addDays(monday,-3),sun=addDays(monday,-1);
   // Load already-published articles; never create stories or consume football API quotas.
