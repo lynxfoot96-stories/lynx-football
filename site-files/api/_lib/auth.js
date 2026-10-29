@@ -271,7 +271,7 @@ async function handleAuth(req, res, action) {
     }
 
     /* ----- ACCOUNT PAGE ACTIONS (need to be logged in) ----- */
-    if (action === 'updateprofile' || action === 'changepassword' || action === 'setmarketing' || action === 'setavatar') {
+    if (action === 'updateprofile' || action === 'changepassword' || action === 'setmarketing' || action === 'setavatar' || action === 'setclubresults') {
       var ss = await getSession(req, res);
       if (!ss || !ss.user) return res.status(401).json({ error: 'not_logged_in' });
 
