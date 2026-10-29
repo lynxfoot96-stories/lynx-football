@@ -514,7 +514,7 @@ function showState(container, msg, isError){
       return '<div class="players-team">' +
         '<div class="players-team-head">' + (t.team.logo ? '<img src="' + t.team.logo + '" alt="" />' : '') + escapeHtml(t.team.name) + '</div>' +
         t.players.map(function(p){
-          return '<div class="player-row">' +
+          return '<div class="player-row" data-fs-player="' + encodeURIComponent(p.name || '') + '">' +
             (p.photo ? '<img class="photo" src="' + p.photo + '" alt="" />' : '<div class="photo"></div>') +
             '<div class="pinfo"><div class="pname">' + escapeHtml(p.name) + (p.captain ? '<span class="cap-badge">C</span>' : '') + '</div>' +
               (p.position ? '<div class="ppos">' + escapeHtml(p.position) + (p.substitute ? ' \u00b7 Sub' : '') + '</div>' : '') +
