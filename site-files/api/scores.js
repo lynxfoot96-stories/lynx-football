@@ -129,6 +129,12 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // Preserve scores the website has already fetched for a future weekly
+    // followed-club email. This adds NO API-Football request.
+    if (view === 'date' && Array.isArray(fixtures) && params.date) {
+      await cacheSet('club-results:fixtures:' + params.date, fixtures, 9 * 24 * 60 * 60);
+    }
+
     // Store a reusable UPCOMING-fixture snapshot for the Friday email. No extra
     // external football API call: these fixtures were fetched for the website.
     // Store only future dates; past scores never become long-lived snapshots.
