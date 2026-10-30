@@ -10,6 +10,24 @@
    ========================================================== */
 (function () {
   'use strict';
+  // Enable installation across existing site pages without editing their individual HTML heads.
+  if (!document.querySelector('link[rel="manifest"]')) {
+    var manifestLink=document.createElement('link');
+    manifestLink.rel='manifest'; manifestLink.href='manifest.webmanifest';
+    document.head.appendChild(manifestLink);
+  }
+  if (!document.querySelector('meta[name="theme-color"]')) {
+    var themeMeta=document.createElement('meta');
+    themeMeta.name='theme-color'; themeMeta.content='#8735ee';
+    document.head.appendChild(themeMeta);
+  }
+  if ('serviceWorker' in navigator && location.protocol==='https:') {
+    window.addEventListener('load',function(){
+      navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(function(err){
+        console.warn('Football Stories offline support unavailable',err);
+      });
+    });
+  }
   // Default to light on a first visit; respect the visitor's saved choice.
   // The inline head theme scripts handle pages which already set a theme.
   (function(){
