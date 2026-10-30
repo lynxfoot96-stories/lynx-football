@@ -136,7 +136,22 @@ module.exports = async function handler(req, res) {
     // Preserve scores the website has already fetched for a future weekly
     // followed-club email. This adds NO API-Football request.
     if (view === 'date' && Array.isArray(fixtures) && params.date) {
-      await cacheSet('club-results:fixtures:' + params.date, fixtures, 9 * 24 * 60 * 60);
+      // Keep already-seen final scores even when a subsequent cached snapshot
+      // is older or incomplete. Does not call the football provider.
+      const snapshotKey = 'club-results:fixtures:' + params.date;
+      const previous = await cacheGet(snapshotKey);
+      const finals = new Set(['FT', 'AET', 'PEN']);
+      const byId = new Map();
+      for (const game of Array.isArray(previous) ? previous : []) {
+        if (game && game.id != null) byId.set(String(game.id), game);
+      }
+      for (const game of fixtures) {
+        if (!game || game.id == null) continue;
+        const key = String(game.id), older = byId.get(key);
+        if (older && finals.has(older.statusShort) && !finals.has(game.statusShort)) continue;
+        byId.set(key, game);
+      }
+      await cacheSet(snapshotKey, Array.from(byId.values()), 9 * 24 * 60 * 60);
     }
 
     // Store a reusable UPCOMING-fixture snapshot for the Friday email. No extra

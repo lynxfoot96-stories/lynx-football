@@ -21,9 +21,19 @@ async function getResults(clubs,days=7){
  const fixtures=[],missing=[];
  for(let n=0;n<days;n++){
   const date=ago(n);
-  const found=await cacheGet('club-results:fixtures:'+date);
-  if(Array.isArray(found))fixtures.push(...found);
-  else missing.push(date);
+  let found=await cacheGet('club-results:fixtures:'+date);
+  // Older daily score responses might predate the dedicated weekly snapshot.
+  // Reuse that existing cache, without requesting fixtures from API-Football.
+  if(!Array.isArray(found)){
+   found=await cacheGet('scores:'+JSON.stringify(['date',{date:date}]));
+  }
+  if(Array.isArray(found)){
+   fixtures.push(...found);
+   // A saved schedule is not evidence that the completed results are cached.
+   // Mark dates incomplete when they still have games without a final status.
+   if(found.some(f=>f&&['NS','TBD','1H','HT','2H','ET','BT','P','LIVE'].includes(f.statusShort)))
+    missing.push(date);
+  }else missing.push(date);
  }
  return {matches:select(fixtures,clubs),missing,days};
 }
