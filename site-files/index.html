@@ -24,7 +24,7 @@
     else { root.removeAttribute('data-theme'); }
   }
   var saved=read();
-  if(saved){ apply(saved); save(saved); }
+  if(saved){ apply(saved); save(saved); } else { apply('light'); }
   document.addEventListener('DOMContentLoaded', function(){
     var btn=document.getElementById('themeToggle');
     if(!btn) return;
@@ -304,6 +304,8 @@
     transition:border-color .2s ease, background .2s ease;
   }
   .btn-ghost:hover{ border-color:var(--orange); background:rgba(255,122,26,0.08); }
+  .hero-youtube-red,.hero-youtube-red:hover{background:#e62117;color:#fff;border-color:#e62117;box-shadow:0 4px 16px rgba(230,33,23,.25)}
+  .hero-youtube-red:hover{background:#cc1710;border-color:#cc1710}
 
   .hero-stats{
     display:flex;
@@ -957,7 +959,10 @@
     max-width:400px;
     width:100%;
     margin-top:8px;
+    transition:transform .22s ease,box-shadow .22s ease;
   }
+  .club-spotlight:has(.cs-photo:hover){transform:translateY(-6px) scale(1.018);box-shadow:0 16px 38px rgba(14,7,25,.24)}
+  @media (prefers-reduced-motion:reduce){.club-spotlight{transition:none}}
   @media (max-width:960px){ .club-spotlight{ max-width:460px; } }
 
   .cs-slides{ position:relative; }
@@ -1093,6 +1098,10 @@
     transition:background .2s ease, transform .2s ease;
   }
   .cs-dot.active{ background:var(--orange); transform:scale(1.3); }
+  html[data-theme="light"] .cs-dot{background:#9b96a5;box-shadow:0 0 0 1px #e5e2ea;}
+  html[data-theme="light"] .cs-dot.active{background:#e85a00;box-shadow:0 0 0 2px rgba(232,90,0,.2);} 
+  .cs-photo[role="link"]{cursor:pointer;}
+  .cs-photo[role="link"]:focus-visible{outline:3px solid var(--orange);outline-offset:-4px;}
 
   .cs-seemore{
     display:inline-block;
@@ -1409,6 +1418,9 @@
   }
   .scores-state.error{ color:var(--orange-bright); }
 
+  .score-inline-link{color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:6px;min-width:0}
+  .score-inline-link:hover{color:var(--orange-bright);text-decoration:underline}
+  .match-col[data-match-href]{cursor:pointer}
   /* Horizontal, fixed-width match-card strip */
   .scores-strip-wrap{ position:relative; }
   .scores-strip{
@@ -1918,7 +1930,7 @@ html[data-theme="light"] .cat-tile,html[data-theme="light"] .cat-tile.active{bac
     <p class="sub">It's a story. We dig into the transfers, the rivalries, the crises and the comebacks — the parts of football that don't fit in a headline.</p>
     <div class="hero-actions">
       <a href="#latest" class="btn-primary">Watch the latest episode</a>
-      <a href="#subscribe" class="btn-ghost">Subscribe on YouTube</a>
+      <a href="#subscribe" class="btn-ghost hero-youtube-red">Subscribe on YouTube</a>
     </div>
     <div class="hero-stats">
       <div class="stat"><div class="num display">120+</div><div class="label">Stories told</div></div>
@@ -2517,6 +2529,21 @@ html[data-theme="light"] .cat-tile,html[data-theme="light"] .cat-tile.active{bac
       });
     });
 
+    // Clicking or keyboard-activating a club picture opens its full overview.
+    // Use the existing overview URL for each slide, without changing arrows/dots.
+    slides.forEach(function(slide){
+      const picture=slide.querySelector('.cs-photo');
+      const overview=slide.querySelector('.cs-tab-content[data-tab-content="overview"] .cs-seemore[href]');
+      if(!picture||!overview)return;
+      picture.setAttribute('role','link');
+      picture.setAttribute('tabindex','0');
+      picture.setAttribute('aria-label','Open full club overview');
+      picture.addEventListener('click',function(){window.location.href=overview.href;});
+      picture.addEventListener('keydown',function(e){
+        if(e.key==='Enter'||e.key===' '){e.preventDefault();window.location.href=overview.href;}
+      });
+    });
+
     // tab switching, scoped per slide
     slides.forEach(function(slide){
       const tabs = slide.querySelectorAll('.cs-tab');
@@ -2715,8 +2742,11 @@ window.FSLeagueLogos = (function(){
     const score = (team.score === null || team.score === undefined) ? '' : team.score;
     const winnerClass = team.winner ? ' winner' : '';
     const logo = team.logo ? '<img src="' + team.logo + '" alt="" />' : '';
-    return '<div class="match-col-team' + winnerClass + '">' + logo +
-      '<span class="team-name">' + team.name + '</span>' +
+    const clubHref = team.id != null ? 'club.html?id=' + encodeURIComponent(team.id) : '';
+    const label=clubHref
+      ? '<a class="score-inline-link" href="' + clubHref + '" title="Open ' + team.name.replace(/"/g,'&quot;') + ' club overview">' + logo + '<span class="team-name">' + team.name + '</span></a>'
+      : logo + '<span class="team-name">' + team.name + '</span>';
+    return '<div class="match-col-team' + winnerClass + '">' + label +
       '<span class="team-score">' + score + '</span></div>';
   }
 
@@ -2737,6 +2767,11 @@ window.FSLeagueLogos = (function(){
     return '<span class="match-col-status">' + time + '</span>';
   }
 
+  body.addEventListener('click',function(e){
+    if(e.target.closest('.score-inline-link'))return;
+    const card=e.target.closest('.match-col[data-match-href]');
+    if(card && body.contains(card))window.location.href=card.getAttribute('data-match-href');
+  });
   function renderFixtures(fixtures){
     currentFixtures = fixtures;
     if (!fixtures.length){
@@ -2748,15 +2783,20 @@ window.FSLeagueLogos = (function(){
     let cards = '';
     fixtures.forEach(function(f){
       const hasDetail = f.detail === true;
-      cards += '<' + (hasDetail ? 'a href="match.html?id=' + encodeURIComponent(f.id) + '"' : 'div') +
-        ' class="match-col' + (f.isLive ? ' is-live' : '') + (hasDetail ? ' has-detail' : '') + '" data-fixture-id="' + f.id + '">' +
-        '<div class="match-col-head"><span class="match-col-league">' +
+      const detailUrl = hasDetail ? 'match.html?id=' + encodeURIComponent(f.id) : '';
+      const leagueUrl = f.league && f.league.id != null ? 'standings.html?league=' + encodeURIComponent(f.league.id) : '';
+      cards += '<div class="match-col' + (f.isLive ? ' is-live' : '') + (hasDetail ? ' has-detail' : '') +
+        '" data-fixture-id="' + f.id + '"' + (detailUrl ? ' data-match-href="' + detailUrl + '"' : '') + '>' +
+        '<div class="match-col-head">' +
+          (leagueUrl ? '<a class="match-col-league score-inline-link" href="' + leagueUrl + '" title="Open league standings">' : '<span class="match-col-league">') +
           (f.league.logo ? '<img src="' + f.league.logo + '" alt="" />' : '') + f.league.name +
-        '</span>' + statusBlock(f) + '</div>' +
-        renderTeamRow({ name: f.home.name, logo: f.home.logo, winner: f.home.winner, score: f.goals.home }) +
-        renderTeamRow({ name: f.away.name, logo: f.away.logo, winner: f.away.winner, score: f.goals.away }) +
-      '</' + (hasDetail ? 'a' : 'div') + '>';
+          (leagueUrl ? '</a>' : '</span>') + statusBlock(f) + '</div>' +
+        renderTeamRow({ id:f.home.id,name: f.home.name, logo: f.home.logo, winner: f.home.winner, score: f.goals.home }) +
+        renderTeamRow({ id:f.away.id,name: f.away.name, logo: f.away.logo, winner: f.away.winner, score: f.goals.away }) +
+      '</div>';
     });
+    // Preserve clicking the rest of a match card to open its match details.
+    // Direct team/league links are handled by the browser, without nesting anchors.
     body.innerHTML = '<div class="scores-strip-wrap">' +
       '<button class="scores-arrow prev" id="scoresPrev" aria-label="Scroll left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>' +
       '<div class="scores-strip" id="scoresStrip">' + cards + '</div>' +

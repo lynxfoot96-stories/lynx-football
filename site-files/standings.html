@@ -24,7 +24,7 @@
     else { root.removeAttribute('data-theme'); }
   }
   var saved=read();
-  if(saved){ apply(saved); save(saved); }
+  if(saved){ apply(saved); save(saved); } else { apply('light'); }
   document.addEventListener('DOMContentLoaded', function(){
     var btn=document.getElementById('themeToggle');
     if(!btn) return;
@@ -628,6 +628,10 @@ html[data-theme="light"] .lh-logo{border-color:rgba(17,17,22,.10);box-shadow:0 0
 header .wrap{ max-width:1180px; padding:0 32px; }
 @media (max-width:640px){ header .wrap{ padding:0 20px; } }
 .logo{ white-space:nowrap; }
+ .standings-switch-row{position:relative;padding-right:62px}
+ .league-id{position:static;padding-right:0}
+ .league-id>.fs-fav{position:absolute;right:4px;top:50%;transform:translateY(-50%);z-index:4}
+ .league-id>.fs-fav:hover{transform:translateY(-50%) scale(1.06)}
 </style>
 </head>
 <body class="match-page-body">
@@ -895,6 +899,13 @@ async function loadStandings(){
   const meta = STANDINGS_LEAGUES[standingsIndex];
   history.replaceState(null, '', 'standings.html?league=' + meta.id);
 
+  // favorites.js decorates any data-fav-* element with a persistent follow heart.
+  leagueIdEl.setAttribute('data-fav-id', String(meta.id));
+  leagueIdEl.setAttribute('data-fav-type', 'league');
+  leagueIdEl.setAttribute('data-fav-name', meta.name);
+  leagueIdEl.setAttribute('data-fav-url', 'standings.html?league=' + meta.id);
+  leagueIdEl.setAttribute('data-fav-badge', leagueLogos[meta.id] || '');
+  leagueIdEl.removeAttribute('data-fav-ready');
   leagueIdEl.innerHTML = '<span class="names"><span class="n1">' + escapeHtml(meta.name) + '</span>' +
     '<span class="n2">' + escapeHtml(meta.country) + '</span></span>';
   tableWrap.innerHTML = '<div class="state-msg">Loading table&hellip;</div>';
@@ -910,12 +921,15 @@ async function loadStandings(){
     const d = json.data;
     if (d.league && d.league.logo) {
       leagueLogos[meta.id] = d.league.logo;
+      leagueIdEl.setAttribute('data-fav-badge', d.league.logo);
       if (activeTab === 'news') renderLeagueHero();
       renderLeagueMenu();
     }
     if (d.league.logo){
+      leagueIdEl.removeAttribute('data-fav-ready');
       leagueIdEl.innerHTML = '<img src="' + d.league.logo + '" alt="" />' + leagueIdEl.innerHTML;
     } else {
+      leagueIdEl.removeAttribute('data-fav-ready');
       leagueIdEl.innerHTML = '<div class="league-badge-fallback">' + meta.abbr + '</div>' + leagueIdEl.innerHTML;
     }
 

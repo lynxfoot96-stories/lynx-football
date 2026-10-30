@@ -24,7 +24,7 @@
     else { root.removeAttribute('data-theme'); }
   }
   var saved=read();
-  if(saved){ apply(saved); save(saved); }
+  if(saved){ apply(saved); save(saved); } else { apply('light'); }
   document.addEventListener('DOMContentLoaded', function(){
     var btn=document.getElementById('themeToggle');
     if(!btn) return;
@@ -586,11 +586,9 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
     return '<div class="nx-img wm-pending" data-wm="'+esc(it.title)+'" style="background:'+GRADIENT+';opacity:.85" data-label=""></div>';
   }
   function toItem(o){
+    // Use the article's own picture, as on the news listing. Do not replace it
+    // with a YouTube thumbnail selected from the headline.
     var own=safeUrl(first(o,["image_url","image","cover_image","thumbnail"]));
-    if(!own){
-      var m=matchVideos(o.title||"",[first(o,["summary","excerpt","dek","description"]),first(o,["body","content","article_body","article","full_text","text"])].join(" "),1);
-      if(m.matched)own="https://i.ytimg.com/vi/"+m.list[0].id+"/hqdefault.jpg";
-    }
     return {href:"news-article.html?slug="+encodeURIComponent(o.slug),title:o.title||"Untitled",cat:first(o,["category","tag","topic","club"])||"News",date:shortDate(o),img:own};
   }
 
@@ -647,7 +645,9 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
     var src=safeUrl(first(a,["source_url"]));
 
     /* other stories: automated ones first, then the hand-written ones as filler */
-    var pool=others.map(toItem).concat(STATIC_POOL);
+    // Show only actual published articles, using the same image as the news feed.
+    // Never fill the sidebar with unrelated video-thumbnail placeholder stories.
+    var pool=others.map(toItem);
     var sideItems=pool.slice(0,4), exploreItems=pool.slice(4,8);
     if(exploreItems.length<4)exploreItems=pool.slice(0,4);
 
