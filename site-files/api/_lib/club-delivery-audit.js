@@ -28,7 +28,7 @@ async function members(){
  throw Error('recipient_cap_reached_pagination_required');
 }
 async function accounts(){
- const url=String(process.env.SUPABASE_URL||'').replace(/\\/$/,'');
+ const url=String(process.env.SUPABASE_URL||'').replace(/\/$/,'');
  const key=process.env.SUPABASE_SERVICE_ROLE_KEY;
  if(!url||!key)throw Error('supabase_admin_not_configured');
  const result=[];
