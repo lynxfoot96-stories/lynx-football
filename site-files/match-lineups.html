@@ -321,7 +321,7 @@ html[data-theme="light"] .nav-home:hover{ color:var(--white); }
   .pitch-goal-h.right{bottom:0;right:auto;border:1.5px solid rgba(255,255,255,.45);border-bottom:0}
   /* Preserve team direction and row order: horizontal X becomes vertical Y. */
   .pitch-h .player-h{
-    left:var(--player-lateral);top:var(--player-longitudinal);
+    left:var(--portrait-lateral,var(--player-lateral));top:var(--portrait-longitudinal,var(--player-longitudinal));
     width:clamp(52px,19vw,76px);
   }
   .pitch-h .player-h .avatar-wrap,
@@ -800,7 +800,7 @@ function placeTeam(team, side){
   // of the pitch, so rows never crowd into the centre circle or overlap
   // the other team, and there's enough gap between markers for the
   // (now larger) avatars and name labels to breathe.
-  const MIN_X = 8, MAX_X = 42;
+  const MIN_X = 8, MAX_X = 37; // reserve more room between teams at midfield
   let markers = '';
   rowKeys.forEach(function(rowNum, idx){
     const rowPlayers = rows[rowNum].sort(function(a,b){ return a.col - b.col; });
@@ -813,8 +813,13 @@ function placeTeam(team, side){
       x = (100 - MIN_X) - frac * (MAX_X - MIN_X);
     }
     rowPlayers.forEach(function(p, ci){
-      const y = 9 + ((ci + 1) / (cols + 1)) * 82;
-      markers += '<div class="player-h" data-fs-player="' + encodeURIComponent(p.name || '') + '" style="--player-longitudinal:' + x + '%;--player-lateral:' + y + '%;">' +
+      // Wider pitch rows use available height, while portrait retains its approved layout.
+      const portraitY = 9 + ((ci + 1) / (cols + 1)) * 82;
+      const y = cols === 1 ? 50 : 10 + ci * 80 / (cols - 1);
+      const portraitX = side === 'home'
+        ? MIN_X + frac * (42 - MIN_X)
+        : (100 - MIN_X) - frac * (42 - MIN_X);
+      markers += '<div class="player-h" data-fs-player="' + encodeURIComponent(p.name || '') + '" style="--player-longitudinal:' + x + '%;--player-lateral:' + y + '%;--portrait-longitudinal:' + portraitX + '%;--portrait-lateral:' + portraitY + '%;">' +
         subOffMinuteHtml(p) +
         '<div class="avatar-wrap">' + avatarHtml(p) + badgeHtml(p) + subBadgeHtml(p) +
           capOrAssistHtml(p) + goalsHtml(p) +
@@ -841,6 +846,10 @@ function coachHtml(team, side){
   return '<div class="coach' + (side === 'away' ? ' away' : '') + '">' + inner + '</div>';
 }
 
+function positionLabel(pos){
+  const labels = { G:'Goalkeeper', GK:'Goalkeeper', D:'Defender', DF:'Defender', M:'Midfielder', MF:'Midfielder', F:'Attacker', FW:'Attacker', A:'Attacker' };
+  return labels[String(pos || '').toUpperCase()] || pos || '';
+}
 function subsListHtml(team, section){
   const cameOn = team.substitutes.filter(function(p){ return cameOnMinutes[p.id] !== undefined; });
   const bench = team.substitutes.filter(function(p){ return cameOnMinutes[p.id] === undefined; });
@@ -854,7 +863,7 @@ function subsListHtml(team, section){
       (photoMap[p.id] ? '<img class="avatar" src="' + photoMap[p.id] + '" alt="" />' : '<div class="avatar-fallback">' + escapeHtml(initials(p.name).toUpperCase()) + '</div>') +
       (showRating && r !== undefined ? '<span class="rating-badge ' + cls + '">' + r.toFixed(1) + star + '</span>' : '') +
       '<div class="info"><div class="name">' + escapeHtml(p.name) + '</div>' +
-        (p.pos ? '<div class="pos">' + escapeHtml(p.pos) + '</div>' : '') + '</div>' +
+        (p.pos ? '<div class="pos">' + escapeHtml(positionLabel(p.pos)) + '</div>' : '') + '</div>' +
       (cameOnMinutes[p.id] !== undefined ? '<div class="minute">' + cameOnMinutes[p.id] + "' \u2192</div>" : '') +
     '</div>';
   }
