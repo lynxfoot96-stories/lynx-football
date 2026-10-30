@@ -198,7 +198,7 @@ html[data-theme="light"] .nav-home:hover{ color:var(--white); }
 
 .pitch-h-wrap{ overflow-x:auto; }
 .pitch-h{
-  position:relative; width:100%; min-width:760px; aspect-ratio:4/3;
+  position:relative; width:100%; min-width:760px; aspect-ratio:1.65;
   background-color:#189a57;
   background-image:repeating-linear-gradient(90deg,
     rgba(255,255,255,0.05) 0, rgba(255,255,255,0.05) 48px,
@@ -336,7 +336,10 @@ html[data-theme="light"] .nav-home:hover{ color:var(--white); }
 }
 
 .subs-section{ margin-top:26px; }
-.subs-section-head{ font-size:12px; text-transform:uppercase; letter-spacing:0.04em; color:var(--purple-bright); margin-bottom:10px; }
+.subs-section-head{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--purple-bright);padding-bottom:8px;margin-bottom:10px;border-bottom:2px solid rgba(138,63,252,.22)}
+.subs-section{min-width:0}
+.subs-section--empty{visibility:hidden}
+
 .subs-grid{ display:grid; grid-template-columns:1fr 1fr; gap:0 24px; }
 .subs-row{ display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); }
 .subs-row .avatar{ width:30px; height:30px; border-radius:50%; object-fit:cover; background:var(--panel-2); flex-shrink:0; }
@@ -797,7 +800,7 @@ function placeTeam(team, side){
   // of the pitch, so rows never crowd into the centre circle or overlap
   // the other team, and there's enough gap between markers for the
   // (now larger) avatars and name labels to breathe.
-  const MIN_X = 6, MAX_X = 47;
+  const MIN_X = 8, MAX_X = 42;
   let markers = '';
   rowKeys.forEach(function(rowNum, idx){
     const rowPlayers = rows[rowNum].sort(function(a,b){ return a.col - b.col; });
@@ -838,7 +841,7 @@ function coachHtml(team, side){
   return '<div class="coach' + (side === 'away' ? ' away' : '') + '">' + inner + '</div>';
 }
 
-function subsListHtml(team){
+function subsListHtml(team, section){
   const cameOn = team.substitutes.filter(function(p){ return cameOnMinutes[p.id] !== undefined; });
   const bench = team.substitutes.filter(function(p){ return cameOnMinutes[p.id] === undefined; });
 
@@ -856,16 +859,12 @@ function subsListHtml(team){
     '</div>';
   }
 
-  let html = '';
-  if (cameOn.length){
-    html += '<div class="subs-section"><div class="subs-section-head">Substitutes</div>' +
-      cameOn.map(function(p){ return row(p, true); }).join('') + '</div>';
-  }
-  if (bench.length){
-    html += '<div class="subs-section"><div class="subs-section-head">Bench</div>' +
-      bench.map(function(p){ return row(p, false); }).join('') + '</div>';
-  }
-  return html;
+  const players = section === 'substitutes' ? cameOn : bench;
+  const title = section === 'substitutes' ? 'Substitutes' : 'Bench';
+  return '<div class="subs-section' + (!players.length ? ' subs-section--empty' : '') + '">' +
+    '<div class="subs-section-head">' + title + '</div>' +
+    players.map(function(p){return row(p, section === 'substitutes');}).join('') +
+    '</div>';
 }
 
 function ratingBadgeClassFromValue(v){
@@ -905,8 +904,10 @@ function render(){
 
   body.innerHTML = pitchHtml +
     '<div class="subs-grid">' +
-      '<div>' + subsListHtml(home) + '</div>' +
-      '<div>' + subsListHtml(away) + '</div>' +
+      subsListHtml(home, 'substitutes') +
+      subsListHtml(away, 'substitutes') +
+      subsListHtml(home, 'bench') +
+      subsListHtml(away, 'bench') +
     '</div>';
 }
 
