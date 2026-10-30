@@ -1,0 +1,20 @@
+{
+  "id": "./index.html",
+  "name": "Football Stories",
+  "short_name": "Football Stories",
+  "description": "Football matches, results, news, videos and stories.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8f7fb",
+  "theme_color": "#8735ee",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "app-icon.png",
+      "sizes": "300x300",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
