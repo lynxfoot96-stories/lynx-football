@@ -260,8 +260,11 @@ html[data-theme="light"] .nav-home:hover{ color:var(--white); }
   position:absolute; bottom:-3px; left:-10px; width:17px; height:17px; border-radius:50%;
   background:#fff; color:#111; font-size:9px; font-weight:900; display:flex; align-items:center; justify-content:center;
 }
-/* Goals: bottom-right, stacked if more than one */
-.player-h .goals{ position:absolute; bottom:-4px; right:-10px; display:flex; flex-direction:column; gap:2px; align-items:flex-end; }
+/* Keep multi-goal and assist markers compact beside the avatar, not above it. */
+.player-h .goals{position:absolute;top:50%;bottom:auto;right:-15px;transform:translateY(-50%);display:flex;flex-direction:column;gap:2px;align-items:center;z-index:2}
+.player-h .assist-stack{position:absolute;top:50%;left:-14px;transform:translateY(-50%);display:flex;flex-direction:column;gap:2px;align-items:center;z-index:2}
+.player-h .assist-stack .assist-badge{position:static;flex:none}
+
 .player-h .goals .ic{
   width:15px; height:15px; border-radius:50%; background:#fff;
   display:flex; align-items:center; justify-content:center; font-size:9px;
@@ -760,7 +763,7 @@ function subOffMinuteHtml(p){
 function capOrAssistHtml(p){
   if (p.captain) return '<span class="cap">C</span>';
   const ev = eventMap[p.id];
-  if (ev && ev.assists) return '<span class="assist-badge">\ud83d\udc5f</span>';
+  if (ev && ev.assists) return '<span class="assist-stack">' + '<span class="assist-badge">\ud83d\udc5f</span>'.repeat(Math.min(6, Number(ev.assists) || 0)) + '</span>'; 
   return '';
 }
 
@@ -815,7 +818,7 @@ function placeTeam(team, side){
     rowPlayers.forEach(function(p, ci){
       // Wider pitch rows use available height, while portrait retains its approved layout.
       const portraitY = 9 + ((ci + 1) / (cols + 1)) * 82;
-      const y = cols === 1 ? 50 : 10 + ci * 80 / (cols - 1);
+      const y = cols === 1 ? 50 : 17 + ci * 66 / (cols - 1);
       const portraitX = side === 'home'
         ? MIN_X + frac * (42 - MIN_X)
         : (100 - MIN_X) - frac * (42 - MIN_X);
