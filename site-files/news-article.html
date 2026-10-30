@@ -586,11 +586,9 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
     return '<div class="nx-img wm-pending" data-wm="'+esc(it.title)+'" style="background:'+GRADIENT+';opacity:.85" data-label=""></div>';
   }
   function toItem(o){
+    // Use the article's own picture, as on the news listing. Do not replace it
+    // with a YouTube thumbnail selected from the headline.
     var own=safeUrl(first(o,["image_url","image","cover_image","thumbnail"]));
-    if(!own){
-      var m=matchVideos(o.title||"",[first(o,["summary","excerpt","dek","description"]),first(o,["body","content","article_body","article","full_text","text"])].join(" "),1);
-      if(m.matched)own="https://i.ytimg.com/vi/"+m.list[0].id+"/hqdefault.jpg";
-    }
     return {href:"news-article.html?slug="+encodeURIComponent(o.slug),title:o.title||"Untitled",cat:first(o,["category","tag","topic","club"])||"News",date:shortDate(o),img:own};
   }
 
