@@ -14,9 +14,8 @@ const { selectDetailLinks, allowDetails, filterAlreadyOpened } = require('./_lib
 const { handleWeeklyPreview } = require('./_lib/preview');
 const { handleMondayDebrief } = require('./_lib/monday-debrief');
 const { handleClubDeliveryAudit } = require('./_lib/club-delivery-audit');
-const { handleClubDeliveryTest } = require('./_lib/club-delivery-test');
 const { handleClubScoreArchive } = require('./_lib/club-score-archive');
-const { handleWeeklyClubResults, handleWeeklyClubPreflight } = require('./_lib/weekly-club-results');
+const { handleWeeklyClubResults } = require('./_lib/weekly-club-results');
 const { handleSubscribe } = require('./_lib/subscribe'); // newsletter signup (POST ?action=subscribe)
 const { handleAuth } = require('./_lib/auth');           // accounts: sign up / log in / log out / me / password reset
 const AUTH_ACTIONS = new Set(['signup', 'login', 'logout', 'me', 'reset', 'newpassword', 'updateprofile', 'changepassword', 'setmarketing', 'setavatar', 'getfavorites', 'setfavorites', 'setclubresults', 'getemailpreferences', 'previewclubresults']);
@@ -74,10 +73,8 @@ module.exports = async function handler(req, res) {
   if (action === 'weekly-preview') return handleWeeklyPreview(req, res);
   if (action === 'monday-debrief') return handleMondayDebrief(req, res);
   if (action === 'club-delivery-audit') return handleClubDeliveryAudit(req,res);
-  if (action === 'club-delivery-test') return handleClubDeliveryTest(req,res);
   if (action === 'club-score-archive') return handleClubScoreArchive(req,res);
   if (action === 'weekly-club-results') return handleWeeklyClubResults(req,res);
-  if (action === 'weekly-club-preflight') return handleWeeklyClubPreflight(req,res);
 
   // Newsletter signup shares this file so the project stays within Vercel's 12-function Hobby limit.
   if (req.method === 'POST') return handleSubscribe(req, res);

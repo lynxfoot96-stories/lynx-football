@@ -31,7 +31,7 @@ async function getResults(clubs,days=7,offset=0){
    fixtures.push(...found);
    // A saved schedule is not evidence that the completed results are cached.
    // Mark dates incomplete when they still have games without a final status.
-   if(found.some(f=>f&&['NS','TBD','1H','HT','2H','ET','BT','P','LIVE'].includes(f.statusShort)))
+   if(found.some(f=>f&&['NS','TBD','1H','HT','2H','ET','BT','P','LIVE','SUSP','INT'].includes(f.statusShort)))
     missing.push(date);
   }else missing.push(date);
  }

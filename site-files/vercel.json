@@ -25,10 +25,6 @@
     {
       "path": "/api/scores?action=weekly-club-results",
       "schedule": "0 11 * * 1"
-    },
-    {
-      "path": "/api/scores?action=weekly-club-preflight",
-      "schedule": "0 4 1 1 *"
     }
   ],
   "functions": {
