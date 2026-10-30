@@ -219,6 +219,7 @@ html[data-theme="light"] .nav-home:hover{ color:var(--white); }
 .pitch-goal-h.right{ right:0; border-right:none; }
 
 .player-h{
+  left:var(--player-longitudinal);top:var(--player-lateral);
   position:absolute; transform:translate(-50%,-50%);
   display:flex; flex-direction:column; align-items:center; gap:4px; width:92px;
 }
@@ -289,6 +290,49 @@ html[data-theme="light"] .nav-home:hover{ color:var(--white); }
   .player-h{ width:68px; }
   .player-h .avatar-wrap, .player-h .avatar, .player-h .avatar-fallback{ width:42px; height:42px; }
   .player-h .pname{ font-size:9.5px; max-width:68px; }
+}
+
+/* Responsive lineups: switch the actual formation axes when the pitch narrows.
+   Wide screens retain the original horizontal pitch and player layout. */
+@media (max-width: 720px){
+  .pitch-h-wrap{overflow-x:hidden}
+  .pitch-h{
+    width:100%;min-width:0;
+    aspect-ratio:auto;height:clamp(710px,175vw,900px);
+    background-image:repeating-linear-gradient(0deg,
+      rgba(255,255,255,.05) 0,rgba(255,255,255,.05) 48px,
+      rgba(0,0,0,.045) 48px,rgba(0,0,0,.045) 96px);
+  }
+  .pitch-h::before{
+    left:0;right:0;top:50%;bottom:auto;width:auto;height:1.5px;
+  }
+  .pitch-h::after{width:64px;height:64px}
+  .pitch-box-h{
+    top:auto;left:50%;right:auto;transform:translateX(-50%);
+    width:54%;height:8%;
+  }
+  .pitch-box-h.left{top:0;left:50%;border:1.5px solid rgba(255,255,255,.45);border-top:0}
+  .pitch-box-h.right{bottom:0;right:auto;border:1.5px solid rgba(255,255,255,.45);border-bottom:0}
+  .pitch-goal-h{
+    top:auto;left:50%;right:auto;transform:translateX(-50%);
+    width:26%;height:3%;
+  }
+  .pitch-goal-h.left{top:0;left:50%;border:1.5px solid rgba(255,255,255,.45);border-top:0}
+  .pitch-goal-h.right{bottom:0;right:auto;border:1.5px solid rgba(255,255,255,.45);border-bottom:0}
+  /* Preserve team direction and row order: horizontal X becomes vertical Y. */
+  .pitch-h .player-h{
+    left:var(--player-lateral);top:var(--player-longitudinal);
+    width:clamp(52px,19vw,76px);
+  }
+  .pitch-h .player-h .avatar-wrap,
+  .pitch-h .player-h .avatar,
+  .pitch-h .player-h .avatar-fallback{width:clamp(34px,11vw,46px);height:clamp(34px,11vw,46px)}
+  .pitch-h .player-h .pname{font-size:10px;max-width:76px}
+  .pitch-formation-row{padding:11px 9px;gap:6px}
+  .pitch-formation-row .team-name{font-size:11px}
+  .pitch-formation-row .side{gap:5px}
+  .pitch-formation-row .team-logo{width:19px;height:19px}
+  .pitch-rating-chip{min-width:28px;font-size:10px;padding:0 4px}
 }
 
 .subs-section{ margin-top:26px; }
@@ -767,7 +811,7 @@ function placeTeam(team, side){
     }
     rowPlayers.forEach(function(p, ci){
       const y = 9 + ((ci + 1) / (cols + 1)) * 82;
-      markers += '<div class="player-h" data-fs-player="' + encodeURIComponent(p.name || '') + '" style="left:' + x + '%; top:' + y + '%;">' +
+      markers += '<div class="player-h" data-fs-player="' + encodeURIComponent(p.name || '') + '" style="--player-longitudinal:' + x + '%;--player-lateral:' + y + '%;">' +
         subOffMinuteHtml(p) +
         '<div class="avatar-wrap">' + avatarHtml(p) + badgeHtml(p) + subBadgeHtml(p) +
           capOrAssistHtml(p) + goalsHtml(p) +
