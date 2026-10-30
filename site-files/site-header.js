@@ -29,12 +29,12 @@
   /* Shared mobile application navigation. The desktop header remains untouched. */
   var mobileTabs = [
     {name:'Home', href:'index.html', icon:'<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>'},
-    {name:'Matches', href:'index.html#scores', icon:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/>'},
-    {name:'Following', href:'following.html', icon:'<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21.2l8.8-8.8a5.5 5.5 0 0 0 0-7.8z"/>'},
+    {name:'Matches', href:'matches.html', icon:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/>'},
+    {name:'Videos', href:'videos.html', icon:'<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/>'},
     {name:'News', href:'news.html', icon:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M7 8h10M7 12h10M7 16h5"/>'}
   ];
   var page = path;
-  var current = page === 'following.html' ? 'Following' : page === 'news.html' ? 'News' : (page === 'index.html' && location.hash === '#scores') ? 'Matches' : page === 'index.html' ? 'Home' : '';
+  var current = page === 'matches.html' ? 'Matches' : page === 'videos.html' ? 'Videos' : page === 'news.html' ? 'News' : page === 'index.html' ? 'Home' : '';
   var mobileNav = '<nav class="fs-mobile-nav" aria-label="Primary mobile navigation">' + mobileTabs.map(function(t){
     return '<a href="' + t.href + '" class="fs-mobile-nav__tab' + (current === t.name ? ' is-active' : '') + '"' + (current === t.name ? ' aria-current="page"' : '') + '><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">' + t.icon + '</svg><span>' + t.name + '</span></a>';
   }).join('') + '</nav>';
@@ -53,15 +53,7 @@
   `;
   document.write('<style id="fs-hd-css">' + CSS + '</style><style id="fs-mobile-nav-css">' + mobileCss + '</style>' +
     '<div class="fs-hd' + (fixed ? ' fs-hd--fixed' : '') + '" role="banner">' + HTML + '</div>' + mobileNav);
-  window.addEventListener('hashchange',function(){
-    var active = (path === 'index.html' && location.hash === '#scores') ? 'Matches' : path === 'index.html' ? 'Home' : '';
-    if(!active)return;
-    document.querySelectorAll('.fs-mobile-nav__tab').forEach(function(tab){
-      var selected = tab.textContent.trim() === active;
-      tab.classList.toggle('is-active',selected);
-      if(selected)tab.setAttribute('aria-current','page');else tab.removeAttribute('aria-current');
-    });
-  });
+
 })();
 
 /* ==========================================================
