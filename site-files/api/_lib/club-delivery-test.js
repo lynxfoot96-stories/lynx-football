@@ -56,8 +56,16 @@ async function handleClubDeliveryTest(req,res){
     matchCount:results.matches.length,newsCount:news.length,missingDays:results.missing.length});
   }
   const summary=prepared.map((p,i)=>({recipient:i+1,matches:p.matchCount,news:p.newsCount,missingDays:p.missingDays}));
-  if(!enabled)return res.status(200).json({ok:true,dryRun:true,sent:0,eligible:prepared.length,summary,
+  if(!enabled) {
+   console.info('[club-results-test] dry-run completed',JSON.stringify({
+    dryRun:true,emailsSent:0,eligible:prepared.length,
+    totalMatches:summary.reduce((n,x)=>n+x.matches,0),
+    totalNews:summary.reduce((n,x)=>n+x.news,0),
+    recipientsWithMissingScoreDays:summary.filter(x=>x.missingDays>0).length
+   }));
+   return res.status(200).json({ok:true,dryRun:true,sent:0,eligible:prepared.length,summary,
    next:'Set CLUB_RESULTS_TEST_SEND=true in Production and redeploy ONLY when ready for one-time delivery.'});
+  }
   if(!prepared.length)return res.status(200).json({ok:true,skipped:'no_eligible_subscribers',sent:0});
   const stamp='club-results:test:2026-10-30';
   let sent=0,attempted=0;
