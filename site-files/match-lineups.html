@@ -261,10 +261,11 @@ html[data-theme="light"] .nav-home:hover{ color:var(--white); }
   background:#fff; color:#111; font-size:9px; font-weight:900; display:flex; align-items:center; justify-content:center;
 }
 /* Keep multi-goal and assist markers compact beside the avatar, not above it. */
-.player-h .goals{position:absolute;top:calc(100% - 2px);bottom:auto;left:calc(100% - 2px);right:auto;transform:translateY(-50%);display:flex;flex-direction:row;flex-wrap:nowrap;gap:2px;align-items:center;z-index:2}
-.player-h .assist-stack{position:absolute;top:calc(100% - 2px);left:auto;right:calc(100% - 2px);transform:translateY(-50%);display:flex;flex-direction:row;flex-wrap:nowrap;gap:2px;align-items:center;z-index:2}
-.player-h .assist-stack .assist-badge{position:static;flex:none}
+.player-h .goals{position:absolute;top:calc(100% - 2px);bottom:auto;left:calc(100% - 8px);right:auto;transform:translateY(-50%);display:flex;flex-direction:row;flex-wrap:nowrap;gap:0;align-items:center;z-index:2}
+.player-h .assist-stack{position:absolute;top:calc(100% - 2px);left:auto;right:calc(100% - 8px);transform:translateY(-50%);display:flex;flex-direction:row-reverse;flex-wrap:nowrap;gap:0;align-items:center;z-index:2}
+.player-h .assist-stack .assist-badge{position:static;flex:none;margin-left:-4px} .player-h .assist-stack .assist-badge:first-child{margin-left:0}
 
+.player-h .goals .ic{margin-left:-4px;position:relative} .player-h .goals .ic:first-child{margin-left:0}
 .player-h .goals .ic{
   width:15px; height:15px; border-radius:50%; background:#fff;
   display:flex; align-items:center; justify-content:center; font-size:9px;
