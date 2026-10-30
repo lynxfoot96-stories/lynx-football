@@ -645,7 +645,9 @@ html[data-theme="light"] .club-topbar .nav-home:hover{ color:var(--white); }
     var src=safeUrl(first(a,["source_url"]));
 
     /* other stories: automated ones first, then the hand-written ones as filler */
-    var pool=others.map(toItem).concat(STATIC_POOL);
+    // Show only actual published articles, using the same image as the news feed.
+    // Never fill the sidebar with unrelated video-thumbnail placeholder stories.
+    var pool=others.map(toItem);
     var sideItems=pool.slice(0,4), exploreItems=pool.slice(4,8);
     if(exploreItems.length<4)exploreItems=pool.slice(0,4);
 
