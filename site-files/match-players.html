@@ -377,6 +377,10 @@ html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0
 function qsParam(name){ return new URLSearchParams(location.search).get(name); }
 const MATCH_ID = qsParam('id');
 
+function positionLabel(pos){
+  const labels = { G:'Goalkeeper', GK:'Goalkeeper', D:'Defender', DF:'Defender', M:'Midfielder', MF:'Midfielder', F:'Attacker', FW:'Attacker', A:'Attacker' };
+  return labels[String(pos || '').toUpperCase()] || pos || '';
+}
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, function(c){
     return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
@@ -517,7 +521,7 @@ function showState(container, msg, isError){
           return '<div class="player-row" data-fs-player="' + encodeURIComponent(p.name || '') + '">' +
             (p.photo ? '<img class="photo" src="' + p.photo + '" alt="" />' : '<div class="photo"></div>') +
             '<div class="pinfo"><div class="pname">' + escapeHtml(p.name) + (p.captain ? '<span class="cap-badge">C</span>' : '') + '</div>' +
-              (p.position ? '<div class="ppos">' + escapeHtml(p.position) + (p.substitute ? ' \u00b7 Sub' : '') + '</div>' : '') +
+              (p.position ? '<div class="ppos">' + escapeHtml(positionLabel(p.position)) + (p.substitute ? ' \u00b7 Sub' : '') + '</div>' : '') +
             '</div>' +
             '<div class="player-chips">' + chips(p) + '</div>' +
           '</div>';
