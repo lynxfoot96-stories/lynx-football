@@ -304,8 +304,8 @@
     transition:border-color .2s ease, background .2s ease;
   }
   .btn-ghost:hover{ border-color:var(--orange); background:rgba(255,122,26,0.08); }
-  .hero-youtube-red,.hero-youtube-red:hover{background:#e62117;color:#fff;border-color:#e62117;box-shadow:0 4px 16px rgba(230,33,23,.25)}
-  .hero-youtube-red:hover{background:#cc1710;border-color:#cc1710}
+  /* Share the footer's actual .btn-red styling instead of a different shade. */
+  .hero-actions .hero-youtube-red{border:0;}
 
   .hero-stats{
     display:flex;
@@ -961,7 +961,14 @@
     margin-top:8px;
     transition:transform .22s ease,box-shadow .22s ease;
   }
-  .club-spotlight:has(.cs-photo:hover){transform:translateY(-6px) scale(1.018);box-shadow:0 16px 38px rgba(14,7,25,.24)}
+  /* Lift the complete spotlight, including its overview, only while the active image is hovered. */
+  @media (hover:hover) and (prefers-reduced-motion:no-preference){
+    .club-spotlight:has(.cs-slide.active .cs-photo:hover){
+      transform:translateY(-8px) scale(1.035);
+      box-shadow:0 22px 48px rgba(14,7,25,.28);
+      z-index:3;
+    }
+  }
   @media (prefers-reduced-motion:reduce){.club-spotlight{transition:none}}
   @media (max-width:960px){ .club-spotlight{ max-width:460px; } }
 
@@ -1930,7 +1937,7 @@ html[data-theme="light"] .cat-tile,html[data-theme="light"] .cat-tile.active{bac
     <p class="sub">It's a story. We dig into the transfers, the rivalries, the crises and the comebacks — the parts of football that don't fit in a headline.</p>
     <div class="hero-actions">
       <a href="#latest" class="btn-primary">Watch the latest episode</a>
-      <a href="#subscribe" class="btn-ghost hero-youtube-red">Subscribe on YouTube</a>
+      <a href="#subscribe" class="btn-red hero-youtube-red">Subscribe on YouTube</a>
     </div>
     <div class="hero-stats">
       <div class="stat"><div class="num display">120+</div><div class="label">Stories told</div></div>
