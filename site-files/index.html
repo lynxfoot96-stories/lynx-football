@@ -1093,6 +1093,10 @@
     transition:background .2s ease, transform .2s ease;
   }
   .cs-dot.active{ background:var(--orange); transform:scale(1.3); }
+  html[data-theme="light"] .cs-dot{background:#9b96a5;box-shadow:0 0 0 1px #e5e2ea;}
+  html[data-theme="light"] .cs-dot.active{background:#e85a00;box-shadow:0 0 0 2px rgba(232,90,0,.2);} 
+  .cs-photo[role="link"]{cursor:pointer;}
+  .cs-photo[role="link"]:focus-visible{outline:3px solid var(--orange);outline-offset:-4px;}
 
   .cs-seemore{
     display:inline-block;
@@ -2514,6 +2518,21 @@ html[data-theme="light"] .cat-tile,html[data-theme="light"] .cat-tile.active{bac
       d.addEventListener('click', function(){
         showSlide(parseInt(d.getAttribute('data-dot'), 10));
         resetTimer();
+      });
+    });
+
+    // Clicking or keyboard-activating a club picture opens its full overview.
+    // Use the existing overview URL for each slide, without changing arrows/dots.
+    slides.forEach(function(slide){
+      const picture=slide.querySelector('.cs-photo');
+      const overview=slide.querySelector('.cs-tab-content[data-tab-content="overview"] .cs-seemore[href]');
+      if(!picture||!overview)return;
+      picture.setAttribute('role','link');
+      picture.setAttribute('tabindex','0');
+      picture.setAttribute('aria-label','Open full club overview');
+      picture.addEventListener('click',function(){window.location.href=overview.href;});
+      picture.addEventListener('keydown',function(e){
+        if(e.key==='Enter'||e.key===' '){e.preventDefault();window.location.href=overview.href;}
       });
     });
 
