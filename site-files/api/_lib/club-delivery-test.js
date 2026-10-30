@@ -50,7 +50,7 @@ async function handleClubDeliveryTest(req,res){
    const follows=u.user_metadata.fs_favorites;
    const [results,news]=await Promise.all([getResults(follows.filter(f=>f.type==='club')),getNews(follows)]);
    const site=/^https:\/\//.test(process.env.SITE_URL||'')?process.env.SITE_URL.replace(/\/$/,''):'https://'+req.headers.host;
-   const markup=html(results.matches,follows,results.missing,news,site);
+   const markup=html(results.matches,follows,results.missing,news,site,false);
    const footer='<p style="text-align:center;font:12px Arial;color:#b7a3cc"><a style="color:#cba7ff" href="'+site+'/account.html#preferences">Manage your club-results email subscription</a></p>';
    prepared.push({u,body:markup.replace('</body>',footer+'</body>'),
     matchCount:results.matches.length,newsCount:news.length,missingDays:results.missing.length});
