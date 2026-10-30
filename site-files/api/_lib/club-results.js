@@ -17,10 +17,10 @@ function select(fixtures,clubs){
  .filter((f,i,a)=>a.findIndex(x=>String(x.id)===String(f.id))===i)
  .slice(0,30);
 }
-async function getResults(clubs,days=7){
+async function getResults(clubs,days=7,offset=0){
  const fixtures=[],missing=[];
  for(let n=0;n<days;n++){
-  const date=ago(n);
+  const date=ago(n+offset);
   let found=await cacheGet('club-results:fixtures:'+date);
   // Older daily score responses might predate the dedicated weekly snapshot.
   // Reuse that existing cache, without requesting fixtures from API-Football.
