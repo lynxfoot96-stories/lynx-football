@@ -1425,8 +1425,6 @@
   }
   .scores-state.error{ color:var(--orange-bright); }
 
-  .score-inline-link{color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:6px;min-width:0}
-  .score-inline-link:hover{color:var(--orange-bright);text-decoration:underline}
   .match-col[data-match-href]{cursor:pointer}
   /* Horizontal, fixed-width match-card strip */
   .scores-strip-wrap{ position:relative; }
@@ -1475,7 +1473,11 @@
   }
   /* only matches picked for match details (finished, priority list) are links */
   a.match-col.has-detail{ color:inherit; text-decoration:none; cursor:pointer; }
-  a.match-col.has-detail:hover{ border-color:rgba(123,44,255,0.35); transform:translateY(-2px); }
+  @media (hover:hover) and (prefers-reduced-motion:no-preference){
+    .scores-strip .match-col:hover{ transform:translateY(-3px) scale(1.012);box-shadow:0 10px 23px rgba(17,14,23,.12);border-color:rgba(123,44,255,.32);position:relative;z-index:2 }
+  }
+  @media (prefers-reduced-motion:reduce){.scores-strip .match-col{transition:none}}
+
   .match-col.is-live{
     border-color:rgba(255,122,26,0.55);
     box-shadow:0 0 0 1px rgba(255,122,26,0.18), 0 10px 24px rgba(255,122,26,0.10);
@@ -2749,11 +2751,8 @@ window.FSLeagueLogos = (function(){
     const score = (team.score === null || team.score === undefined) ? '' : team.score;
     const winnerClass = team.winner ? ' winner' : '';
     const logo = team.logo ? '<img src="' + team.logo + '" alt="" />' : '';
-    const clubHref = team.id != null ? 'club.html?id=' + encodeURIComponent(team.id) : '';
-    const label=clubHref
-      ? '<a class="score-inline-link" href="' + clubHref + '" title="Open ' + team.name.replace(/"/g,'&quot;') + ' club overview">' + logo + '<span class="team-name">' + team.name + '</span></a>'
-      : logo + '<span class="team-name">' + team.name + '</span>';
-    return '<div class="match-col-team' + winnerClass + '">' + label +
+    return '<div class="match-col-team' + winnerClass + '">' + logo +
+      '<span class="team-name">' + team.name + '</span>' +
       '<span class="team-score">' + score + '</span></div>';
   }
 
@@ -2775,7 +2774,6 @@ window.FSLeagueLogos = (function(){
   }
 
   body.addEventListener('click',function(e){
-    if(e.target.closest('.score-inline-link'))return;
     const card=e.target.closest('.match-col[data-match-href]');
     if(card && body.contains(card))window.location.href=card.getAttribute('data-match-href');
   });
@@ -2791,19 +2789,17 @@ window.FSLeagueLogos = (function(){
     fixtures.forEach(function(f){
       const hasDetail = f.detail === true;
       const detailUrl = hasDetail ? 'match.html?id=' + encodeURIComponent(f.id) : '';
-      const leagueUrl = f.league && f.league.id != null ? 'standings.html?league=' + encodeURIComponent(f.league.id) : '';
       cards += '<div class="match-col' + (f.isLive ? ' is-live' : '') + (hasDetail ? ' has-detail' : '') +
         '" data-fixture-id="' + f.id + '"' + (detailUrl ? ' data-match-href="' + detailUrl + '"' : '') + '>' +
-        '<div class="match-col-head">' +
-          (leagueUrl ? '<a class="match-col-league score-inline-link" href="' + leagueUrl + '" title="Open league standings">' : '<span class="match-col-league">') +
+        '<div class="match-col-head"><span class="match-col-league">' +
           (f.league.logo ? '<img src="' + f.league.logo + '" alt="" />' : '') + f.league.name +
-          (leagueUrl ? '</a>' : '</span>') + statusBlock(f) + '</div>' +
+          '</span>' + statusBlock(f) + '</div>' +
         renderTeamRow({ id:f.home.id,name: f.home.name, logo: f.home.logo, winner: f.home.winner, score: f.goals.home }) +
         renderTeamRow({ id:f.away.id,name: f.away.name, logo: f.away.logo, winner: f.away.winner, score: f.goals.away }) +
       '</div>';
     });
     // Preserve clicking the rest of a match card to open its match details.
-    // Direct team/league links are handled by the browser, without nesting anchors.
+    // Team and competition labels stay plain text; only the fixture card opens match details.
     body.innerHTML = '<div class="scores-strip-wrap">' +
       '<button class="scores-arrow prev" id="scoresPrev" aria-label="Scroll left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>' +
       '<div class="scores-strip" id="scoresStrip">' + cards + '</div>' +
