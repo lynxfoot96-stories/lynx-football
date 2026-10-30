@@ -242,7 +242,7 @@ $('clubResultsSw').addEventListener('click',function(){
   sw.disabled=false;
   if(j.ok){ME.clubResultsEmail=want;sw.setAttribute('aria-checked',want?'true':'false');
     note('clubResultsNote',want?'Weekly club results enabled.':'Weekly club results disabled.','ok');}
-  else note('clubResultsNote','Could not update your preference. Please try again.','err');
+  else note('clubResultsNote','Could not update your preference. Check that the club-results list is configured.','err');
  }).catch(function(){sw.disabled=false;note('clubResultsNote','Could not update your preference.','err');});
 });
 
@@ -262,6 +262,13 @@ document.addEventListener('fs96:favorites-changed',renderFav);
 /* ---- start: must be logged in ---- */
 fetch('/api/scores?action=me',{credentials:'same-origin',cache:'no-store'}).then(function(r){return r.json()}).then(function(j){
  if(!j||!j.user){location.replace('login.html?next=account.html');return}
- ME=j.user;paintUser();renderFav();show(location.hash.slice(1))}).catch(function(){location.replace('login.html?next=account.html')});
+ ME=j.user;paintUser();renderFav();show(location.hash.slice(1));
+ fsPost('getemailpreferences',{}).then(function(pref){
+   if(!pref.ok){note('prefNote','Cannot verify your email subscriptions right now.','err');return;}
+   ME.marketing=pref.marketing===true;
+   ME.clubResultsEmail=pref.clubResultsEmail===true;
+   $('mkSw').setAttribute('aria-checked',ME.marketing?'true':'false');
+   $('clubResultsSw').setAttribute('aria-checked',ME.clubResultsEmail?'true':'false');
+ }).catch(function(){note('prefNote','Cannot verify your email subscriptions right now.','err');});}).catch(function(){location.replace('login.html?next=account.html')});
 })();
 </script></body></html>

@@ -105,7 +105,7 @@ function sameOrigin(req) {
    SIGNUP_SOURCE = "account-no-marketing" (you can filter on that in Brevo). */
 async function addToBrevo(email, name, marketing) {
   var key = process.env.BREVO_API_KEY;
-  var listId = Number(process.env.BREVO_MEMBERS_LIST_ID) || Number(process.env.BREVO_LIST_ID);
+  var listId = Number(process.env.BREVO_LIST_ID);
   if (!key) { console.error('Brevo not configured, member not saved'); return false; }
   var payload = {
     email: email,
@@ -130,7 +130,7 @@ async function addToBrevo(email, name, marketing) {
 /* Take a member off the mailing list (they stay in Brevo as a contact). */
 async function removeFromBrevo(email) {
   var key = process.env.BREVO_API_KEY;
-  var listId = Number(process.env.BREVO_MEMBERS_LIST_ID) || Number(process.env.BREVO_LIST_ID);
+  var listId = Number(process.env.BREVO_LIST_ID);
   if (!key || !listId) return false;
   try {
     var r = await fetch('https://api.brevo.com/v3/contacts/lists/' + listId + '/contacts/remove', {
@@ -143,6 +143,34 @@ async function removeFromBrevo(email) {
     console.error('Brevo remove error', r.status, (await r.text().catch(function () { return ''; })).slice(0, 300));
   } catch (e) { console.error('Brevo remove failed', e && e.message); }
   return false;
+}
+
+/* Independent mailing lists. BREVO_LIST_ID remains news-only; club results
+   requires a different list ID to prevent cross-subscription. */
+function clubListId() {
+  var id = Number(process.env.BREVO_CLUB_RESULTS_LIST_ID);
+  var news = Number(process.env.BREVO_LIST_ID);
+  return Number.isSafeInteger(id) && id > 0 && id !== news ? id : 0;
+}
+async function brevoMembership(email) {
+  if(!process.env.BREVO_API_KEY)throw Error('brevo_not_configured');
+  var r=await fetch('https://api.brevo.com/v3/contacts/'+encodeURIComponent(email),{
+    headers:{'api-key':process.env.BREVO_API_KEY,accept:'application/json'},
+    signal:AbortSignal.timeout(8000)
+  });
+  if(r.status===404)return [];
+  if(!r.ok)throw Error('brevo_contact_lookup_'+r.status);
+  var data=await r.json();
+  return Array.isArray(data.listIds)?data.listIds.map(Number):[];
+}
+async function setClubBrevo(email,name,enabled) {
+  var id=clubListId(), key=process.env.BREVO_API_KEY;
+  if(!id||!key)throw Error('club_list_not_configured');
+  var url=enabled?'https://api.brevo.com/v3/contacts':'https://api.brevo.com/v3/contacts/lists/'+id+'/contacts/remove';
+  var data=enabled?{email:email,updateEnabled:true,listIds:[id]}:{emails:[email]};
+  var response=await fetch(url,{method:'POST',headers:{'api-key':key,'content-type':'application/json',accept:'application/json'},
+    body:JSON.stringify(data),signal:AbortSignal.timeout(8000)});
+  if(![200,201,204].includes(response.status))throw Error('brevo_club_list_update_'+response.status);
 }
 
 /* ---------- who is logged in? (refreshes an expired session automatically) ---------- */
@@ -271,7 +299,7 @@ async function handleAuth(req, res, action) {
     }
 
     /* ----- ACCOUNT PAGE ACTIONS (need to be logged in) ----- */
-    if (action === 'updateprofile' || action === 'changepassword' || action === 'setmarketing' || action === 'setavatar' || action === 'setclubresults') {
+    if (action === 'updateprofile' || action === 'changepassword' || action === 'setmarketing' || action === 'setavatar' || action === 'setclubresults' || action === 'getemailpreferences') {
       var ss = await getSession(req, res);
       if (!ss || !ss.user) return res.status(401).json({ error: 'not_logged_in' });
 
@@ -337,22 +365,31 @@ async function handleAuth(req, res, action) {
         return res.status(200).json({ ok: true, count: favorites.length });
       }
 
+      if (action === 'getemailpreferences') {
+        var ids=await brevoMembership(ss.user.email);
+        return res.status(200).json({ok:true,marketing:ids.includes(Number(process.env.BREVO_LIST_ID)),
+          clubResultsEmail:!!clubListId() && ids.includes(clubListId())});
+      }
+
       if (action === 'setclubresults') {
-        var enabled = b.enabled === true;
-        // Club results are separate from general marketing consent and default OFF.
-        var saved = await gotrue('/user', { method:'PUT', token:ss.token,
-          body:{data:{club_results_email:enabled}} });
+        var enabled=b.enabled===true;
+        if(!clubListId())return res.status(503).json({error:'club_results_list_not_configured'});
+        try { await setClubBrevo(ss.user.email,publicUser(ss.user).name,enabled); }
+        catch(e){console.error('club email preference sync',e.message);return res.status(502).json({error:'provider_error'});}
+        var saved=await gotrue('/user',{method:'PUT',token:ss.token,
+          body:{data:{club_results_email:enabled}}});
         if(!saved.ok)return res.status(502).json({error:'preferences_update_failed'});
         return res.status(200).json({ok:true,enabled:enabled});
       }
 
       if (action === 'setmarketing') {
-        var want = b.marketing === true;
-        var mu = await gotrue('/user', { method: 'PUT', token: ss.token, body: { data: { marketing: want } } });
-        if (!mu.ok) { console.error('setmarketing failed', mu.status, JSON.stringify(mu.data).slice(0, 300)); return res.status(502).json({ error: 'provider_error' }); }
-        var pub = publicUser(mu.data);
-        var synced = want ? await addToBrevo(pub.email, pub.name, true) : await removeFromBrevo(pub.email);
-        return res.status(200).json({ ok: true, marketing: want, synced: synced });
+        var want=b.marketing===true;
+        var pub=publicUser(ss.user);
+        var synced=want?await addToBrevo(pub.email,pub.name,true):await removeFromBrevo(pub.email);
+        if(!synced)return res.status(502).json({error:'provider_error'});
+        var mu=await gotrue('/user',{method:'PUT',token:ss.token,body:{data:{marketing:want}}});
+        if(!mu.ok)return res.status(502).json({error:'preferences_update_failed'});
+        return res.status(200).json({ok:true,marketing:want,synced:true});
       }
     }
 
