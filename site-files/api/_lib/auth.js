@@ -375,7 +375,7 @@ async function handleAuth(req, res, action) {
         const news=await clubResults.getNews(own);
         if(String(b.format||'')==='html'){
           res.setHeader('Content-Type','text/html; charset=utf-8');
-          return res.status(200).send(clubResults.html(result.matches,own,result.missing,news));
+          return res.status(200).send(clubResults.html(result.matches,own,result.missing,news, /^https:\/\//.test(process.env.SITE_URL||'')?process.env.SITE_URL.replace(/\/$/,''):'https://'+req.headers.host));
         }
         return res.status(200).json({ok:true,previewOnly:true,clubCount:clubs.length,
           news:news.map(a=>({title:a.title,slug:a.slug})),matches:result.matches.map(f=>({id:f.id,date:f.date,home:f.home.name,away:f.away.name,
