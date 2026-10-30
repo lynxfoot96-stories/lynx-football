@@ -101,4 +101,46 @@ async function handleWeeklyClubResults(req,res){
   return res.status(502).json({ok:false,error:'weekly_club_results_failed_check_logs'});
  }
 }
-module.exports={handleWeeklyClubResults};
+
+async function handleWeeklyClubPreflight(req,res){
+ res.setHeader('Cache-Control','no-store');
+ if(req.method!=='GET')return res.status(405).json({ok:false,error:'method_not_allowed'});
+ if(!process.env.CRON_SECRET||req.headers.authorization!=='Bearer '+process.env.CRON_SECRET)
+  return res.status(401).json({ok:false,error:'unauthorized'});
+ try{
+  // Inspect current Friday-Sunday window, even before Monday. Never sends.
+  const now=new Date(),day=now.getUTCDay();
+  const fridayOffset=(day+2)%7;
+  const friday=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()-fridayOffset));
+  const days=[0,1,2].map(n=>new Date(friday.getTime()+n*86400000).toISOString().slice(0,10));
+  const coverage=[];
+  for(const date of days){
+   const raw=await redis(['GET','club-results:fixtures:'+date]);
+   if(raw===null){coverage.push({date,status:'not_archived'});continue}
+   const list=JSON.parse(raw);
+   if(!Array.isArray(list))throw Error('invalid_archived_matches');
+   const completed=list.filter(f=>COMPLETE.has(f.statusShort)&&Number.isInteger(f.goals?.home)&&Number.isInteger(f.goals?.away)).length;
+   coverage.push({date,status:completed===list.length?'complete':'incomplete',matches:list.length,completed});
+  }
+  const [opted,users]=await Promise.all([members(),accounts()]);
+  const eligible=users.filter(u=>u.email_confirmed_at&&u.email&&opted.has(String(u.email).toLowerCase()))
+   .filter(u=>Array.isArray(u.user_metadata?.fs_favorites)&&u.user_metadata.fs_favorites.some(f=>f?.type==='club'||f?.type==='league'));
+  if(eligible.length>MAX_SEND)throw Error('recipient_cap_exceeded');
+  const totals={recipients:eligible.length,news:0,matchedFinalResults:0};
+  for(const u of eligible){
+   const follows=u.user_metadata.fs_favorites;
+   const [news,results]=await Promise.all([getNews(follows),getResults(follows.filter(f=>f.type==='club'),3,Math.max(0,day===1?1:day===0?1:day-5))]);
+   totals.news+=news.length;
+   totals.matchedFinalResults+=results.matches.length;
+  }
+  const output={ok:true,dryRun:true,emailsSent:0,sendingEnabled:false,weekend:days,coverage,...totals,
+   readyForMonday:coverage.every(c=>c.status==='complete')};
+  console.info('[weekly-club-preflight]',JSON.stringify(output));
+  return res.status(200).json(output);
+ }catch(e){
+  console.error('[weekly-club-preflight] failed',e.message);
+  return res.status(502).json({ok:false,error:'preflight_failed_check_logs'});
+ }
+}
+
+module.exports={handleWeeklyClubResults,handleWeeklyClubPreflight};
