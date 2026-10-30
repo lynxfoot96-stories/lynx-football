@@ -194,6 +194,8 @@ async function currentUser(req, res) {
   return s && s.user ? s.user : null;
 }
 
+const clubResults = require('./club-results');
+
 /* ---------- main entry ---------- */
 async function handleAuth(req, res, action) {
   res.setHeader('Cache-Control', 'no-store');
@@ -299,7 +301,7 @@ async function handleAuth(req, res, action) {
     }
 
     /* ----- ACCOUNT PAGE ACTIONS (need to be logged in) ----- */
-    if (action === 'updateprofile' || action === 'changepassword' || action === 'setmarketing' || action === 'setavatar' || action === 'setclubresults' || action === 'getemailpreferences') {
+    if (action === 'updateprofile' || action === 'changepassword' || action === 'setmarketing' || action === 'setavatar' || action === 'setclubresults' || action === 'getemailpreferences' || action === 'previewclubresults' || action === 'getfavorites' || action === 'setfavorites') {
       var ss = await getSession(req, res);
       if (!ss || !ss.user) return res.status(401).json({ error: 'not_logged_in' });
 
@@ -363,6 +365,21 @@ async function handleAuth(req, res, action) {
         var updated = await gotrue('/user', { method: 'PUT', token: ss.token, body: { data: { fs_favorites: favorites } } });
         if (!updated.ok) return res.status(502).json({ error: 'favorites_sync_failed' });
         return res.status(200).json({ ok: true, count: favorites.length });
+      }
+
+      if (action === 'previewclubresults') {
+        const own=Array.isArray(ss.user.user_metadata&&ss.user.user_metadata.fs_favorites)?
+          ss.user.user_metadata.fs_favorites:[];
+        const clubs=own.filter(x=>x&&x.type==='club');
+        const result=await clubResults.getResults(clubs);
+        const news=await clubResults.getNews(own);
+        if(String(b.format||'')==='html'){
+          res.setHeader('Content-Type','text/html; charset=utf-8');
+          return res.status(200).send(clubResults.html(result.matches,own,result.missing,news, /^https:\/\//.test(process.env.SITE_URL||'')?process.env.SITE_URL.replace(/\/$/,''):'https://'+req.headers.host));
+        }
+        return res.status(200).json({ok:true,previewOnly:true,clubCount:clubs.length,
+          news:news.map(a=>({title:a.title,slug:a.slug})),matches:result.matches.map(f=>({id:f.id,date:f.date,home:f.home.name,away:f.away.name,
+            score:f.goals.home+'-'+f.goals.away})),missingDays:result.missing});
       }
 
       if (action === 'getemailpreferences') {
