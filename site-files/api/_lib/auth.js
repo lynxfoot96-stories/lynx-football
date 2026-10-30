@@ -301,7 +301,7 @@ async function handleAuth(req, res, action) {
     }
 
     /* ----- ACCOUNT PAGE ACTIONS (need to be logged in) ----- */
-    if (action === 'updateprofile' || action === 'changepassword' || action === 'setmarketing' || action === 'setavatar' || action === 'setclubresults' || action === 'getemailpreferences' || action === 'previewclubresults') {
+    if (action === 'updateprofile' || action === 'changepassword' || action === 'setmarketing' || action === 'setavatar' || action === 'setclubresults' || action === 'getemailpreferences' || action === 'previewclubresults' || action === 'getfavorites' || action === 'setfavorites') {
       var ss = await getSession(req, res);
       if (!ss || !ss.user) return res.status(401).json({ error: 'not_logged_in' });
 
@@ -372,12 +372,13 @@ async function handleAuth(req, res, action) {
           ss.user.user_metadata.fs_favorites:[];
         const clubs=own.filter(x=>x&&x.type==='club');
         const result=await clubResults.getResults(clubs);
+        const news=await clubResults.getNews(own);
         if(String(b.format||'')==='html'){
           res.setHeader('Content-Type','text/html; charset=utf-8');
-          return res.status(200).send(clubResults.html(result.matches,clubs,result.missing));
+          return res.status(200).send(clubResults.html(result.matches,own,result.missing,news));
         }
         return res.status(200).json({ok:true,previewOnly:true,clubCount:clubs.length,
-          matches:result.matches.map(f=>({id:f.id,date:f.date,home:f.home.name,away:f.away.name,
+          news:news.map(a=>({title:a.title,slug:a.slug})),matches:result.matches.map(f=>({id:f.id,date:f.date,home:f.home.name,away:f.away.name,
             score:f.goals.home+'-'+f.goals.away})),missingDays:result.missing});
       }
 
