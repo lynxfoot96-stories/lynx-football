@@ -113,12 +113,13 @@ async function handleWeeklyClubPreflight(req,res){
   const fridayOffset=(day+2)%7;
   const friday=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()-fridayOffset));
   const days=[0,1,2].map(n=>new Date(friday.getTime()+n*86400000).toISOString().slice(0,10));
-  const coverage=[];
+  const coverage=[],weekendFixtures=[];
   for(const date of days){
    const raw=await redis(['GET','club-results:fixtures:'+date]);
    if(raw===null){coverage.push({date,status:'not_archived'});continue}
    const list=JSON.parse(raw);
    if(!Array.isArray(list))throw Error('invalid_archived_matches');
+   weekendFixtures.push(...list);
    const completed=list.filter(f=>COMPLETE.has(f.statusShort)&&Number.isInteger(f.goals?.home)&&Number.isInteger(f.goals?.away)).length;
    coverage.push({date,status:completed===list.length?'complete':'incomplete',matches:list.length,completed});
   }
@@ -129,9 +130,10 @@ async function handleWeeklyClubPreflight(req,res){
   const totals={recipients:eligible.length,news:0,matchedFinalResults:0};
   for(const u of eligible){
    const follows=u.user_metadata.fs_favorites;
-   const [news,results]=await Promise.all([getNews(follows),getResults(follows.filter(f=>f.type==='club'),3,Math.max(0,day===1?1:day===0?1:day-5))]);
+   const news=await getNews(follows);
+   const clubIds=new Set(follows.filter(f=>f.type==='club').map(f=>String(f.id)));
    totals.news+=news.length;
-   totals.matchedFinalResults+=results.matches.length;
+   totals.matchedFinalResults+=weekendFixtures.filter(f=>COMPLETE.has(f.statusShort)&&(clubIds.has(String(f.home?.id))||clubIds.has(String(f.away?.id)))).length;
   }
   const output={ok:true,dryRun:true,emailsSent:0,sendingEnabled:false,weekend:days,coverage,...totals,
    readyForMonday:coverage.every(c=>c.status==='complete')};
