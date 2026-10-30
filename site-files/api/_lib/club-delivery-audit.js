@@ -75,4 +75,4 @@ async function handleClubDeliveryAudit(req,res){
   return res.status(502).json({ok:false,error:'delivery_audit_failed_check_logs'});
  }
 }
-module.exports={handleClubDeliveryAudit};
+module.exports={handleClubDeliveryAudit,members,accounts};
