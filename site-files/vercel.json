@@ -21,6 +21,10 @@
     {
       "path": "/api/scores?action=club-delivery-audit",
       "schedule": "0 2 1 1 *"
+    },
+    {
+      "path": "/api/scores?action=club-delivery-test",
+      "schedule": "0 3 1 1 *"
     }
   ],
   "functions": {
