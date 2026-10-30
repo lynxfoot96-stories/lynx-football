@@ -902,6 +902,7 @@ async function loadStandings(){
   leagueIdEl.setAttribute('data-fav-name', meta.name);
   leagueIdEl.setAttribute('data-fav-url', 'standings.html?league=' + meta.id);
   leagueIdEl.setAttribute('data-fav-badge', leagueLogos[meta.id] || '');
+  leagueIdEl.removeAttribute('data-fav-ready');
   leagueIdEl.innerHTML = '<span class="names"><span class="n1">' + escapeHtml(meta.name) + '</span>' +
     '<span class="n2">' + escapeHtml(meta.country) + '</span></span>';
   tableWrap.innerHTML = '<div class="state-msg">Loading table&hellip;</div>';
@@ -922,8 +923,10 @@ async function loadStandings(){
       renderLeagueMenu();
     }
     if (d.league.logo){
+      leagueIdEl.removeAttribute('data-fav-ready');
       leagueIdEl.innerHTML = '<img src="' + d.league.logo + '" alt="" />' + leagueIdEl.innerHTML;
     } else {
+      leagueIdEl.removeAttribute('data-fav-ready');
       leagueIdEl.innerHTML = '<div class="league-badge-fallback">' + meta.abbr + '</div>' + leagueIdEl.innerHTML;
     }
 
