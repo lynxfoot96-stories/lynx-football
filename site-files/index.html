@@ -1859,6 +1859,10 @@ html[data-theme="light"] .cat-tile,html[data-theme="light"] .cat-tile.active{bac
 .cat-tile[data-filter="Champions League"]::before {filter:blur(.65px) saturate(1.12)!important;}
 @media (prefers-reduced-motion:reduce){.cat-tile::before{transition:none!important;}}
 </style>
+<style>
+/* On phones the Matches bottom tab replaces the duplicate See All Games button. */
+@media (max-width:760px){#scores .see-all-games-btn{display:none!important}}
+</style>
 </head>
 <body>
 <div id="homeView">
