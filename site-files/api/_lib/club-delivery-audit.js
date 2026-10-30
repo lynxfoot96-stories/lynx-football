@@ -59,6 +59,13 @@ async function handleClubDeliveryAudit(req,res){
    previews.push({recipientIndex:i+1,clubCount:clubs.length,leagueCount:leagues.length,
     matchCount:results.matches.length,newsCount:news.length,missingScoreDays:results.missing.length});
   }
+  console.info('[club-delivery-audit] completed', JSON.stringify({
+   dryRun:true,emailsSent:0,listSubscriberCount:allowed.size,
+   matchedAccounts:eligible.length,personalizedPreviews:previews.length,
+   totalMatches:previews.reduce((n,x)=>n+x.matchCount,0),
+   totalNews:previews.reduce((n,x)=>n+x.newsCount,0),
+   recipientsWithMissingScoreDays:previews.filter(x=>x.missingScoreDays>0).length
+  }));
   return res.status(200).json({ok:true,dryRun:true,emailsSent:0,contactsModified:0,
    listSubscriberCount:allowed.size,matchedAccounts:eligible.length,personalizedPreviews:previews,
    skippedNoFollows:eligible.length-previews.length,
