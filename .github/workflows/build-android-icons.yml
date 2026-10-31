@@ -1,0 +1,78 @@
+name: Generate Football Stories Android icons
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-android-icons.yml'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate-icons:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install image tools
+        run: python -m pip install --disable-pip-version-check Pillow==11.3.0
+      - name: Generate exact-size icons from original Football Stories crest
+        working-directory: site-files
+        run: python scripts/build-app-icons.py
+      - name: Verify image dimensions and manifest targets
+        run: |
+          python - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          for name, size in [('app-icon-192.png', 192), ('app-icon-512.png', 512), ('app-icon-maskable-512.png', 512)]:
+              f=Path('site-files')/name
+              with Image.open(f) as im:
+                  assert im.size == (size,size), f'{f}: wrong size'
+                  assert im.format == 'PNG', f'{f}: wrong format'
+                  print(f,im.size)
+          PY
+      - name: Update manifest to real PNG files
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('site-files/manifest.webmanifest')
+          data=json.loads(p.read_text())
+          data['icons']=[
+            {'src':'app-icon-192.png','sizes':'192x192','type':'image/png','purpose':'any'},
+            {'src':'app-icon-512.png','sizes':'512x512','type':'image/png','purpose':'any'},
+            {'src':'app-icon-maskable-512.png','sizes':'512x512','type':'image/png','purpose':'maskable'},
+          ]
+          p.write_text(json.dumps(data,indent=2)+'\n')
+          PY
+      - name: Upload generated icons as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: football-stories-android-icons
+          path: |
+            site-files/app-icon-192.png
+            site-files/app-icon-512.png
+            site-files/app-icon-maskable-512.png
+            site-files/manifest.webmanifest
+      - name: Open a reviewable PR with the generated icons
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: feature/generated-android-app-icons
+          delete-branch: true
+          commit-message: 'Add generated Android PNG icons and PWA manifest entries'
+          title: 'Add generated Football Stories Android PNG icons'
+          body: |
+            Automatically generated from the existing Football Stories crest.
+            Includes 192px, 512px, maskable 512px PNGs and manifest references.
+            Review the icon appearance and PWA installability before merging.
+          add-paths: |
+            site-files/app-icon-192.png
+            site-files/app-icon-512.png
+            site-files/app-icon-maskable-512.png
+            site-files/manifest.webmanifest
