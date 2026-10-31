@@ -387,6 +387,33 @@ html[data-theme="light"] .match-col:hover{ border-color:rgba(123,44,255,0.35); }
 html[data-theme="light"] a.league-group-head:hover{ background:#F0EAFF; }
 html[data-theme="light"] .standings-full tr:hover td{ background:rgba(17,17,22,0.025); }
 
+
+/* Mobile Matches page only: keep header and date controls inside the viewport. */
+@media (max-width: 640px) {
+  .matches-wrap { width:100%; max-width:100%; min-width:0; padding:18px 12px 82px; }
+  .matches-page-head { display:block; margin-bottom:14px; }
+  .matches-page-head h1 { font-size:24px; line-height:1; margin:0 0 14px; }
+  .scores-date-nav { width:100%; min-width:0; gap:5px; }
+  .scores-date-nav > .date-arrow { width:30px; height:34px; flex:0 0 30px; }
+  .date-strip { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); flex:1 1 0; min-width:0; gap:5px; }
+  .date-btn { width:100%; min-width:0; padding:9px 3px; font-size:12px; }
+  .matches-layout, .matches-list, .league-group { min-width:0; width:100%; }
+  .league-group-head { padding:11px 10px; }
+  .match-row { padding:12px 8px; gap:5px; font-size:12px; min-width:0; }
+  .match-row .status-pill { width:24px; flex:0 0 24px; font-size:9px; }
+  .match-row .team { gap:4px; min-width:0; }
+  .match-row .team img { width:17px; height:17px; }
+  .match-row .team .n { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .match-row .score { min-width:38px; font-size:16px; }
+  .standings-panel { position:static; min-width:0; }
+}
+@media (max-width:360px) {
+  .matches-wrap { padding-left:8px; padding-right:8px; }
+  .date-btn { font-size:11px; }
+  .match-row .status-pill { width:20px; flex-basis:20px; }
+  .match-row .team img { width:15px; height:15px; }
+}
+
 </style>
 </head>
 <body>
