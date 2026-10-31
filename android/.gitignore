@@ -1,0 +1,15 @@
+# Android build secrets and generated artifacts
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+*.aab
+*.apk
+local.properties
+.gradle/
+build/
+**/build/
+node_modules/
+.env
+.env.*
