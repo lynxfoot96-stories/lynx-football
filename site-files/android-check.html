@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#8735ee">
+<title>Android install check — Football Stories</title>
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color-scheme:light}
+body{margin:0;background:#f8f7fb;color:#21182c;padding:24px}
+main{max-width:680px;margin:0 auto}h1{font-size:1.65rem;margin-bottom:8px}
+p{line-height:1.6;color:#564b62}ul{list-style:none;padding:0}li{padding:12px 15px;margin:9px 0;background:white;border:1px solid #e6ddea;border-radius:12px}
+.pass{color:#176c40}.fail{color:#a52b29}.note{color:#6a537f}
+a{color:#6d24ce}code{overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<main>
+<h1>Football Stories — Android install check</h1>
+<p>This page checks basic PWA files on the current domain. It does <strong>not</strong> install an app, make football API requests, or prove eligibility for Google Play.</p>
+<p><a href="./index.html">Back to Football Stories</a></p>
+<ul id="checks" aria-live="polite"><li>Checking…</li></ul>
+<p id="instructions">On Android, open the main website in Chrome and check its menu for <strong>Install app</strong> or <strong>Add to Home screen</strong>. Menu wording and installation support vary.</p>
+<p><small>Do not use a temporary deployment-specific domain for a Play Store Trusted Web Activity. The app must use the stable production origin and verified Android signing identity.</small></p>
+</main>
+<script>
+(async function(){
+ const root=document.getElementById('checks');root.replaceChildren();
+ function item(label,ok,detail){const li=document.createElement('li');const strong=document.createElement('strong');strong.textContent=(ok?'✓ ':'✕ ')+label;strong.className=ok?'pass':'fail';li.append(strong,document.createElement('br'),document.createTextNode(detail));root.append(li)}
+ item('Secure page',location.protocol==='https:'||location.hostname==='localhost',location.origin);
+ let manifest;
+ try{
+  const res=await fetch('./manifest.webmanifest',{cache:'no-store'});
+  if(!res.ok)throw Error('HTTP '+res.status);
+  manifest=await res.json();
+  item('Web app manifest',true,'Found manifest.webmanifest');
+  item('Standalone display',manifest.display==='standalone'||manifest.display==='fullscreen','Display mode: '+(manifest.display||'unspecified'));
+  item('Start URL and scope',Boolean(manifest.start_url&&manifest.scope),String(manifest.start_url||'missing')+' / '+String(manifest.scope||'missing'));
+ }catch(e){item('Web app manifest',false,e.message||String(e))}
+ if(manifest&&Array.isArray(manifest.icons)){
+  for(const size of [192,512]){
+   const icon=manifest.icons.find(x=>x.type==='image/png'&&x.sizes&&x.sizes.split(/\s+/).includes(size+'x'+size)&&(!x.purpose||x.purpose.includes('any')));
+   if(!icon){item(size+'px icon',false,'No PNG entry in manifest');continue}
+   try{const url=new URL(icon.src,new URL('./manifest.webmanifest',location.href));const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error('HTTP '+res.status);const blob=await res.blob();const bitmap=await createImageBitmap(blob);const ok=bitmap.width===size&&bitmap.height===size;item(size+'px icon',ok,bitmap.width+' × '+bitmap.height+' pixels');bitmap.close()}catch(e){item(size+'px icon',false,e.message||String(e))}
+  }
+ }else item('PNG icons',false,'Manifest has no icon list');
+ try{
+  const res=await fetch('./sw.js',{cache:'no-store'});
+  item('Service worker file',res.ok,'sw.js returned HTTP '+res.status);
+ }catch(e){item('Service worker file',false,e.message||String(e))}
+ if('serviceWorker' in navigator){
+  try{const reg=await navigator.serviceWorker.getRegistration('./');item('Service worker registration',Boolean(reg),reg?'Registration found for this app':'Not registered yet. Open the home page, reload, then check again.')}
+  catch(e){item('Service worker registration',false,e.message||String(e))}
+ }else item('Service worker support',false,'Not supported by this browser');
+ const standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+ const li=document.createElement('li');li.className='note';li.textContent=standalone?'Opened as an installed standalone app.':'Currently opened in a browser tab (normal before installation).';root.append(li);
+})();
+</script>
+</body></html>
