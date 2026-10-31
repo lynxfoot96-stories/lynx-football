@@ -10,6 +10,23 @@
    ========================================================== */
 (function () {
   'use strict';
+  // Progressive Web App metadata on every page sharing this header.
+  if (!document.querySelector('link[rel="manifest"]')) {
+    var fsManifest=document.createElement('link');
+    fsManifest.rel='manifest';
+    fsManifest.href='manifest.webmanifest';
+    document.head.appendChild(fsManifest);
+  }
+  if (!document.querySelector('meta[name="theme-color"]')) {
+    var fsTheme=document.createElement('meta');
+    fsTheme.name='theme-color'; fsTheme.content='#8735ee';
+    document.head.appendChild(fsTheme);
+  }
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    window.addEventListener('load',function(){
+      navigator.serviceWorker.register('./sw.js').catch(function(){ /* online site remains usable */ });
+    },{once:true});
+  }
   // Default to light on a first visit; respect the visitor's saved choice.
   // The inline head theme scripts handle pages which already set a theme.
   (function(){
