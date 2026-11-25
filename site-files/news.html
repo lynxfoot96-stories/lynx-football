@@ -542,6 +542,7 @@ html[data-theme="light"] .hero-svg .pt.w{fill:var(--pc)}
   var all = STATIC.slice();   // merged + sorted list
   var appNews = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || window.matchMedia('(display-mode: fullscreen)').matches;
   var state = readUrl();
+  var feedPending=true, feedFailed=false;
   var searchEl, clearEl, browseEl;
   if(appNews){
     var toolsEl = document.createElement('div');
@@ -654,17 +655,17 @@ html[data-theme="light"] .hero-svg .pt.w{fill:var(--pc)}
   function render(moveFocus){
     var list = filtered();
     var pages = totalPages(list.length);
-    if (state.page > pages) state.page = pages;
+    if (state.page > pages && !feedPending) state.page = pages;
     if (state.page < 1) state.page = 1;
 
     if(appNews){renderFilters();updateBrowse();}
     if (!list.length){
       featuredEl.innerHTML = '';
-      gridEl.innerHTML = appNews && state.q ? '<p class="nx-empty">No matching articles. Try a different player, club or keyword.</p>' : '<p class="nx-empty">No articles published yet. Check back soon.</p>';
+      gridEl.innerHTML = feedPending ? '<p class="nx-empty" role="status">Loading more stories…</p>' : feedFailed ? '<p class="nx-empty">Some stories are unavailable. Please try again later.</p>' : appNews && state.q ? '<p class="nx-empty">No matching articles. Try a different player, club or keyword.</p>' : '<p class="nx-empty">No articles published yet. Check back soon.</p>';
       pagerEl.innerHTML = ''; countEl.textContent = '';
       return;
     }
-    var s = pageSlice(list, state.page);
+    var s = pageSlice(list, Math.min(state.page,pages));
     featuredEl.innerHTML = s.featured ? featuredHTML(s.featured) : '';
     gridEl.innerHTML = s.cards.map(cardHTML).join('');
     countEl.textContent = list.length + (list.length === 1 ? ' story' : ' stories') +
@@ -798,7 +799,9 @@ html[data-theme="light"] .hero-svg .pt.w{fill:var(--pc)}
   fetch('/api/news?limit=1000&compact=1')
     .then(function(res){ if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
     .then(function(data){
-      var db = ((data && data.articles) || []).map(fromDb);
+      if(!data || !Array.isArray(data.articles)) throw Error('Invalid news response');
+      feedPending=false;
+      var db = data.articles.map(fromDb);
       all = STATIC.concat(db);
       sortAll();
       var cats = all.map(function(a){ return a.cat; });
@@ -806,6 +809,7 @@ html[data-theme="light"] .hero-svg .pt.w{fill:var(--pc)}
       render(false);
     })
     .catch(function(err){
+      feedPending=false;feedFailed=true;render(false);
       console.error('Error fetching news:', err);
       noteEl.innerHTML = '<p class="news-note" role="status">Automated stories could not be loaded right now. Showing the main stories only.</p>';
     });
