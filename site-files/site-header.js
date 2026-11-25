@@ -62,6 +62,44 @@
   };
   var isInstalled = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || window.matchMedia('(display-mode: fullscreen)').matches;
   var compact = isInstalled && compactPages[path];
+
+  // Brand the first document load in an installed app, not every navigation.
+  if(isInstalled && path==='index.html'){
+    var showSplash=true;
+    try{
+      var navEntry=performance.getEntriesByType('navigation')[0];
+      if(navEntry && navEntry.type==='back_forward')showSplash=false;
+      if(document.referrer && new URL(document.referrer).origin===location.origin)showSplash=false;
+    }catch(e){}
+    if(showSplash){
+      var brandImage=HTML.match(/<img src="([^"]+)" alt="Football Stories logo"/);
+      var splashCss=`
+        .fs-launch{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;overflow:hidden;background:#100b1b;color:#fff;font-family:Inter,system-ui,sans-serif;opacity:1;transition:opacity .22s ease}
+        .fs-launch::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 25% 24%,rgba(135,53,238,.32),transparent 58%),radial-gradient(ellipse at 90% 90%,rgba(255,106,0,.16),transparent 48%);pointer-events:none}
+        .fs-launch-inner{position:relative;text-align:center;display:flex;flex-direction:column;align-items:center;padding:24px}
+        .fs-launch-mark{width:112px;height:112px;object-fit:contain;display:block;filter:drop-shadow(0 8px 28px rgba(135,53,238,.26));margin-bottom:20px}
+        .fs-launch-title{font-family:'Big Shoulders Display',Impact,system-ui,sans-serif;font-size:clamp(30px,8vw,42px);font-weight:800;letter-spacing:.035em;line-height:1.1}
+        .fs-launch-sub{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#c3b5d6;margin-top:9px}
+        .fs-launch-track{width:88px;height:3px;border-radius:8px;background:rgba(255,255,255,.13);margin-top:30px;overflow:hidden}
+        .fs-launch-track::after{content:"";display:block;height:100%;width:48%;border-radius:8px;background:linear-gradient(90deg,#8735ee,#ff7a1a);animation:fsLaunchProgress 1s ease-in-out infinite alternate}
+        @keyframes fsLaunchProgress{from{transform:translateX(-20%)}to{transform:translateX(130%)}}
+        .fs-launch.is-done{opacity:0;pointer-events:none}
+        @media(prefers-reduced-motion:reduce){.fs-launch{transition:none}.fs-launch-track::after{animation:none}}
+      `;
+      document.write('<style>'+splashCss+'</style><div id="fs-launch" class="fs-launch" role="status" aria-label="Loading Football Stories"><div class="fs-launch-inner">'+(brandImage?'<img class="fs-launch-mark" src="'+brandImage[1]+'" alt="">':'')+'<div class="fs-launch-title">FOOTBALL STORIES</div><div class="fs-launch-sub">The beautiful game</div><div class="fs-launch-track" aria-hidden="true"></div></div></div>');
+      var finished=false;
+      function finishSplash(){
+        if(finished)return;finished=true;
+        var splash=document.getElementById('fs-launch');if(!splash)return;
+        splash.classList.add('is-done');splash.setAttribute('aria-hidden','true');
+        setTimeout(function(){splash.remove();},240);
+      }
+      document.addEventListener('DOMContentLoaded',function(){requestAnimationFrame(function(){requestAnimationFrame(finishSplash);});},{once:true});
+      window.addEventListener('pageshow',function(e){if(e.persisted)finishSplash();});
+      setTimeout(finishSplash,2500);
+    }
+  }
+
   if(compact){
     document.documentElement.classList.add('fs-app-compact','fs-app-'+compact.cls);
     fixed=false;
