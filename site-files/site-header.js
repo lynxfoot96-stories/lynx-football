@@ -62,6 +62,36 @@
   };
   var isInstalled = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || window.matchMedia('(display-mode: fullscreen)').matches;
   var compact = isInstalled && compactPages[path];
+  if(!isInstalled){
+    var installHref='https://site-files-100.vercel.app/';
+    var installLink='<a class="fs-install-link" href="'+installHref+'" aria-label="Download Football Stories"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4"/></svg><span>Download App</span></a>';
+    HTML=HTML.replace('<div class="fs-hd__right">','<div class="fs-hd__right">'+installLink);
+    CSS+=`
+      .fs-install-link{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 10px;border:1px solid var(--purple-bright,#8735ee);border-radius:8px;color:var(--white,#fff);font:700 12px Inter,system-ui,sans-serif;white-space:nowrap;text-decoration:none}
+      @media(max-width:900px){.fs-install-link{width:40px;padding:0;flex:none}.fs-install-link span{display:none}}
+      @media(max-width:400px){.fs-hd__in{gap:6px;padding:0 8px}.fs-hd__right{gap:6px}.fs-install-link{width:34px}.fs-hd__login{width:70px}}
+      .fs-install-dialog{width:min(400px,calc(100vw - 32px));max-width:calc(100vw - 32px);box-sizing:border-box;margin:auto;padding:22px;border:1px solid var(--line,#777);border-radius:16px;background:var(--panel,#121116);color:var(--white,#fff);font:500 14px/1.6 Inter,system-ui,sans-serif}
+      .fs-install-dialog::backdrop{background:rgba(0,0,0,.55)}.fs-install-dialog h2{font:750 20px Inter,system-ui,sans-serif;margin:0 0 12px}.fs-install-dialog p{margin:0 0 16px}.fs-install-dialog button{padding:10px 20px;border:0;border-radius:9px;background:#8735ee;color:#fff;font:700 14px Inter,system-ui,sans-serif;cursor:pointer}
+    `;
+    var installPrompt=null;
+    window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();installPrompt=e;});
+    window.addEventListener('appinstalled',function(){installPrompt=null;var link=document.querySelector('.fs-install-link');if(link)link.hidden=true;});
+    document.addEventListener('click',function(e){
+      var link=e.target.closest('.fs-install-link');if(!link)return;
+      if(location.origin!==new URL(installHref).origin)return;
+      e.preventDefault();
+      if(installPrompt){var prompt=installPrompt;installPrompt=null;prompt.prompt().catch(function(){showInstallHelp();});return;}
+      showInstallHelp();
+    });
+    function showInstallHelp(){
+      var d=document.createElement('dialog');d.className='fs-install-dialog';
+      var ios=/iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+      var android=/Android/i.test(navigator.userAgent);
+      d.innerHTML='<h2>Install Football Stories</h2><p>'+(ios?'Open in Safari, tap Share, then Add to Home Screen.':android?'Open Chrome’s menu, choose Install and create shortcut, then Install. If Install is unavailable, refresh the production website and try again.':'In Chrome or Edge, use the install icon in the address bar or the browser menu to install this site as an app. In Safari on Mac, use File → Add to Dock if available.')+'</p><button type="button">Close</button>';
+      document.body.appendChild(d);d.querySelector('button').onclick=function(){d.close();};d.addEventListener('close',function(){d.remove();});d.showModal();
+    }
+  }
+
 
   // Brand the first document load in an installed app, not every navigation.
   if(isInstalled && path==='index.html'){
@@ -87,9 +117,11 @@
         @media(prefers-reduced-motion:reduce){.fs-launch{transition:none}.fs-launch-track::after{animation:none}}
       `;
       document.write('<style>'+splashCss+'</style><div id="fs-launch" class="fs-launch" role="status" aria-label="Loading Football Stories"><div class="fs-launch-inner">'+(brandImage?'<img class="fs-launch-mark" src="'+brandImage[1]+'" alt="">':'')+'<div class="fs-launch-title">FOOTBALL STORIES</div><div class="fs-launch-sub">The beautiful game</div><div class="fs-launch-track" aria-hidden="true"></div></div></div>');
-      var finished=false;
+      var finished=false, splashStart=Date.now();
       function finishSplash(){
-        if(finished)return;finished=true;
+        if(finished)return;
+        var remaining=1200-(Date.now()-splashStart);if(remaining>0){setTimeout(finishSplash,remaining);return;}
+        finished=true;
         var splash=document.getElementById('fs-launch');if(!splash)return;
         splash.classList.add('is-done');splash.setAttribute('aria-hidden','true');
         setTimeout(function(){splash.remove();},240);
