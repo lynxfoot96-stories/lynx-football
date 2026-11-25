@@ -43,10 +43,10 @@ async function gotrue(path, opts) {
 }
 
 function parseCookies(req) {
-  var out = {};
+  var out = Object.create(null);
   String(req.headers.cookie || '').split(';').forEach(function (p) {
     var i = p.indexOf('=');
-    if (i > 0) out[p.slice(0, i).trim()] = decodeURIComponent(p.slice(i + 1).trim());
+    if (i > 0) { try { out[p.slice(0, i).trim()] = decodeURIComponent(p.slice(i + 1).trim()); } catch (_) { /* ignore malformed cookie */ } }
   });
   return out;
 }

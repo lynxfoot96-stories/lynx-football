@@ -52,6 +52,7 @@ async function redisCommand(parts) {
     const url = `${UPSTASH_URL}/${parts.map(encodeURIComponent).join("/")}`;
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` },
+      signal: AbortSignal.timeout(4000),
     });
     if (!res.ok) {
       const bodyText = await res.text().catch(() => "<unreadable body>");
@@ -88,6 +89,12 @@ function localGet(key) {
 }
 
 function localSet(key, value, ttlSeconds) {
+  localCache.delete(key);
+  if (localCache.size >= 500) {
+    const now = Date.now();
+    for (const [k, entry] of localCache) if (entry.expiresAt <= now) localCache.delete(k);
+    while (localCache.size >= 500) localCache.delete(localCache.keys().next().value);
+  }
   localCache.set(key, { value, expiresAt: Date.now() + ttlSeconds * 1000 });
 }
 
@@ -119,8 +126,7 @@ async function cacheSet(key, value, ttlSeconds) {
   localSet(key, value, ttlSeconds);
   if (!upstashConfigured()) return;
   const raw = JSON.stringify(value);
-  await redisCommand(["set", key, raw]);
-  await redisCommand(["expire", key, String(ttlSeconds)]);
+  await redisCommand(["set", key, raw, "EX", String(ttlSeconds)]);
 }
 
 // ---- Public: daily counter -----------------------------------------------

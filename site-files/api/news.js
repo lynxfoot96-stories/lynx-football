@@ -30,12 +30,13 @@ export default async function handler(req, res) {
     }
 
     // GET /api/news?limit=30  -> list (max 1000; add &compact=1 to leave out the article bodies)
-    const limit = Math.min(parseInt(req.query.limit, 10) || 30, 1000);
+    const limit = Math.max(1, Math.min(parseInt(req.query.limit, 10) || 30, 1000));
     const compact = req.query.compact === '1';
     const rows = await db.listPublished({ limit, compact });
+    res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=60');
     return res.status(200).json({ articles: rows.map(withLabel) });
   } catch (error) {
     console.error('Database query error:', error);
-    return res.status(500).json({ error: 'Failed to retrieve news articles', details: error.message });
+    return res.status(500).json({ error: 'Failed to retrieve news articles' });
   }
 }

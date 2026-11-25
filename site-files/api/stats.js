@@ -293,7 +293,7 @@ module.exports = async (req, res) => {
         if (stale !== null) {
           send(stale, true);
         } else {
-          res.status(200).json({ ok: false, error: UNAVAILABLE, detail: "lock-holder fetch failed: " + err.message });
+          res.status(200).json({ ok: false, error: UNAVAILABLE, detail: "Data provider temporarily unavailable." });
         }
       } finally {
         await releaseLock(lockKey, lockToken);
@@ -323,7 +323,7 @@ module.exports = async (req, res) => {
         if (stale !== null) {
           send(stale, true);
         } else {
-          res.status(200).json({ ok: false, error: UNAVAILABLE, detail: "takeover fetch failed: " + err.message });
+          res.status(200).json({ ok: false, error: UNAVAILABLE, detail: "Data provider temporarily unavailable." });
         }
       } finally {
         await releaseLock(lockKey, takeoverToken);
@@ -338,9 +338,9 @@ module.exports = async (req, res) => {
       return;
     }
     console.error("[/api/stats] never acquired lock (initial or takeover) and no stale data for", key);
-    res.status(200).json({ ok: false, error: UNAVAILABLE, detail: "lock never acquired (initial + takeover both failed) and no stale cache for " + key, redisDetail: getLastRedisError() });
+    res.status(200).json({ ok: false, error: UNAVAILABLE, detail: "Statistics refresh in progress." });
   } catch (err) {
     console.error("[/api/stats]", err.message);
-    res.status(200).json({ ok: false, error: UNAVAILABLE, detail: err.message });
+    res.status(200).json({ ok: false, error: UNAVAILABLE, detail: "Data provider temporarily unavailable." });
   }
 };

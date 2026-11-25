@@ -290,7 +290,7 @@ module.exports = async (req, res) => {
       // Surfaced so the raw football-data.org/plan-restriction reason is
       // visible by opening /api/standings?league=39 directly, instead of
       // only in server logs -- useful while diagnosing plan-access issues.
-      detail: err.message,
+      detail: 'Data provider temporarily unavailable.',
     });
   }
 };
