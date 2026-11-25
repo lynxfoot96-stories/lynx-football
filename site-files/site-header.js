@@ -111,6 +111,11 @@
       @media(max-width:760px){
         html.fs-installed-app .fs-mobile-nav{padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
         html.fs-installed-app .fs-mobile-nav__tab{touch-action:manipulation;min-height:51px}
+        html.fs-installed-app .fs-mobile-nav__tab{-webkit-tap-highlight-color:transparent}
+        html.fs-installed-app .fs-mobile-nav__tab:focus:not(:focus-visible){outline:none}
+        html.fs-installed-app .fs-mobile-nav__tab:active{background:rgba(135,53,238,.09)}
+        html.fs-installed-app[data-theme="dark"] .fs-mobile-nav__tab:active{background:rgba(168,104,255,.14)}
+
         html.fs-installed-app .fs-mobile-nav__tab svg{width:22px;height:22px}
         html.fs-installed-app[data-theme="dark"] .fs-mobile-nav__tab.is-active{color:#b990ff;background:rgba(168,104,255,.14)}
         html.fs-installed-app.fs-app-compact .fs-hd__in{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
