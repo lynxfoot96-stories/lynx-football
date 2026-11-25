@@ -375,7 +375,7 @@
 /* Installed PWA: detect newer production deployments without interrupting users. */
 (function(){
   'use strict';
-  if (!(matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || matchMedia('(display-mode: fullscreen)').matches)) return;
+  if (!(matchMedia('(display-mode: standalone)').matches || navigator.standalone === true)) return;
   var baseline=null, lastCheck=0, busy=false, offered=null, dismissed=null, banner=null;
   var versionKey='fs-app-version', dismissKey='fs-app-dismissed-version';
   try{baseline=sessionStorage.getItem(versionKey);dismissed=sessionStorage.getItem(dismissKey);}catch(e){}
@@ -398,8 +398,19 @@
     banner.querySelector('[data-later]').onclick=function(){dismissed=version;try{sessionStorage.setItem(dismissKey,version);}catch(e){}banner.remove();banner=null;};
     banner.querySelector('[data-update]').onclick=function(){
       if(!navigator.onLine){banner.querySelector('p').textContent='Connect to the internet to update.';return;}
-      try{sessionStorage.removeItem(versionKey);sessionStorage.removeItem(dismissKey);}catch(e){}
-      location.reload();
+      var updateButton=this;
+      if(updateButton.disabled)return;
+      updateButton.disabled=true;
+      banner.querySelector('p').textContent='Updating Football Stories…';
+      function reloadUpdated(){
+        try{sessionStorage.removeItem(versionKey);sessionStorage.removeItem(dismissKey);}catch(e){}
+        location.reload();
+      }
+      if('serviceWorker' in navigator){
+        var timer=setTimeout(reloadUpdated,4000),finished=false;
+        function finish(){if(finished)return;finished=true;clearTimeout(timer);reloadUpdated();}
+        navigator.serviceWorker.getRegistration().then(function(reg){return reg?reg.update():null;}).then(finish,finish);
+      }else reloadUpdated();
     };
   }
   function check(){
@@ -411,6 +422,6 @@
       .catch(function(){/* Update check must never interrupt normal app use. */})
       .then(function(){busy=false;});
   }
-  function start(){check();setInterval(check,600000);document.addEventListener('visibilitychange',check);window.addEventListener('online',check);}
+  function start(){check();setInterval(check,600000);document.addEventListener('visibilitychange',check);window.addEventListener('online',function(){lastCheck=0;check();});}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();

@@ -1,5 +1,5 @@
 /* Football Stories PWA: cache static shell only; never cache football API scores. */
-const CACHE='fs-static-v4';
+const CACHE='fs-static-v5';
 const SHELL=['./site-header.js','./offline.html'];
 self.addEventListener('install',event=>{
   event.waitUntil((async()=>{const cache=await caches.open(CACHE);await cache.add('./offline.html');await Promise.allSettled(SHELL.filter(url=>url!=='./offline.html').map(url=>cache.add(url)));await self.skipWaiting();})());
@@ -13,7 +13,7 @@ self.addEventListener('fetch',event=>{
   const url=new URL(req.url);
   if(url.pathname.startsWith('/api/'))return; // live data always belongs to backend
   if(req.mode==='navigate'){
-    event.respondWith(fetch(req).catch(async()=>await caches.match('./offline.html')||new Response('Football Stories is offline. Reconnect and reload.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8'}})));
+    event.respondWith(fetch(req,{cache:'no-cache'}).catch(async()=>await caches.match('./offline.html')||new Response('Football Stories is offline. Reconnect and reload.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8'}})));
     return;
   }
   if(!/\.(?:js|css|png|svg|webp|ico)$/i.test(url.pathname))return;
