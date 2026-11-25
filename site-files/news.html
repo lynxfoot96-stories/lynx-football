@@ -415,6 +415,19 @@ html[data-theme="light"] .hero-svg .pt.w{fill:var(--pc)}
 @media (max-width:480px){.pg{min-width:40px;height:40px;padding:0 10px}.pg .pg-label{display:none}}
 @media (prefers-reduced-motion:reduce){.pg,.nx-card,.nx-featured,.nx-img{transition:none!important}}
 </style>
+<style>
+.app-news-tools{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+.app-news-search{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:10px 12px;color:var(--muted)}
+.app-news-search input{min-width:0;width:100%;border:0;outline:0;background:transparent;color:var(--white);font:inherit;font-size:16px}
+.app-news-search:focus-within{border-color:var(--purple-bright)}
+.app-news-search svg,.app-news-browse svg{flex-shrink:0}
+.app-news-browse{display:inline-flex;align-items:center;gap:8px;align-self:flex-start}
+.app-news-browse[aria-expanded="true"] .app-news-chevron{transform:rotate(180deg)}
+.app-news-tools + .news-filters{gap:8px;margin-bottom:16px}
+.app-news-tools + .news-filters[hidden]{display:none!important}
+.app-news-search button{border:0;background:none;color:var(--muted);padding:4px;font:inherit;cursor:pointer}
+.app-news-search button[hidden]{display:none}
+</style>
 </head>
 <body>
 <script src="site-header.js"></script>
@@ -527,7 +540,42 @@ html[data-theme="light"] .hero-svg .pt.w{fill:var(--pc)}
   });
 
   var all = STATIC.slice();   // merged + sorted list
+  var appNews = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || window.matchMedia('(display-mode: fullscreen)').matches;
   var state = readUrl();
+  var searchEl, clearEl, browseEl;
+  if(appNews){
+    var toolsEl = document.createElement('div');
+    toolsEl.className = 'app-news-tools';
+    toolsEl.innerHTML = '<label class="app-news-search"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg><input type="search" autocomplete="off" aria-label="Search news" placeholder="Search football news…"><button type="button" aria-label="Clear news search" hidden>×</button></label><button type="button" class="news-filter app-news-browse" aria-expanded="false" aria-controls="filters"><svg width="20" height="20" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" aria-hidden="true"><path d="M3 5h18M3 12h13M3 19h18"/></svg><span>Browse by theme</span><svg class="app-news-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>';
+    filtersEl.before(toolsEl);
+    searchEl=toolsEl.querySelector('input');
+    clearEl=toolsEl.querySelector('.app-news-search button');
+    browseEl=toolsEl.querySelector('.app-news-browse');
+    filtersEl.hidden=state.cat==='All';
+    function updateBrowse(){
+      browseEl.setAttribute('aria-expanded',String(!filtersEl.hidden));
+      browseEl.querySelector('span').textContent=state.cat==='All'?'Browse by theme':'Browse by theme · '+state.cat;
+    }
+    function syncSearch(){
+      searchEl.value=state.q||'';
+      clearEl.hidden=!searchEl.value;
+      updateBrowse();
+    }
+    browseEl.addEventListener('click',function(){filtersEl.hidden=!filtersEl.hidden;updateBrowse();});
+    var searchTimer;
+    function applySearch(){
+      clearTimeout(searchTimer);
+      state.q=searchEl.value.trim();state.cat='All';state.page=1;
+      history.replaceState(null,'',pageHref(1));render(false);updateBrowse();
+    }
+    searchEl.addEventListener('input',function(){clearEl.hidden=!searchEl.value;clearTimeout(searchTimer);searchTimer=setTimeout(applySearch,180);});
+    clearEl.addEventListener('click',function(){searchEl.value='';clearEl.hidden=true;applySearch();searchEl.focus();});
+    window.addEventListener('popstate',function(){clearTimeout(searchTimer);});
+    syncSearch();
+  }
+  function normalizeNews(s){
+    return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+  }
 
   function esc(s){
     return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
@@ -587,7 +635,13 @@ html[data-theme="light"] .hero-svg .pt.w{fill:var(--pc)}
   }
 
   function filtered(){
-    return state.cat === 'All' ? all : all.filter(function(a){ return a.cat === state.cat; });
+    var list = state.cat === 'All' ? all : all.filter(function(a){ return a.cat === state.cat; });
+    if(!appNews || !state.q) return list;
+    var words = normalizeNews(state.q).split(/\s+/).filter(Boolean);
+    return list.filter(function(a){
+      var text=normalizeNews([a.title,a.dek,a.cat].join(' '));
+      return words.every(function(word){return text.indexOf(word)!==-1;});
+    });
   }
   // every page = 1 big featured story + 9 cards (10 stories per page)
   var PER_PAGE = 1 + PER_PAGE_GRID;
@@ -603,9 +657,10 @@ html[data-theme="light"] .hero-svg .pt.w{fill:var(--pc)}
     if (state.page > pages) state.page = pages;
     if (state.page < 1) state.page = 1;
 
+    if(appNews){renderFilters();updateBrowse();}
     if (!list.length){
       featuredEl.innerHTML = '';
-      gridEl.innerHTML = '<p class="nx-empty">No articles published yet. Check back soon.</p>';
+      gridEl.innerHTML = appNews && state.q ? '<p class="nx-empty">No matching articles. Try a different player, club or keyword.</p>' : '<p class="nx-empty">No articles published yet. Check back soon.</p>';
       pagerEl.innerHTML = ''; countEl.textContent = '';
       return;
     }
@@ -614,7 +669,7 @@ html[data-theme="light"] .hero-svg .pt.w{fill:var(--pc)}
     gridEl.innerHTML = s.cards.map(cardHTML).join('');
     countEl.textContent = list.length + (list.length === 1 ? ' story' : ' stories') +
       (state.cat !== 'All' ? ' in ' + state.cat : '') + (pages > 1 ? ' · Page ' + state.page + ' of ' + pages : '');
-    renderFilters();
+    if(!appNews) renderFilters();
     renderPager(pages);
     fillMissingImages();
     if (moveFocus){
@@ -626,6 +681,13 @@ html[data-theme="light"] .hero-svg .pt.w{fill:var(--pc)}
   function renderFilters(){
     var cats = ['All'];
     all.forEach(function(a){ if (cats.indexOf(a.cat) === -1) cats.push(a.cat); });
+    if(appNews){
+      var counts=Object.create(null);
+      all.slice(0,100).forEach(function(a,i){counts[a.cat]=(counts[a.cat]||0)+(i<30?3:1);});
+      var ranked=cats.slice(1).sort(function(a,b){return (counts[b]||0)-(counts[a]||0);}).slice(0,10);
+      if(state.cat!=='All' && ranked.indexOf(state.cat)===-1 && cats.indexOf(state.cat)!==-1){if(ranked.length===10) ranked.pop();ranked.push(state.cat);}
+      cats=['All'].concat(ranked);
+    }
     filtersEl.innerHTML = cats.map(function(c){
       var on = c === state.cat;
       return '<button type="button" class="news-filter' + (on ? ' on' : '') + '" data-cat="' + esc(c) + '" aria-pressed="' + on + '">' + esc(c) + '</button>';
@@ -635,6 +697,7 @@ html[data-theme="light"] .hero-svg .pt.w{fill:var(--pc)}
   function pageHref(p){
     var q = [];
     if (state.cat !== 'All') q.push('cat=' + encodeURIComponent(state.cat));
+    if (appNews && state.q) q.push('q=' + encodeURIComponent(state.q));
     if (p > 1) q.push('page=' + p);
     return 'news.html' + (q.length ? '?' + q.join('&') : '');
   }
@@ -706,7 +769,7 @@ html[data-theme="light"] .hero-svg .pt.w{fill:var(--pc)}
   function readUrl(){
     var p = new URLSearchParams(location.search);
     var page = parseInt(p.get('page'), 10);
-    return {cat: p.get('cat') || 'All', page: page > 0 ? page : 1};
+    return {cat: p.get('cat') || 'All', page: page > 0 ? page : 1, q: appNews ? (p.get('q') || '') : ''};
   }
   function go(newState, push){
     state = newState;
@@ -718,7 +781,7 @@ html[data-theme="light"] .hero-svg .pt.w{fill:var(--pc)}
     var b = e.target.closest('.news-filter'); if (!b) return;
     var cat = b.getAttribute('data-cat');
     if (cat === state.cat) return;
-    state = {cat: cat, page: 1};
+    state = {cat: cat, page: 1, q: appNews ? state.q : ''};
     history.pushState(null, '', pageHref(1));
     render(false);
   });
@@ -726,9 +789,9 @@ html[data-theme="light"] .hero-svg .pt.w{fill:var(--pc)}
     var a = e.target.closest('a.pg'); if (!a) return;
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;   // let "open in new tab" work
     e.preventDefault();
-    go({cat: state.cat, page: parseInt(a.getAttribute('data-page'), 10)}, true);
+    go({cat: state.cat, page: parseInt(a.getAttribute('data-page'), 10), q: state.q}, true);
   });
-  window.addEventListener('popstate', function(){ state = readUrl(); render(false); });
+  window.addEventListener('popstate', function(){ state = readUrl(); if(appNews) syncSearch(); render(false); });
 
   /* ---------- load ---------- */
   sortAll(); render(false);          // the hand-written stories show immediately
