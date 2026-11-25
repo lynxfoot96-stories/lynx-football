@@ -646,6 +646,30 @@ header .wrap{ max-width:1180px; padding:0 32px; }
  @media(prefers-reduced-motion:reduce){.league-id>.fs-fav.is-pop svg{animation:none}}
  @media(max-width:600px){.standings-switch-row{padding-right:52px}.league-id>.fs-fav{right:4px;width:34px;height:34px}}
 </style>
+<style>
+/* Installed app only: compact standings and frozen identity columns. */
+.app-standings-modes{display:flex;gap:3px;padding:4px;background:var(--panel-2);border:1px solid var(--line);border-radius:24px;margin-top:18px;width:max-content;max-width:100%}
+.app-standings-modes button{border:0;border-radius:20px;background:transparent;color:var(--muted);font:inherit;font-size:13px;font-weight:700;padding:8px 18px;cursor:pointer}
+.app-standings-modes button[aria-pressed="true"]{background:var(--purple-bright);color:#fff}
+.app-standings-modes button:focus-visible{outline:2px solid var(--orange-bright);outline-offset:2px}
+.app-standings-modes + .standings-full-wrap{margin-top:10px}
+.app-standings .standings-full{border-collapse:separate;border-spacing:0;min-width:0;table-layout:fixed;width:100%}
+.app-standings[data-mode="full"] .standings-full{min-width:calc(var(--app-club-width) + 32px + 8 * 42px)}
+.app-standings{--app-club-width:clamp(104px, 34vw, 160px)}
+.app-standings .standings-full th,.app-standings .standings-full td{padding:10px 4px}
+.app-standings .standings-full th:first-child,.app-standings .standings-full td:first-child{position:sticky;left:0;width:32px;min-width:32px;max-width:32px;z-index:2;background:var(--panel)}
+.app-standings .standings-full .team-col{display:table-cell;position:sticky;left:32px;width:var(--app-club-width);min-width:var(--app-club-width);max-width:var(--app-club-width);z-index:2;background:var(--panel);text-align:left;padding-left:4px;padding-right:6px}
+.app-standings .standings-full th:first-child,.app-standings .standings-full th.team-col{background:var(--panel-2);z-index:3}
+.app-standings .standings-full .team-col .app-club-inner,.app-standings .standings-full .team-col .club-link{display:flex;align-items:center;gap:6px;min-width:0}
+.app-standings .standings-full .team-col span{overflow-wrap:anywhere;line-height:1.2;min-width:0}
+.app-standings .standings-full .team-col img{width:20px;height:20px}
+.app-standings .standings-full [hidden]{display:none!important}
+.app-standings .standings-full .form{justify-content:flex-end;gap:3px}
+.app-standings .standings-full .form-badge{width:clamp(16px,5vw,22px);height:22px;flex-shrink:0}
+.app-standings .standings-full .form-badge:last-child{box-shadow:0 3px 0 -1px currentColor}
+.app-standings[data-mode="form"] .standings-full th:last-child{text-align:right;text-transform:none;padding-right:8px;letter-spacing:0}
+.app-standings[data-mode="form"] .standings-full{min-width:calc(var(--app-club-width) + 32px + 122px)}
+</style>
 </head>
 <body class="match-page-body">
 
@@ -907,6 +931,59 @@ function zoneClass(key){
 }
 const ZONE_COLOR = { 'zone-a': 'var(--purple-bright)', 'zone-b': 'var(--orange-bright)', 'zone-c': '#E0567A' };
 
+
+/* Keep the desktop/mobile-browser table untouched; enable modes in installed PWA. */
+function enableAppStandings(hasForm, data){
+  if (!(window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || window.matchMedia('(display-mode: fullscreen)').matches)) return;
+  const wrap = tableWrap.querySelector('.standings-full-wrap');
+  const table = wrap && wrap.querySelector('table');
+  if (!table) return;
+  wrap.classList.add('app-standings');
+  const controls = document.createElement('div');
+  controls.className = 'app-standings-modes';
+  controls.setAttribute('role','group');
+  controls.setAttribute('aria-label','Standings view');
+  const allRows = Array.from(table.rows);
+  const keys = [null,null,'played','won','draw','lost','goalsFor','goalsAgainst','goalsDiff','points','form'];
+  const available = keys.map(function(key){return !key || data.some(function(row){return row[key] != null;});});
+  allRows.slice(1).forEach(function(row){
+    const club = row.cells[1];
+    if (club && !club.querySelector('.club-link')){
+      const inner = document.createElement('div');
+      inner.className = 'app-club-inner';
+      while(club.firstChild) inner.appendChild(club.firstChild);
+      club.appendChild(inner);
+    }
+    if(hasForm && row.cells[10]){
+      const form = row.cells[10].querySelector('.form');
+      if(form){
+        Array.from(form.children).forEach(function(badge){if(!/^[WDL]$/.test(badge.textContent)) badge.remove();});
+        if(!form.children.length){form.textContent='—';form.setAttribute('aria-label','Form unavailable');}
+      }
+    }
+  });
+  if(hasForm) allRows[0].cells[10].textContent = 'Last 5 matches';
+  const modes = {short:[0,1,2,8,9],full:[0,1,2,3,4,5,6,7,8,9],form:[0,1,10]};
+  function select(mode){
+    wrap.dataset.mode = mode;
+    allRows.forEach(function(row){
+      Array.from(row.cells).forEach(function(cell,i){cell.hidden = !modes[mode].includes(i) || !available[i];});
+    });
+    Array.from(controls.children).forEach(function(button){button.setAttribute('aria-pressed',String(button.dataset.mode===mode));});
+    wrap.querySelector('.standings-full-scroll').scrollLeft = 0;
+  }
+  ['Short','Full','Form'].forEach(function(label){
+    const mode = label.toLowerCase();
+    if(mode==='form' && !hasForm) return;
+    const button = document.createElement('button');
+    button.type='button';button.textContent=label;button.dataset.mode=mode;
+    button.addEventListener('click',function(){select(mode);});
+    controls.appendChild(button);
+  });
+  wrap.before(controls);
+  select('short');
+}
+
 async function loadStandings(){
   const mySeq = ++seq;
   const meta = STANDINGS_LEAGUES[standingsIndex];
@@ -1000,6 +1077,7 @@ async function loadStandings(){
         '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
         legendHtml +
       '</div>';
+    enableAppStandings(hasForm, d.standings);
   } catch (e) {
     if (mySeq !== seq) return;
     tableWrap.innerHTML = '<div class="state-msg error">Table unavailable right now.</div>';
