@@ -133,11 +133,10 @@ module.exports = async function handler(req, res) {
           fixtures = await cacheGet(cacheKey);
         }
         if (!fixtures) {
-          // Lock-holder took too long (or crashed) and nothing landed yet;
-          // fetch directly rather than fail the request.
-          const raw = await apiGet('/fixtures', params);
-          fixtures = raw.filter(i => LEAGUES[i.league.id]).map(normalise);
-          await cacheSet(cacheKey, fixtures, SCORES_TTL_SECONDS);
+          // Avoid duplicate upstream calls while another request holds the lock.
+          res.setHeader('Cache-Control', 'no-store');
+          res.setHeader('Retry-After', '5');
+          return res.status(503).json({ok:false,error:'Scores refresh in progress. Please retry shortly.'});
         }
       }
     }

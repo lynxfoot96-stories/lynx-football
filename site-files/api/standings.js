@@ -74,8 +74,9 @@ function budgetAvailable() {
   return callsToday < DAILY_BUDGET;
 }
 
-function currentSeasonYear() {
+function currentSeasonYear(leagueId) {
   const now = new Date();
+  if (Number(leagueId) === 71) return now.getUTCFullYear();
   const month = now.getUTCMonth() + 1; // 1-12
   // European club seasons start around July/August and are labelled by
   // their start year (e.g. the 2026-27 season is "season=2026").
@@ -95,7 +96,7 @@ async function callFootballData(path) {
     );
   }
   callsToday++;
-  const res = await fetch(`${API_BASE}${path}`, { headers: buildHeaders() });
+  const res = await fetch(`${API_BASE}${path}`, { headers: buildHeaders(), signal: AbortSignal.timeout(8000) });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     // football-data.org's error body looks like { "message": "..." } --
@@ -124,7 +125,8 @@ async function getCached(key, path) {
       }
       const stale = await cacheGet(staleKey);
       if (stale) return stale;
-      // Nothing arrived; fall through and fetch ourselves.
+      // Do not bypass the shared lock and spend another provider request.
+      throw new Error('Standings refresh in progress; retry shortly.');
     }
     try {
       const data = await callFootballData(path);
@@ -254,7 +256,7 @@ module.exports = async (req, res) => {
       return;
     }
     const leagueId = Number(league);
-    const requestedSeason = req.query.season ? parseInt(req.query.season, 10) : currentSeasonYear();
+    const requestedSeason = req.query.season ? parseInt(req.query.season, 10) : currentSeasonYear(leagueId);
 
     // A brand-new season sometimes has no standings indexed yet, or the
     // plan only exposes the previous completed season. Try the requested
