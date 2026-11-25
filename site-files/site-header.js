@@ -315,9 +315,8 @@
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
     window.addEventListener('resize', function () { if (menu.classList.contains('open')) place(); });
     menu.querySelector('.fsu-out').addEventListener('click', function () {
-      try { localStorage.removeItem(HINT); } catch (e) {}
-      var done = function () { location.reload(); };
-      fetch('/api/scores?action=logout', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(done, done);
+      var out=this;if(out.disabled)return;out.disabled=true;
+      fetch('/api/scores?action=logout', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(function(r){if(!r.ok)throw Error('Logout failed');return r.json();}).then(function(j){if(!j.ok)throw Error('Logout failed');try { localStorage.removeItem(HINT); } catch (e) {}location.reload();}).catch(function(){out.disabled=false;window.alert('Could not log out. Check your connection and try again.');});
     });
 
     state.wrap = wrap; state.menu = menu;
@@ -351,9 +350,10 @@
     try { hint = JSON.parse(localStorage.getItem(HINT) || 'null'); } catch (e) {}
     if (hint && hint.email) render(hint); // instant, no flicker; confirmed below
     fetch('/api/scores?action=me', { credentials: 'same-origin', cache: 'no-store' })
-      .then(function (r) { return r.json(); })
+      .then(function (r) { if(r.status===401)return {user:null};if(!r.ok)throw Error('Session unavailable');return r.json(); })
       .then(function (j) {
-        if (j && j.user) {
+        if(!j||!Object.prototype.hasOwnProperty.call(j,'user'))return;
+        if (j.user) {
           try { localStorage.setItem(HINT, JSON.stringify({ name: j.user.name, email: j.user.email, avatar: j.user.avatar || '', color: j.user.color || '' })); } catch (e) {}
           render(j.user);
         } else {

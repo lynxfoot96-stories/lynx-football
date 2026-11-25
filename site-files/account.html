@@ -115,7 +115,7 @@ html[data-theme="light"] .fs-hd #themeToggle .ti-moon { display: none !important
         <button type="button" data-go="favorites">Favorites<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
         <button type="button" data-go="preferences">Preferences<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
       </nav>
-      <button type="button" class="acct-out" id="logout">Log out</button>
+      <button type="button" class="acct-out" id="logout">Log out</button><p class="notice" id="sessionNote" role="status" aria-live="polite" hidden></p>
     </aside>
 
     <section class="acct-main">
@@ -211,8 +211,8 @@ document.querySelectorAll('[data-go]').forEach(function(b){b.addEventListener('c
 window.addEventListener('hashchange',function(){show(location.hash.slice(1))});
 
 /* ---- logout ---- */
-$('logout').addEventListener('click',function(){try{localStorage.removeItem(HINT)}catch(e){}
- var go=function(){location.href='index.html'};fetch('/api/scores?action=logout',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'}).then(go,go)});
+$('logout').addEventListener('click',function(){var b=this;if(b.disabled)return;b.disabled=true;
+ fsPost('logout',{}).then(function(j){if(j.ok&&j._status===200){try{localStorage.removeItem(HINT)}catch(e){}location.href='index.html';return}b.disabled=false;note('sessionNote','Could not log out. Check your connection and try again.','err')})});
 
 /* ---- profile color ---- */
 var COLORS=['#8a3fff','#ff7a1a','#2563eb','#0e9f8e','#db2777','#e11d48','#16a34a','#f5b301','#06b6d4','#64748b','#111827','#f4f3f6'];
@@ -282,8 +282,9 @@ function renderFav(){var root=$('favRoot');if(!root||!F)return;root.textContent=
 document.addEventListener('fs96:favorites-changed',renderFav);
 
 /* ---- start: must be logged in ---- */
-fetch('/api/scores?action=me',{credentials:'same-origin',cache:'no-store'}).then(function(r){return r.json()}).then(function(j){
- if(!j||!j.user){location.replace('login.html?next=account.html');return}
+fetch('/api/scores?action=me',{credentials:'same-origin',cache:'no-store'}).then(function(r){if(r.status===401)return {user:null};if(!r.ok)throw Error('Session unavailable');return r.json()}).then(function(j){
+ if(!j||!Object.prototype.hasOwnProperty.call(j,'user'))throw Error('Invalid session response');
+ if(!j.user){location.replace('login.html?next=account.html');return}
  ME=j.user;paintUser();renderFav();show(location.hash.slice(1));
  fsPost('getemailpreferences',{}).then(function(pref){
    if(!pref.ok){note('prefNote','Cannot verify your email subscriptions right now.','err');return;}
@@ -291,6 +292,6 @@ fetch('/api/scores?action=me',{credentials:'same-origin',cache:'no-store'}).then
    ME.clubResultsEmail=pref.clubResultsEmail===true;
    $('mkSw').setAttribute('aria-checked',ME.marketing?'true':'false');
    $('clubResultsSw').setAttribute('aria-checked',ME.clubResultsEmail?'true':'false');
- }).catch(function(){note('prefNote','Cannot verify your email subscriptions right now.','err');});}).catch(function(){location.replace('login.html?next=account.html')});
+ }).catch(function(){note('prefNote','Cannot verify your email subscriptions right now.','err');});}).catch(function(){note('sessionNote','Cannot verify your session right now. Reconnect and reload this page.','err');$('sideName').textContent='Connection unavailable';});
 })();
 </script></body></html>
