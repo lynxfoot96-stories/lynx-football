@@ -67,7 +67,7 @@
     var androidIcon='<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M5 11a7 7 0 0 1 14 0v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><path d="m7 6-2-3m12 3 2-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="10" r="1" fill="var(--panel,#fff)"/><circle cx="15" cy="10" r="1" fill="var(--panel,#fff)"/></svg>';
     var appleIcon='<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16 3c0 2-1.5 4-4 4 0-2 1.5-4 4-4zm4 14c-1 3-3 5-4.5 5-1 0-2-1-3.5-1s-2.5 1-4 1C5 22 2 16 3 12c1-4 4-5 7-3 1 .6 2 .6 3 0 3-2 6-1 7 2-3 2-3 4 0 6z"/></svg>';
     var installLink='<div class="fs-install-platforms" aria-label="Install application"><a class="fs-install-link" data-platform="android" href="'+installHref+'?platform=android" title="Install on Android or computer" aria-label="Install on Android or computer">'+androidIcon+'</a><a class="fs-install-link" data-platform="apple" href="'+installHref+'?platform=apple" title="Install on Apple devices" aria-label="Install on Apple devices">'+appleIcon+'</a></div>';
-    HTML=HTML.replace('<div class="fs-hd__right">','<div class="fs-hd__right">').replace('<button id="themeToggle"',installLink+'<button id="themeToggle"');
+    HTML=HTML.replace('</button></div></div>','</button>'+installLink+'</div></div>');
     CSS+=`
       .fs-install-platforms{display:flex;align-items:center;gap:6px;border-left:1px solid var(--line);padding-left:9px;flex:none}
       .fs-install-link{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--panel-2,#17151c);color:var(--white,#fff);text-decoration:none}
