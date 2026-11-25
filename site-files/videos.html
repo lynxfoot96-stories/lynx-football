@@ -505,6 +505,15 @@ html[data-theme="light"] .video-card{box-shadow:0 1px 2px rgba(17,17,22,.03),0 1
 .vgrid:empty{min-height:420px}
 
 </style>
+<style>
+.app-video-search{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:10px 12px;color:var(--muted);margin-bottom:12px}
+.app-video-search input{min-width:0;width:100%;border:0;outline:0;background:transparent;color:var(--white);font:inherit;font-size:16px}
+.app-video-search:focus-within{border-color:var(--purple-bright)}
+.app-video-search svg{flex-shrink:0}
+.app-video-search button{border:0;background:none;color:var(--muted);padding:4px;font:inherit;cursor:pointer}
+.app-video-search button[hidden],.app-video-empty[hidden]{display:none}
+.app-video-empty{padding:24px 8px;color:var(--muted);text-align:center}
+</style>
 </head>
 <body>
 <script src="site-header.js"></script>
@@ -785,10 +794,42 @@ html[data-theme="light"] .video-card{box-shadow:0 1px 2px rgba(17,17,22,.03),0 1
 
   var PER_PAGE = 9, curTopic = 'all', curPage = 1;
   var pagerEl = document.getElementById('vPager');
+  var appVideos = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || window.matchMedia('(display-mode: fullscreen)').matches;
+  var searchQuery = '', searchInput, searchClear, empty, loaded = false;
+  function normalizeVideo(value){
+    return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+  }
+  if(appVideos){
+    searchQuery = new URLSearchParams(location.search).get('q') || '';
+    var searchBox = document.createElement('div');
+    searchBox.className='app-video-search';
+    searchBox.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg><input type="search" autocomplete="off" aria-label="Search videos" placeholder="Search football videos…"><button type="button" aria-label="Clear video search" hidden>×</button>';
+    bar.before(searchBox);
+    searchInput=searchBox.querySelector('input');
+    searchClear=searchBox.querySelector('button');
+    searchInput.value=searchQuery;searchClear.hidden=!searchQuery;
+    empty=document.createElement('p');empty.className='app-video-empty';empty.hidden=true;
+    empty.textContent='No matching videos. Try a different player, club or keyword.';grid.after(empty);
+    function updateSearch(){
+      searchQuery=searchInput.value.trim();searchClear.hidden=!searchInput.value;
+      curTopic='all';curPage=1;
+      if(loaded) apply('all',1);
+    }
+    var timer;
+    searchInput.addEventListener('input',function(){clearTimeout(timer);searchClear.hidden=!searchInput.value;timer=setTimeout(updateSearch,180);});
+    searchClear.addEventListener('click',function(){clearTimeout(timer);searchInput.value='';updateSearch();searchInput.focus();});
+  }
 
   function apply(topic, page){
     curTopic = topic;
-    var matched = cards.filter(function(c){ return topic === 'all' || c.getAttribute('data-cat') === topic; });
+    var words = appVideos ? normalizeVideo(searchQuery).split(/\s+/).filter(Boolean) : [];
+    var matched = cards.filter(function(c){
+      if(topic !== 'all' && c.getAttribute('data-cat') !== topic) return false;
+      if(!words.length) return true;
+      var text=normalizeVideo(c.getAttribute('data-cat')+' '+c.textContent);
+      return words.every(function(word){return text.indexOf(word)!==-1;});
+    });
+    if(empty) empty.hidden=matched.length!==0;
     var pages = Math.max(1, Math.ceil(matched.length / PER_PAGE));
     curPage = Math.min(Math.max(parseInt(page, 10) || 1, 1), pages);
     var visible = matched.slice((curPage - 1) * PER_PAGE, curPage * PER_PAGE);
@@ -805,7 +846,7 @@ html[data-theme="light"] .video-card{box-shadow:0 1px 2px rgba(17,17,22,.03),0 1
     });
     current.textContent = '';
     var b = document.createElement('b');
-    b.textContent = topic === 'all' ? 'All videos' : topic;
+    b.textContent = appVideos && searchQuery ? 'Search results' : topic === 'all' ? 'All videos' : topic;
     current.appendChild(b);
     var dot = document.createElement('span'); dot.className = 'vt-dot'; dot.innerHTML = '&middot;';
     current.appendChild(dot);
@@ -816,6 +857,7 @@ html[data-theme="light"] .video-card{box-shadow:0 1px 2px rgba(17,17,22,.03),0 1
       var u = new URL(window.location.href);
       u.hash = '';
       if (topic === 'all') u.searchParams.delete('theme'); else u.searchParams.set('theme', topic);
+      if(appVideos){if(searchQuery) u.searchParams.set('q',searchQuery);else u.searchParams.delete('q');}
       if (curPage > 1) u.searchParams.set('page', curPage); else u.searchParams.delete('page');
       history.replaceState(null, '', u.pathname + u.search);
     }catch(e){}
@@ -824,6 +866,7 @@ html[data-theme="light"] .video-card{box-shadow:0 1px 2px rgba(17,17,22,.03),0 1
   function pageHref(p){
     var q = [];
     if (curTopic !== 'all') q.push('theme=' + encodeURIComponent(curTopic));
+    if(appVideos && searchQuery) q.push('q='+encodeURIComponent(searchQuery));
     if (p > 1) q.push('page=' + p);
     return 'videos.html' + (q.length ? '?' + q.join('&') : '');
   }
@@ -869,6 +912,7 @@ html[data-theme="light"] .video-card{box-shadow:0 1px 2px rgba(17,17,22,.03),0 1
     list.forEach(function(v){ count[v.c] = (count[v.c] || 0) + 1; });
     grid.innerHTML = list.map(window.FSV.cardHTML).join('');
     cards = [].slice.call(grid.querySelectorAll('.video-card'));
+    loaded=true;
 
     var names = window.FSV.THEMES.map(function(t){ return t.n; }).filter(function(n){ return count[n]; });
     Object.keys(count).forEach(function(n){ if (names.indexOf(n) < 0) names.push(n); });   // any new theme you invent shows up automatically
@@ -895,6 +939,7 @@ html[data-theme="light"] .video-card{box-shadow:0 1px 2px rgba(17,17,22,.03),0 1
     }catch(e){}
     var wantedPage = 1;
     try{ wantedPage = parseInt(new URLSearchParams(window.location.search).get('page'), 10) || 1; }catch(e){}
+    if(appVideos && searchQuery && curTopic==='all' && searchInput.value.trim()!==new URLSearchParams(location.search).get('q')) wanted=null;
     if (wanted && topics.indexOf(wanted) > 0){
       apply(wanted, wantedPage);
       setTimeout(function(){ bar.scrollIntoView({behavior:'smooth', block:'start'}); }, 80);
