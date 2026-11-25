@@ -345,6 +345,7 @@ async function handleAuth(req, res, action) {
       }
 
       if (action === 'setfavorites') {
+        if (b.account && String(b.account).toLowerCase() !== String(ss.user.email || '').toLowerCase()) return res.status(409).json({error:'account_changed'});
         if (!Array.isArray(b.favorites) || b.favorites.length > 60)
           return res.status(400).json({ error: 'invalid_favorites' });
         var types = { club: 1, player: 1, league: 1 }, unique = {};
