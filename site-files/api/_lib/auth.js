@@ -176,17 +176,22 @@ async function setClubBrevo(email,name,enabled) {
 /* ---------- who is logged in? (refreshes an expired session automatically) ---------- */
 async function getSession(req, res) {
   var ck = parseCookies(req);
+  var unavailable = false;
+  function temporary(response) { return !response || response.status === 429 || response.status >= 500; }
   if (ck[AT]) {
     var u = await gotrue('/user', { method: 'GET', token: ck[AT] }).catch(function () { return null; });
     if (u && u.ok && u.data && u.data.id) return { user: u.data, token: ck[AT] };
+    unavailable = temporary(u) || !!(u && u.ok);
   }
   if (ck[RT]) {
     var r = await gotrue('/token?grant_type=refresh_token', { body: { refresh_token: ck[RT] } }).catch(function () { return null; });
-    if (r && r.ok && r.data.access_token) {
+    if (r && r.ok && r.data.access_token && r.data.user && r.data.refresh_token) {
       setSession(req, res, r.data);
-      return { user: r.data.user || null, token: r.data.access_token };
+      return { user: r.data.user, token: r.data.access_token };
     }
+    unavailable = unavailable || temporary(r) || !!(r && r.ok);
   }
+  if (unavailable) throw new Error('session_provider_unavailable');
   return null;
 }
 async function currentUser(req, res) {
@@ -204,8 +209,12 @@ async function handleAuth(req, res, action) {
 
   if (action === 'me') {
     if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' });
-    var u = await currentUser(req, res);
-    return res.status(200).json({ user: u ? publicUser(u) : null });
+    try {
+      var u = await currentUser(req, res);
+      return res.status(200).json({ user: u ? publicUser(u) : null });
+    } catch (err) {
+      return res.status(503).json({ error: 'provider_unreachable' });
+    }
   }
 
   if (req.method !== 'POST') {

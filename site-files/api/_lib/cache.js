@@ -55,21 +55,20 @@ async function redisCommand(parts) {
       signal: AbortSignal.timeout(4000),
     });
     if (!res.ok) {
-      const bodyText = await res.text().catch(() => "<unreadable body>");
-      lastError = { command: parts[0], status: res.status, body: bodyText };
-      console.error("[cache] Upstash HTTP error", res.status, "for", parts[0], "->", bodyText);
+      lastError = { command: parts[0], status: res.status };
+      console.error("[cache] Upstash HTTP error", res.status, "for", parts[0]);
       return null;
     }
     const json = await res.json();
     if (json && json.error) {
-      lastError = { command: parts[0], status: res.status, body: JSON.stringify(json) };
-      console.error("[cache] Upstash returned an error for", parts[0], "->", json.error);
+      lastError = { command: parts[0], status: res.status, error: "redis_command_failed" };
+      console.error("[cache] Upstash returned an error for", parts[0]);
       return null;
     }
     return json.result;
   } catch (e) {
-    lastError = { command: parts[0], exception: e.message };
-    console.error("[cache] Upstash request failed:", e.message);
+    lastError = { command: parts[0], exception: "redis_request_failed" };
+    console.error("[cache] Upstash request failed:", parts[0]);
     return null;
   }
 }

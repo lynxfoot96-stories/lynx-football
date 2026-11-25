@@ -1,6 +1,6 @@
 /* Football Stories PWA: cache static shell only; never cache football API scores. */
-const CACHE='fs-static-v3';
-const SHELL=['./index.html','./site-header.js','./offline.html'];
+const CACHE='fs-static-v4';
+const SHELL=['./site-header.js','./offline.html'];
 self.addEventListener('install',event=>{
   event.waitUntil((async()=>{const cache=await caches.open(CACHE);await cache.add('./offline.html');await Promise.allSettled(SHELL.filter(url=>url!=='./offline.html').map(url=>cache.add(url)));await self.skipWaiting();})());
 });
@@ -18,7 +18,7 @@ self.addEventListener('fetch',event=>{
   }
   if(!/\.(?:js|css|png|svg|webp|ico)$/i.test(url.pathname))return;
   event.respondWith(fetch(req).then(res=>{
-    if(res.ok){const copy=res.clone();event.waitUntil(caches.open(CACHE).then(cache=>cache.put(req,copy)).catch(()=>{}));}
+    if(res.ok && !res.redirected && !/\b(?:no-store|private)\b/i.test(res.headers.get('Cache-Control')||'')){const copy=res.clone();event.waitUntil(caches.open(CACHE).then(cache=>cache.put(req,copy)).catch(()=>{}));}
     return res;
   }).catch(async()=>await caches.match(req)||Response.error()));
 });
