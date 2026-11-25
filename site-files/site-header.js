@@ -50,6 +50,42 @@
     {name:'Videos', href:'videos.html', icon:'<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/>'},
     {name:'News', href:'news.html', icon:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M7 8h10M7 12h10M7 16h5"/>'}
   ];
+
+  // Installed app: editorial pages get a compact, non-sticky page title.
+  // Keep the full global header on Home, Matches and detail/account pages.
+  var compactPages = {
+    'news.html': {title:'News', icon:mobileTabs[3].icon, cls:'news'},
+    'videos.html': {title:'Videos', icon:mobileTabs[2].icon, cls:'videos'},
+    'following.html': {title:'Following', icon:'<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/>', cls:'following'},
+    'clubs.html': {title:'Clubs', icon:'<path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11z"/>', cls:'clubs'},
+    'standings.html': {title:'Leagues', icon:'<path d="M8 3h8v6a4 4 0 0 1-8 0zM8 5H4v2a4 4 0 0 0 4 4m8-6h4v2a4 4 0 0 1-4 4M12 13v5m-4 3h8m-6-3h4"/>', cls:'leagues'}
+  };
+  var isInstalled = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || window.matchMedia('(display-mode: fullscreen)').matches;
+  var compact = isInstalled && compactPages[path];
+  if(compact){
+    document.documentElement.classList.add('fs-app-compact','fs-app-'+compact.cls);
+    fixed=false;
+    var titleMarkup='<div class="fs-app-title"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+compact.icon+'</svg><span>'+compact.title+'</span></div>';
+    // Preserve existing global controls and authentication hooks, but move them out
+    // of the content-first pages. They remain visible on Home and Matches.
+    HTML=HTML.replace('<div class="fs-search-slot"></div>',titleMarkup+'<div class="fs-search-slot"></div>');
+    CSS += `
+      html.fs-app-compact .fs-hd{position:relative!important;top:auto!important;height:58px!important;background:var(--panel,#121116);backdrop-filter:none;-webkit-backdrop-filter:none}
+      html.fs-app-compact .fs-hd__in{height:57px!important;padding:0 16px;gap:12px;justify-content:flex-start}
+      html.fs-app-compact .fs-hd__logo,html.fs-app-compact .fs-search-slot,html.fs-app-compact .fs-hd__nav,html.fs-app-compact .fs-hd__right{display:none!important}
+      html.fs-app-compact .fs-app-title{display:flex;align-items:center;gap:10px;color:var(--white,#F4F3F6);font:750 23px/1.2 Inter,system-ui,sans-serif}
+      html.fs-app-compact .fs-app-title svg{width:24px;height:24px;color:var(--purple-bright,#A868FF);flex:none}
+      html.fs-app-compact .news-hero,html.fs-app-clubs .cl-hero{display:none!important}
+      html.fs-app-news .news-list,html.fs-app-videos .vid-list{padding-top:16px}
+      html.fs-app-following .fl-head{padding:0}
+      html.fs-app-following .fl-title,html.fs-app-following .fl-sub{display:none}
+      html.fs-app-following main>.wrap{padding-top:16px}
+      html.fs-app-following .fl-tabs{margin-top:0}
+      html.fs-app-leagues body.match-page-body{padding-top:0!important}
+      html.fs-app-clubs body{padding-top:0!important}
+    `;
+  }
+
   var page = path;
   var current = page === 'matches.html' ? 'Matches' : page === 'videos.html' ? 'Videos' : page === 'news.html' ? 'News' : page === 'index.html' ? 'Home' : '';
   var mobileNav = '<nav class="fs-mobile-nav" aria-label="Primary mobile navigation">' + mobileTabs.map(function(t){
