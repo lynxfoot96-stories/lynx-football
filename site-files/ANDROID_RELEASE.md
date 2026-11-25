@@ -18,3 +18,12 @@ The package name, SHA-256 signing certificate and final domain must be genuine r
 
 ## Release safeguards
 Use a parent or other eligible adult to own the developer account if the app publisher is under 18. Separate signing keys and API secrets from the GitHub repository. Do not call the app Play Store-ready until real device tests and Play checks pass.
+
+## Release verification checklist
+
+- Android browser installation was reported working on Samsung Internet; repeat on the final production build.
+- Current manifest references the three PNG icons, which are present in the repository. Preserve the manifest ID and start URL for existing installations.
+- Candidate production origin: https://site-files-100.vercel.app. Confirm it is the permanent public origin before signing a TWA.
+- Use /android-check.html for basic device-side checks. Test login/logout, favorites, navigation, offline retry, and update notifications using real devices; also test iOS Safari separately.
+- Before generating the signed bundle, confirm package ID, signing ownership, current Play target SDK/testing requirements, privacy policy and data safety. Review account deletion requirements for the existing account feature.
+- No Digital Asset Links file is published until the actual signing certificate fingerprint and package ID are known. Never commit signing keys or secrets.
