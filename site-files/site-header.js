@@ -129,16 +129,26 @@
   if(isInstalled){
     document.documentElement.classList.add('fs-installed-app');
     mobileCss += `
+      @media(min-width:761px){
+        html.fs-installed-app body{padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))!important}
+        html.fs-installed-app .fs-mobile-nav{position:fixed;left:0;right:0;bottom:0;z-index:99990;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));padding:7px max(8px,env(safe-area-inset-right,0px)) calc(7px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px));background:var(--panel,#fff);border-top:1px solid var(--line,#e4e4e8);box-shadow:0 -3px 14px rgba(0,0,0,.07)}
+        html.fs-installed-app .fs-mobile-nav__tab{min-width:0;min-height:51px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted,#75717e);text-decoration:none!important;border-radius:10px;font:600 11px/1.2 Inter,system-ui,sans-serif;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+        html.fs-installed-app .fs-mobile-nav__tab svg{width:22px;height:22px;flex-shrink:0}
+        html.fs-installed-app .fs-mobile-nav__tab.is-active{color:#8735ee;background:rgba(135,53,238,.09)}
+        html.fs-installed-app:not([data-theme="light"]) .fs-mobile-nav__tab.is-active{color:#b990ff;background:rgba(168,104,255,.14)}
+        html.fs-installed-app .fs-mobile-nav__tab:focus-visible{outline:2px solid #8735ee;outline-offset:-2px}
+        html.fs-installed-app{scroll-padding-bottom:90px}
+      }
       @media(max-width:760px){
         html.fs-installed-app .fs-mobile-nav{padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
         html.fs-installed-app .fs-mobile-nav__tab{touch-action:manipulation;min-height:51px}
         html.fs-installed-app .fs-mobile-nav__tab{-webkit-tap-highlight-color:transparent}
         html.fs-installed-app .fs-mobile-nav__tab:focus:not(:focus-visible){outline:none}
         html.fs-installed-app .fs-mobile-nav__tab:active{background:rgba(135,53,238,.09)}
-        html.fs-installed-app[data-theme="dark"] .fs-mobile-nav__tab:active{background:rgba(168,104,255,.14)}
+        html.fs-installed-app:not([data-theme="light"]) .fs-mobile-nav__tab:active{background:rgba(168,104,255,.14)}
 
         html.fs-installed-app .fs-mobile-nav__tab svg{width:22px;height:22px}
-        html.fs-installed-app[data-theme="dark"] .fs-mobile-nav__tab.is-active{color:#b990ff;background:rgba(168,104,255,.14)}
+        html.fs-installed-app:not([data-theme="light"]) .fs-mobile-nav__tab.is-active{color:#b990ff;background:rgba(168,104,255,.14)}
         html.fs-installed-app.fs-app-compact .fs-hd__in{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
         html.fs-installed-app.fs-app-news .news-list>.wrap,html.fs-installed-app.fs-app-videos .vid-list>.wrap,html.fs-installed-app.fs-app-following main>.wrap{padding-left:16px;padding-right:16px}
         html.fs-installed-app .app-news-search,html.fs-installed-app .app-video-search{box-sizing:border-box;min-height:48px;padding:8px 12px;gap:10px}
