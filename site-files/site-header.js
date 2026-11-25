@@ -104,6 +104,34 @@
   @media(min-width:761px){.fs-mobile-nav{display:none!important}}
   @media(prefers-reduced-motion:reduce){.fs-mobile-nav__tab{transition:none}}
   `;
+
+  if(isInstalled){
+    document.documentElement.classList.add('fs-installed-app');
+    mobileCss += `
+      @media(max-width:760px){
+        html.fs-installed-app .fs-mobile-nav{padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
+        html.fs-installed-app .fs-mobile-nav__tab{touch-action:manipulation;min-height:51px}
+        html.fs-installed-app .fs-mobile-nav__tab svg{width:22px;height:22px}
+        html.fs-installed-app[data-theme="dark"] .fs-mobile-nav__tab.is-active{color:#b990ff;background:rgba(168,104,255,.14)}
+        html.fs-installed-app.fs-app-compact .fs-hd__in{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+        html.fs-installed-app.fs-app-news .news-list>.wrap,html.fs-installed-app.fs-app-videos .vid-list>.wrap,html.fs-installed-app.fs-app-following main>.wrap{padding-left:16px;padding-right:16px}
+        html.fs-installed-app .app-news-search,html.fs-installed-app .app-video-search{box-sizing:border-box;min-height:48px;padding:8px 12px;gap:10px}
+        html.fs-installed-app .app-news-search input,html.fs-installed-app .app-video-search input{flex:1;min-height:30px}
+        html.fs-installed-app .app-news-search button,html.fs-installed-app .app-video-search button{min-width:32px;min-height:32px;font-size:20px;line-height:1}
+        html.fs-installed-app .app-news-browse,html.fs-installed-app .vt-toggle{min-height:44px;box-sizing:border-box;border:1px solid var(--line);border-radius:22px;padding:10px 14px;gap:8px;font:600 13px/1.3 Inter,system-ui,sans-serif;touch-action:manipulation}
+        html.fs-installed-app .app-news-browse[aria-expanded="true"],html.fs-installed-app .vt-toggle[aria-expanded="true"]{border-color:var(--purple-bright)}
+        html.fs-installed-app .news-filter,html.fs-installed-app .vt-chip,html.fs-installed-app .fl-tab,html.fs-installed-app .app-standings-modes button{min-height:40px;touch-action:manipulation}
+        html.fs-installed-app.fs-app-news .news-count{margin:0 0 12px}
+        html.fs-installed-app.fs-app-videos .vt-bar{gap:8px 12px;scroll-margin-top:12px}
+        html.fs-installed-app.fs-app-videos .vgrid{gap:16px;margin-top:16px}
+        html.fs-installed-app.fs-app-news #grid{gap:16px;margin-top:16px}
+        html.fs-installed-app.fs-app-news .news-list,html.fs-installed-app.fs-app-videos .vid-list{padding-bottom:24px}
+        html.fs-installed-app.fs-app-compact .page-foot{display:none}
+        html.fs-installed-app .app-standings-modes button:focus-visible,html.fs-installed-app .app-news-search button:focus-visible,html.fs-installed-app .app-video-search button:focus-visible{outline:2px solid var(--purple-bright);outline-offset:2px}
+      }
+    `;
+  }
+
   document.write('<style id="fs-hd-css">' + CSS + '</style><style id="fs-mobile-nav-css">' + mobileCss + '</style>' +
     '<div class="fs-hd' + (fixed ? ' fs-hd--fixed' : '') + '" role="banner">' + HTML + '</div>' + mobileNav);
 
