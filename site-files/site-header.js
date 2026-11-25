@@ -346,6 +346,8 @@
   'use strict';
   if (!(matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || matchMedia('(display-mode: fullscreen)').matches)) return;
   var baseline=null, lastCheck=0, busy=false, offered=null, dismissed=null, banner=null;
+  var versionKey='fs-app-version', dismissKey='fs-app-dismissed-version';
+  try{baseline=sessionStorage.getItem(versionKey);dismissed=sessionStorage.getItem(dismissKey);}catch(e){}
   function offer(version){
     if(dismissed===version || offered===version) return;
     if(banner) banner.remove();
@@ -362,9 +364,10 @@
     banner=document.createElement('aside');banner.className='fs-update';banner.setAttribute('aria-label','Application update');
     banner.innerHTML='<div class="fs-update-head"><span class="fs-update-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></svg></span><div role="status"><strong>Update available</strong><p>A new version of Lynx Football is ready.</p></div></div><div class="fs-update-actions"><button type="button" data-later>Later</button><button type="button" data-update>Update now</button></div>';
     document.body.appendChild(banner);
-    banner.querySelector('[data-later]').onclick=function(){dismissed=version;banner.remove();banner=null;};
+    banner.querySelector('[data-later]').onclick=function(){dismissed=version;try{sessionStorage.setItem(dismissKey,version);}catch(e){}banner.remove();banner=null;};
     banner.querySelector('[data-update]').onclick=function(){
       if(!navigator.onLine){banner.querySelector('p').textContent='Connect to the internet to update.';return;}
+      try{sessionStorage.removeItem(versionKey);sessionStorage.removeItem(dismissKey);}catch(e){}
       location.reload();
     };
   }
@@ -373,7 +376,7 @@
     busy=true;lastCheck=Date.now();
     fetch('/api/scores?action=app-version',{cache:'no-store',credentials:'same-origin'})
       .then(function(r){if(!r.ok)throw Error('Version unavailable');return r.json();})
-      .then(function(d){if(!d.ok || typeof d.version!=='string' || !d.version)return;if(!baseline){baseline=d.version;return;}if(d.version!==baseline)offer(d.version);})
+      .then(function(d){if(!d.ok || typeof d.version!=='string' || !d.version)return;if(!baseline){baseline=d.version;try{sessionStorage.setItem(versionKey,baseline);}catch(e){}return;}if(d.version!==baseline)offer(d.version);})
       .catch(function(){/* Update check must never interrupt normal app use. */})
       .then(function(){busy=false;});
   }

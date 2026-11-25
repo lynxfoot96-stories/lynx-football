@@ -16,7 +16,7 @@ module.exports = {
     { name: 'Sky Sports',       url: 'https://www.skysports.com/rss/12040',              weight: 3, enabled: true },
     { name: 'The Guardian',     url: 'https://www.theguardian.com/football/rss',         weight: 3, enabled: true },
     { name: 'ESPN FC',          url: 'https://www.espn.com/espn/rss/soccer/news',        weight: 2, enabled: true },
-    { name: 'Goal.com Top News',url: 'https://www.goal.com/en/feeds/news?fmt=rss',       weight: 4, enabled: true },
+    { name: 'Goal.com Top News',url: 'https://www.goal.com/en/feeds/news?fmt=rss',       weight: 4, enabled: false },
     { name: 'Football Espana',  url: 'https://www.football-espana.net/feed',             weight: 3, enabled: true },
     { name: 'Marca English',    url: 'https://e00-marca.uecdn.es/rss/en/index.xml',     weight: 3, enabled: true },
   ],
