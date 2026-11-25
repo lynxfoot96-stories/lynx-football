@@ -63,10 +63,10 @@
   var isInstalled = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || window.matchMedia('(display-mode: fullscreen)').matches;
   var compact = isInstalled && compactPages[path];
   if(!isInstalled){
-    var installHref='https://site-files-100.vercel.app/';
+    var installHref='https://site-files-100.vercel.app/download.html';
     var androidIcon='<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M5 11a7 7 0 0 1 14 0v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><path d="m7 6-2-3m12 3 2-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="10" r="1" fill="var(--panel,#fff)"/><circle cx="15" cy="10" r="1" fill="var(--panel,#fff)"/></svg>';
     var appleIcon='<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16 3c0 2-1.5 4-4 4 0-2 1.5-4 4-4zm4 14c-1 3-3 5-4.5 5-1 0-2-1-3.5-1s-2.5 1-4 1C5 22 2 16 3 12c1-4 4-5 7-3 1 .6 2 .6 3 0 3-2 6-1 7 2-3 2-3 4 0 6z"/></svg>';
-    var installLink='<div class="fs-install-platforms" aria-label="Install application"><a class="fs-install-link" data-platform="android" href="'+installHref+'" title="Install on Android or computer" aria-label="Install on Android or computer">'+androidIcon+'</a><a class="fs-install-link" data-platform="apple" href="'+installHref+'" title="Install on Apple devices" aria-label="Install on Apple devices">'+appleIcon+'</a></div>';
+    var installLink='<div class="fs-install-platforms" aria-label="Install application"><a class="fs-install-link" data-platform="android" href="'+installHref+'?platform=android" title="Install on Android or computer" aria-label="Install on Android or computer">'+androidIcon+'</a><a class="fs-install-link" data-platform="apple" href="'+installHref+'?platform=apple" title="Install on Apple devices" aria-label="Install on Apple devices">'+appleIcon+'</a></div>';
     HTML=HTML.replace('<div class="fs-hd__right">','<div class="fs-hd__right">').replace('<button id="themeToggle"',installLink+'<button id="themeToggle"');
     CSS+=`
       .fs-install-platforms{display:flex;align-items:center;gap:6px;border-left:1px solid var(--line);padding-left:9px;flex:none}
@@ -79,24 +79,7 @@
       .fs-install-dialog{width:min(400px,calc(100vw - 32px));max-width:calc(100vw - 32px);box-sizing:border-box;margin:auto;padding:22px;border:1px solid var(--line,#777);border-radius:16px;background:var(--panel,#121116);color:var(--white,#fff);font:500 14px/1.6 Inter,system-ui,sans-serif}
       .fs-install-dialog::backdrop{background:rgba(0,0,0,.55)}.fs-install-dialog h2{font:750 20px Inter,system-ui,sans-serif;margin:0 0 12px}.fs-install-dialog p{margin:0 0 16px}.fs-install-dialog button{padding:10px 20px;border:0;border-radius:9px;background:#8735ee;color:#fff;font:700 14px Inter,system-ui,sans-serif;cursor:pointer}
     `;
-    var installPrompt=null;
-    window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();installPrompt=e;});
-    window.addEventListener('appinstalled',function(){installPrompt=null;var link=document.querySelector('.fs-install-platforms');if(link)link.hidden=true;});
-    document.addEventListener('click',function(e){
-      var link=e.target.closest('.fs-install-link');if(!link)return;
-      if(location.origin!==new URL(installHref).origin)return;
-      e.preventDefault();
-      if(link.dataset.platform==='apple'){showInstallHelp('apple');return;}
-      if(installPrompt){var prompt=installPrompt;installPrompt=null;prompt.prompt().catch(function(){showInstallHelp();});return;}
-      showInstallHelp();
-    });
-    function showInstallHelp(platform){
-      var d=document.createElement('dialog');d.className='fs-install-dialog';
-      var ios=/iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-      var android=/Android/i.test(navigator.userAgent);
-      d.innerHTML='<h2>Install Football Stories</h2><p>'+((platform==='apple'||ios)?'On iPhone or iPad, open in Safari, tap Share, then Add to Home Screen. On Mac, open Safari and choose File → Add to Dock.':android?'Open Chrome’s menu, choose Install and create shortcut, then Install. If Install is unavailable, refresh the production website and try again.':'In Chrome or Edge, use the install icon in the address bar or the browser menu to install this site as an app. In Safari on Mac, use File → Add to Dock if available.')+'</p><button type="button">Close</button>';
-      document.body.appendChild(d);d.querySelector('button').onclick=function(){d.close();};d.addEventListener('close',function(){d.remove();});d.showModal();
-    }
+
   }
 
 
