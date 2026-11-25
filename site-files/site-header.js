@@ -318,3 +318,44 @@
     if (++tries < 40) setTimeout(wait, 100);
   })();
 })();
+
+
+/* Installed PWA: detect newer production deployments without interrupting users. */
+(function(){
+  'use strict';
+  if (!(matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || matchMedia('(display-mode: fullscreen)').matches)) return;
+  var baseline=null, lastCheck=0, busy=false, offered=null, dismissed=null, banner=null;
+  function offer(version){
+    if(dismissed===version || offered===version) return;
+    if(banner) banner.remove();
+    offered=version;
+    var style=document.getElementById('fs-update-css');
+    if(!style){
+      style=document.createElement('style');style.id='fs-update-css';
+      style.textContent=`
+        .fs-update{position:fixed;z-index:99991;bottom:calc(82px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);width:calc(100% - 28px);max-width:400px;box-sizing:border-box;padding:16px;background:var(--panel,#121116);color:var(--white,#F4F3F6);border:1px solid var(--line,#777);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.24);font:500 14px/1.4 Inter,system-ui,sans-serif}
+        .fs-update-head{display:flex;align-items:center;gap:12px}.fs-update-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:#8735ee;color:white;flex:none}.fs-update strong{font-size:16px}.fs-update p{margin:3px 0 0;color:var(--muted,#999);font-size:13px}
+        .fs-update-actions{display:flex;gap:8px;margin-top:12px}.fs-update button{flex:1;min-height:44px;border:1px solid var(--line,#777);border-radius:10px;background:transparent;color:inherit;font:600 14px Inter,system-ui,sans-serif;cursor:pointer;-webkit-tap-highlight-color:transparent}.fs-update button[data-update]{background:#8735ee;color:white;border-color:#8735ee}.fs-update button:focus-visible{outline:2px solid #8735ee;outline-offset:2px}
+      `;document.head.appendChild(style);
+    }
+    banner=document.createElement('aside');banner.className='fs-update';banner.setAttribute('aria-label','Application update');
+    banner.innerHTML='<div class="fs-update-head"><span class="fs-update-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></svg></span><div role="status"><strong>Update available</strong><p>A new version of Lynx Football is ready.</p></div></div><div class="fs-update-actions"><button type="button" data-later>Later</button><button type="button" data-update>Update now</button></div>';
+    document.body.appendChild(banner);
+    banner.querySelector('[data-later]').onclick=function(){dismissed=version;banner.remove();banner=null;};
+    banner.querySelector('[data-update]').onclick=function(){
+      if(!navigator.onLine){banner.querySelector('p').textContent='Connect to the internet to update.';return;}
+      location.reload();
+    };
+  }
+  function check(){
+    if(busy || !navigator.onLine || document.visibilityState==='hidden' || Date.now()-lastCheck<60000) return;
+    busy=true;lastCheck=Date.now();
+    fetch('/api/scores?action=app-version',{cache:'no-store',credentials:'same-origin'})
+      .then(function(r){if(!r.ok)throw Error('Version unavailable');return r.json();})
+      .then(function(d){if(!d.ok || typeof d.version!=='string' || !d.version)return;if(!baseline){baseline=d.version;return;}if(d.version!==baseline)offer(d.version);})
+      .catch(function(){/* Update check must never interrupt normal app use. */})
+      .then(function(){busy=false;});
+  }
+  function start(){check();setInterval(check,600000);document.addEventListener('visibilitychange',check);window.addEventListener('online',check);}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+})();

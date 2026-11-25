@@ -69,6 +69,13 @@ function normalise(item) {
 module.exports = async function handler(req, res) {
   // Account actions (signup/login/...) also share this file for the same 12-function reason.
   const action = String((req.query || {}).action || '');
+  // Public deployment identifier only; no database or football-provider call.
+  if (action === 'app-version') {
+    if (req.method !== 'GET') return res.status(405).json({ok:false});
+    res.setHeader('Cache-Control','no-store');
+    const version = process.env.VERCEL_DEPLOYMENT_ID || process.env.VERCEL_GIT_COMMIT_SHA || null;
+    return res.status(200).json({ok:!!version,version});
+  }
   if (AUTH_ACTIONS.has(action)) return handleAuth(req, res, action);
   if (action === 'weekly-preview') return handleWeeklyPreview(req, res);
   if (action === 'monday-debrief') return handleMondayDebrief(req, res);
