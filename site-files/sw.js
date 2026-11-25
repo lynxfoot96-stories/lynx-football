@@ -1,5 +1,5 @@
 /* Football Stories PWA: cache static shell only; never cache football API scores. */
-const CACHE='fs-static-v2';
+const CACHE='fs-static-v3';
 const SHELL=['./index.html','./site-header.js','./offline.html'];
 self.addEventListener('install',event=>{
   event.waitUntil((async()=>{const cache=await caches.open(CACHE);await cache.add('./offline.html');await Promise.allSettled(SHELL.filter(url=>url!=='./offline.html').map(url=>cache.add(url)));await self.skipWaiting();})());

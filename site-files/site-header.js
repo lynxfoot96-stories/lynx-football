@@ -64,12 +64,12 @@
   // Browser custom tabs and fullscreen browsing are not proof of installation.
   var compact = isInstalled && compactPages[path];
   if(!isInstalled){
-    var installHref='https://site-files-100.vercel.app/download.html';
+    var installHref='/download.html';
     var androidIcon='<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M5 11a7 7 0 0 1 14 0v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><path d="m7 6-2-3m12 3 2-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="10" r="1" fill="var(--panel,#fff)"/><circle cx="15" cy="10" r="1" fill="var(--panel,#fff)"/></svg>';
     var appleIcon='<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16 3c0 2-1.5 4-4 4 0-2 1.5-4 4-4zm4 14c-1 3-3 5-4.5 5-1 0-2-1-3.5-1s-2.5 1-4 1C5 22 2 16 3 12c1-4 4-5 7-3 1 .6 2 .6 3 0 3-2 6-1 7 2-3 2-3 4 0 6z"/></svg>';
     var installLink='<div class="fs-install-platforms" aria-label="Install application"><a class="fs-install-link" data-platform="android" href="'+installHref+'?platform=android" title="Install on Android or computer" aria-label="Install on Android or computer">'+androidIcon+'</a><a class="fs-install-link" data-platform="apple" href="'+installHref+'?platform=apple" title="Install on Apple devices" aria-label="Install on Apple devices">'+appleIcon+'</a></div>';
     var mobileInstall='<a class="fs-install-mobile" href="'+installHref+'" aria-label="Download Football Stories" title="Download Football Stories"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4"/></svg></a>';
-    HTML=HTML.replace('</button></div></div>','</button>'+installLink+mobileInstall+'</div></div>');
+    HTML=HTML.replace('<button id="themeToggle"',mobileInstall+ '<button id="themeToggle"').replace('</button></div></div>','</button>'+installLink+'</div></div>');
     CSS+=`
       .fs-install-platforms{display:flex;align-items:center;gap:6px;border-left:1px solid var(--line);padding-left:9px;flex:none}
       .fs-install-link{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--panel-2,#17151c);color:var(--white,#fff);text-decoration:none}
@@ -87,6 +87,16 @@
 
       @media(max-width:640px){.fs-install-platforms{gap:4px;padding-left:5px}.fs-install-link{width:29px;height:29px}.fs-hd__in{gap:6px;padding:0 8px}.fs-hd__right{gap:5px}.fs-hd__login{width:62px}.fs-hd__login svg{display:none}}
       @media(max-width:360px){.fs-install-link{width:26px;height:26px}.fs-install-platforms{padding-left:3px;gap:3px}}
+      @media(max-width:640px){
+        .fs-hd .fs-hd__in{padding:0 8px!important;gap:5px!important;justify-content:space-between!important}
+        .fs-hd .fs-hd__right{gap:5px!important;flex:0 0 auto!important;margin-left:0!important}
+        .fs-hd .fs-hd__logo{flex:0 0 32px!important;width:32px!important;min-width:0!important}
+        .fs-hd .fs-hd__logo span,.fs-hd .fs-hd__nav,.fs-hd .fs-hd__subscribe{display:none!important}
+        .fs-hd .fs-search-slot{flex:0 0 36px!important;width:36px!important}
+        .fs-hd .fs-install-mobile{display:inline-flex!important;align-items:center;justify-content:center;width:38px!important;height:40px!important;flex:0 0 38px!important;position:relative;visibility:visible!important;opacity:1!important;background:rgba(135,53,238,.10);border-color:rgba(135,53,238,.28)}
+        .fs-hd .fs-hd__login{width:auto!important;min-width:48px!important;padding:0 8px!important}
+      }
+      @media(max-width:360px){.fs-hd .fs-hd__in{gap:3px!important;padding:0 5px!important}.fs-hd .fs-hd__right{gap:3px!important}}
       .fs-install-dialog{width:min(400px,calc(100vw - 32px));max-width:calc(100vw - 32px);box-sizing:border-box;margin:auto;padding:22px;border:1px solid var(--line,#777);border-radius:16px;background:var(--panel,#121116);color:var(--white,#fff);font:500 14px/1.6 Inter,system-ui,sans-serif}
       .fs-install-dialog::backdrop{background:rgba(0,0,0,.55)}.fs-install-dialog h2{font:750 20px Inter,system-ui,sans-serif;margin:0 0 12px}.fs-install-dialog p{margin:0 0 16px}.fs-install-dialog button{padding:10px 20px;border:0;border-radius:9px;background:#8735ee;color:#fff;font:700 14px Inter,system-ui,sans-serif;cursor:pointer}
     `;
